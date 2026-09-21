@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowRight, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Inbox, Menu, PenLine, Play, Plus, Send, Sparkles, Users, X, Zap } from 'lucide-react';
 import { type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -42,6 +42,7 @@ function Header({ onOpen }: { onOpen: (mode: ModalMode) => void }) {
             </div>
           ))}
           <a className="sf-nav__item" href="#pricing" data-testid="link-pricing">Pricing</a>
+          <a className="sf-nav__item sf-nav__item--workspace" href="/workspace" data-testid="link-workspace">Workspace</a>
         </nav>
         <div className="sf-header__actions">
           <button className="sf-login" onClick={() => onOpen('demo')} data-testid="button-login">Sign in</button>
@@ -53,7 +54,8 @@ function Header({ onOpen }: { onOpen: (mode: ModalMode) => void }) {
       </div>
       {mobileOpen && <div className="sf-mobile-nav">
         {menuItems.map((item) => <div key={item.label}><button onClick={() => setOpenMenu(openMenu === item.label ? null : item.label)} data-testid={`button-mobile-${item.label.toLowerCase()}`}>{item.label}<ChevronDown size={13} /></button>{openMenu === item.label && <div className="sf-mobile-nav__links">{item.links.map(([title]) => <a key={title} href="#product" onClick={closeMenu}>{title}</a>)}</div>}</div>)}
-        <a href="#pricing" onClick={closeMenu} data-testid="link-mobile-pricing">Pricing</a>
+         <a href="#pricing" onClick={closeMenu} data-testid="link-mobile-pricing">Pricing</a>
+         <a href="/workspace" onClick={closeMenu} data-testid="link-mobile-workspace">Workspace</a>
         <button onClick={() => { closeMenu(); onOpen('trial'); }} data-testid="button-mobile-trial">Start free</button>
       </div>}
     </header>
@@ -167,6 +169,99 @@ function CTA({ onOpen }: { onOpen: (mode: ModalMode) => void }) {
   return <section className="sf-cta"><div className="sf-container sf-cta__inner"><div><span className="sf-kicker">Your next good week starts here</span><h2 className="sf-display">Make room for momentum.</h2></div><div className="sf-cta__action"><p className="sf-cta__copy">A clear plan, a better rhythm, and more of your best work in the world.</p><button className="sf-button sf-button--coral" onClick={() => onOpen('trial')} data-testid="button-final-trial">Start your free trial <ArrowRight size={15} /></button></div></div></section>;
 }
 
+type ChannelKey = 'instagram' | 'x' | 'linkedin' | 'youtube';
+
+const channelOptions: Array<{ key: ChannelKey; mark: string; name: string; description: string; tone: string }> = [
+  { key: 'instagram', mark: '◎', name: 'Instagram', description: 'Plan your grid, reels, and stories in one visual rhythm.', tone: 'coral' },
+  { key: 'x', mark: 'X', name: 'X', description: 'Keep short-form ideas moving from draft to conversation.', tone: 'ink' },
+  { key: 'linkedin', mark: 'in', name: 'LinkedIn', description: 'Turn your team expertise into a consistent point of view.', tone: 'blue' },
+  { key: 'youtube', mark: '▶', name: 'YouTube', description: 'Give bigger stories a clear runway and publishing cadence.', tone: 'red' },
+];
+
+const initialConnections: Record<ChannelKey, boolean> = {
+  instagram: false,
+  x: false,
+  linkedin: false,
+  youtube: false,
+};
+
+function Workspace() {
+  const [connections, setConnections] = useState<Record<ChannelKey, boolean>>(initialConnections);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem('socialflow-connections');
+      if (saved) {
+        setConnections({ ...initialConnections, ...JSON.parse(saved) });
+      }
+    } catch {
+      setConnections(initialConnections);
+    } finally {
+      setReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (ready) {
+      window.localStorage.setItem('socialflow-connections', JSON.stringify(connections));
+    }
+  }, [connections, ready]);
+
+  const connectedCount = channelOptions.filter((channel) => connections[channel.key]).length;
+
+  return <div className="sf-workspace">
+    <header className="sf-workspace__header">
+      <div className="sf-container sf-workspace__header-inner">
+        <Logo />
+        <div className="sf-workspace__header-actions">
+          <span className="sf-workspace__avatar">NS</span>
+          <a className="sf-workspace__back" href="/">Back to site <ArrowUpRight size={14} /></a>
+        </div>
+      </div>
+    </header>
+    <main className="sf-workspace__main">
+      <div className="sf-container">
+        <div className="sf-workspace__notice"><span className="sf-workspace__notice-dot" /> Demo workspace — connection states are saved in this browser for the preview.</div>
+        <div className="sf-workspace__intro">
+          <div>
+            <span className="sf-kicker">Workspace setup</span>
+            <h1 className="sf-display">Bring your channels<br /><em>into the flow.</em></h1>
+            <p>Connect the places your audience already checks in. Once they are together, planning gets clearer and publishing gets lighter.</p>
+          </div>
+          <div className="sf-workspace__summary">
+            <span className="sf-workspace__summary-label">Connected channels</span>
+            <strong>{connectedCount}<small>/ {channelOptions.length}</small></strong>
+            <span className="sf-workspace__summary-note">{connectedCount === 0 ? 'Start with your most important channel.' : 'Your workspace is taking shape.'}</span>
+          </div>
+        </div>
+        <section className="sf-accounts" aria-labelledby="accounts-title">
+          <div className="sf-accounts__head">
+            <div><span className="sf-kicker">Your channels</span><h2 id="accounts-title">Connect your social accounts.</h2></div>
+            <span className="sf-accounts__secure">Private to your workspace</span>
+          </div>
+          <div className="sf-account-grid">
+            {channelOptions.map((channel) => {
+              const connected = connections[channel.key];
+              return <article className={`sf-account-card ${connected ? 'is-connected' : ''}`} key={channel.key} data-testid={`card-account-${channel.key}`}>
+                <div className={`sf-account-mark sf-account-mark--${channel.tone}`}>{channel.mark}</div>
+                <div className="sf-account-card__copy"><div className="sf-account-card__title"><h3>{channel.name}</h3>{connected && <span className="sf-account-status"><Check size={12} /> Connected</span>}</div><p>{channel.description}</p></div>
+                <button className={`sf-account-card__button ${connected ? 'is-connected' : ''}`} onClick={() => setConnections((current) => ({ ...current, [channel.key]: !current[channel.key] }))} data-testid={`button-account-${channel.key}`}>
+                  {connected ? 'Disconnect' : 'Connect account'} {connected ? <X size={14} /> : <ArrowRight size={14} />}
+                </button>
+              </article>;
+            })}
+          </div>
+        </section>
+        <section className="sf-workspace__next">
+          <div><span className="sf-kicker">Next up</span><h2>Once your channels are in, your calendar is ready.</h2><p>See every post, approval, and conversation in one connected view.</p></div>
+          <a className="sf-button sf-button--primary" href="/#product">Explore the workspace <ArrowRight size={15} /></a>
+        </section>
+      </div>
+    </main>
+  </div>;
+}
+
 function Footer() {
   return <footer className="sf-footer"><div className="sf-container"><div className="sf-footer__top"><div className="sf-footer__brand"><Logo /><p>Social media management for people who care about the work — and the rhythm it takes to make it.</p></div><div className="sf-footer__links"><div><h4>Explore</h4><a href="#product">Product</a><a href="#channels">Channels</a><a href="#pricing">Pricing</a></div><div><h4>Learn</h4><a href="#faq">FAQ</a><a href="#top">Customer stories</a><a href="#top">Notes</a></div><div><h4>Connect</h4><a href="mailto:hello@socialflow.example">Contact</a><a href="#top">Instagram</a><a href="#top">LinkedIn</a></div></div></div><div className="sf-footer__bottom"><span>© 2025 Socialflow, Inc.</span><span>Made for better Mondays.</span></div></div></footer>;
 }
@@ -183,7 +278,7 @@ function Home() {
 }
 
 function Router() {
-  return <RoutedErrorBoundary><Switch><Route path="/" component={Home} /><Route component={NotFound} /></Switch></RoutedErrorBoundary>;
+  return <RoutedErrorBoundary><Switch><Route path="/" component={Home} /><Route path="/workspace" component={Workspace} /><Route component={NotFound} /></Switch></RoutedErrorBoundary>;
 }
 
 function RoutedErrorBoundary({ children }: { children: ReactNode }) {
