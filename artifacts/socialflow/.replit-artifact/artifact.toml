@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Socialflow"
+description = "A polished social media management landing page for teams and creators to plan, publish, analyze, and grow across every channel."
+version = "1.0.0"
+id = "artifacts/socialflow"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21119
+
+[services.development]
+run = "pnpm --filter @workspace/socialflow run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/socialflow", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/socialflow/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21119"
+BASE_PATH = "/"
