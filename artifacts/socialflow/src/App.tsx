@@ -211,7 +211,20 @@ type Notice = { tone: 'success' | 'error'; text: string };
 
 function startConnection(platform: Platform, reconnectId?: string) {
   const query = reconnectId ? `?reconnect=${encodeURIComponent(reconnectId)}` : '';
-  window.location.assign(`/api/connections/${platform}/start${query}`);
+  const url = `/api/connections/${platform}/start${query}`;
+
+  // Facebook, Google, and other OAuth providers send "X-Frame-Options: DENY".
+  // When running inside an iframe (like Replit's webview panel), navigating the frame
+  // causes the browser to block the page with "www.facebook.com refused to connect".
+  // Opening in a new browser tab ensures the consent dialog opens as a top-level document.
+  if (typeof window !== 'undefined' && window.self !== window.top) {
+    const win = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!win) {
+      window.location.assign(url);
+    }
+  } else {
+    window.location.assign(url);
+  }
 }
 
 // Reads the result the OAuth callback left in the URL, then removes it.
@@ -309,6 +322,13 @@ function Workspace() {
   const providers = new Map((providerData?.providers ?? []).map((provider) => [provider.platform, provider]));
   const connectedCount = accounts.length;
   const busy = disconnect.isPending || verify.isPending;
+  const isEmbedded = typeof window !== 'undefined' && window.self !== window.top;
+
+  useEffect(() => {
+    const onFocus = () => refresh();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
   return <div className="sf-workspace">
     <header className="sf-workspace__header">
@@ -322,6 +342,17 @@ function Workspace() {
     </header>
     <main className="sf-workspace__main">
       <div className="sf-container">
+        {isEmbedded && (
+          <div className="sf-workspace__notice" style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e3a8a', marginBottom: '1rem' }}>
+            <span className="sf-workspace__notice-dot" style={{ background: '#2563eb' }} />
+            <span>
+              Preview mode: Social account logins open in a new tab because Meta forbids login inside embedded panels. You can also{' '}
+              <a href={window.location.href} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline', fontWeight: 600 }}>
+                open Socialflow in a full tab <ArrowUpRight size={13} style={{ display: 'inline', verticalAlign: 'middle' }} />
+              </a>
+            </span>
+          </div>
+        )}
         {notice
           ? <div className={`sf-workspace__notice sf-workspace__notice--${notice.tone}`} role="status" data-testid="status-connection"><span className="sf-workspace__notice-dot" /> {notice.text}<button onClick={() => setNotice(null)} aria-label="Dismiss"><X size={14} /></button></div>
           : <div className="sf-workspace__notice"><span className="sf-workspace__notice-dot" /> Accounts connect through each platform's official OAuth. Socialflow never sees your passwords.</div>}
