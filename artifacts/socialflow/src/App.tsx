@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Inbox, Menu, PenLine, Play, Plus, Send, Sparkles, Users, X, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Inbox, Menu, PenLine, Play, Plus, RefreshCw, Send, ShieldCheck, Sparkles, Users, X, Zap } from 'lucide-react';
 import { type ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { type ConnectedAccount, type Platform, getGetPendingConnectionQueryKey, getListConnectedAccountsQueryKey, useCancelPendingConnection, useCompletePendingConnection, useDisconnectAccount, useGetPendingConnection, useListConnectedAccounts, useListConnectionProviders, useVerifyConnectedAccount } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -169,46 +170,145 @@ function CTA({ onOpen }: { onOpen: (mode: ModalMode) => void }) {
   return <section className="sf-cta"><div className="sf-container sf-cta__inner"><div><span className="sf-kicker">Your next good week starts here</span><h2 className="sf-display">Make room for momentum.</h2></div><div className="sf-cta__action"><p className="sf-cta__copy">A clear plan, a better rhythm, and more of your best work in the world.</p><button className="sf-button sf-button--coral" onClick={() => onOpen('trial')} data-testid="button-final-trial">Start your free trial <ArrowRight size={15} /></button></div></div></section>;
 }
 
-type ChannelKey = 'instagram' | 'x' | 'linkedin' | 'youtube';
+type ChannelKey = Platform | 'x';
 
 const channelOptions: Array<{ key: ChannelKey; mark: string; name: string; description: string; tone: string }> = [
+  { key: 'facebook', mark: 'f', name: 'Facebook Pages', description: 'Publish to the Pages you manage and keep every community in step.', tone: 'blue' },
   { key: 'instagram', mark: '◎', name: 'Instagram', description: 'Plan your grid, reels, and stories in one visual rhythm.', tone: 'coral' },
-  { key: 'x', mark: 'X', name: 'X', description: 'Keep short-form ideas moving from draft to conversation.', tone: 'ink' },
   { key: 'linkedin', mark: 'in', name: 'LinkedIn', description: 'Turn your team expertise into a consistent point of view.', tone: 'blue' },
   { key: 'youtube', mark: '▶', name: 'YouTube', description: 'Give bigger stories a clear runway and publishing cadence.', tone: 'red' },
+  { key: 'x', mark: 'X', name: 'X', description: 'Keep short-form ideas moving from draft to conversation.', tone: 'ink' },
 ];
 
-const initialConnections: Record<ChannelKey, boolean> = {
-  instagram: false,
-  x: false,
-  linkedin: false,
-  youtube: false,
+const connectionErrorCopy: Record<string, string> = {
+  not_configured: "This platform isn't set up on the server yet. Its app credentials need to be added to Replit Secrets.",
+  access_denied: 'The connection was cancelled. Nothing was connected.',
+  invalid_state: 'That connection request expired or came from a different browser. Please try again.',
+  invalid_callback: 'The provider sent back an incomplete response. Please try again.',
+  token_exchange_failed: 'The provider rejected the sign-in. The app credentials or redirect URL may be misconfigured.',
+  missing_scopes: 'Some required permissions were not granted. Reconnect and allow every requested permission.',
+  no_accounts: 'No eligible accounts were shared. Make sure you manage at least one and select it in the provider dialog.',
+  account_not_granted: "The account you're reconnecting wasn't included in the permissions you just granted.",
+  insufficient_permissions: "The app doesn't have the permissions it needs. Reconnect and grant them.",
+  token_expired: 'The access token expired. Reconnect the account.',
+  token_revoked: 'Access was revoked on the provider side. Reconnect the account.',
+  rate_limited: 'The provider is rate limiting requests. Try again in a few minutes.',
+  provider_error: 'The provider returned an unexpected error. Please try again.',
 };
 
-function Workspace() {
-  const [connections, setConnections] = useState<Record<ChannelKey, boolean>>(initialConnections);
-  const [ready, setReady] = useState(false);
+const statusCopy: Record<ConnectedAccount['status'], string> = {
+  active: 'Connected',
+  expired: 'Token expired',
+  revoked: 'Access revoked',
+  missing_permissions: 'Missing permissions',
+  error: 'Check failed',
+};
 
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem('socialflow-connections');
-      if (saved) {
-        setConnections({ ...initialConnections, ...JSON.parse(saved) });
-      }
-    } catch {
-      setConnections(initialConnections);
-    } finally {
-      setReady(true);
+const platformNames: Record<Platform, string> = { facebook: 'Facebook', instagram: 'Instagram', linkedin: 'LinkedIn', youtube: 'YouTube' };
+const accountNouns: Record<Platform, string> = { facebook: 'Facebook Pages', instagram: 'Instagram accounts', linkedin: 'LinkedIn profiles and pages', youtube: 'YouTube channels' };
+
+type Notice = { tone: 'success' | 'error'; text: string };
+
+function startConnection(platform: Platform, reconnectId?: string) {
+  const query = reconnectId ? `?reconnect=${encodeURIComponent(reconnectId)}` : '';
+  window.location.assign(`/api/connections/${platform}/start${query}`);
+}
+
+// Reads the result the OAuth callback left in the URL, then removes it.
+function useConnectionResult(): { notice: Notice | null; pendingId: string | null; clearPending: () => void; setNotice: (n: Notice | null) => void } {
+  const [initial] = useState(() => new URLSearchParams(window.location.search));
+  const [pendingId, setPendingId] = useState<string | null>(initial.get('pending'));
+  const [notice, setNotice] = useState<Notice | null>(() => {
+    const platform = initial.get('platform') ?? initial.get('connected');
+    const name = platform && platform in platformNames ? platformNames[platform as Platform] : 'The account';
+    const error = initial.get('connection_error');
+    if (error) {
+      const missing = initial.get('missing');
+      return { tone: 'error', text: `${name}: ${connectionErrorCopy[error] ?? connectionErrorCopy.provider_error}${missing ? ` Missing: ${missing.split(',').join(', ')}.` : ''}` };
     }
+    if (initial.get('connected')) return { tone: 'success', text: `${name} ${initial.get('reconnected') ? 'reconnected' : 'connected'} successfully.` };
+    return null;
+  });
+  useEffect(() => {
+    if (window.location.search) window.history.replaceState(null, '', window.location.pathname);
   }, []);
+  return { notice, pendingId, clearPending: () => setPendingId(null), setNotice };
+}
 
-  useEffect(() => {
-    if (ready) {
-      window.localStorage.setItem('socialflow-connections', JSON.stringify(connections));
-    }
-  }, [connections, ready]);
+function AccountRow({ account, busy, onVerify, onDisconnect }: { account: ConnectedAccount; busy: boolean; onVerify: () => void; onDisconnect: () => void }) {
+  const healthy = account.status === 'active';
+  return <li className={`sf-connected ${healthy ? '' : 'is-unhealthy'}`} data-testid={`row-account-${account.id}`}>
+    {account.avatarUrl ? <img className="sf-connected__avatar" src={account.avatarUrl} alt="" /> : <span className="sf-connected__avatar">{account.displayName.slice(0, 1)}</span>}
+    <div className="sf-connected__copy">
+      <strong>{account.displayName}</strong>
+      <span className={`sf-connected__status sf-connected__status--${account.status}`}>{healthy ? <Check size={11} /> : <AlertTriangle size={11} />} {statusCopy[account.status]}</span>
+      {!healthy && account.statusDetail && <span className="sf-connected__detail">{account.statusDetail}</span>}
+    </div>
+    <div className="sf-connected__actions">
+      {healthy
+        ? <button onClick={onVerify} disabled={busy} title="Check the token with the provider" data-testid={`button-verify-${account.id}`}><RefreshCw size={13} /> Check</button>
+        : <button className="is-primary" onClick={() => startConnection(account.platform, account.id)} data-testid={`button-reconnect-${account.id}`}><RefreshCw size={13} /> Reconnect</button>}
+      <button onClick={onDisconnect} disabled={busy} data-testid={`button-disconnect-${account.id}`}><X size={13} /> Disconnect</button>
+    </div>
+  </li>;
+}
 
-  const connectedCount = channelOptions.filter((channel) => connections[channel.key]).length;
+function AccountPicker({ pendingId, onDone, onClose }: { pendingId: string; onDone: (count: number, platform: Platform) => void; onClose: () => void }) {
+  const { data, isLoading, error } = useGetPendingConnection(pendingId, { query: { queryKey: getGetPendingConnectionQueryKey(pendingId), retry: false } });
+  const [selected, setSelected] = useState<string[] | null>(null);
+  const complete = useCompletePendingConnection();
+  const cancel = useCancelPendingConnection();
+  const choices = selected ?? data?.candidates.filter((c) => c.selectable && !c.alreadyConnected).map((c) => c.externalAccountId) ?? [];
+  const toggle = (id: string) => setSelected(choices.includes(id) ? choices.filter((x) => x !== id) : [...choices, id]);
+  const close = () => { cancel.mutate({ pendingId }); onClose(); };
+  const name = data ? platformNames[data.platform] : '';
+
+  return <div className="sf-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
+    <div className="sf-modal sf-picker" role="dialog" aria-modal="true" aria-labelledby="picker-title">
+      <button className="sf-modal__close" onClick={close} aria-label="Close dialog" data-testid="button-close-picker"><X size={18} /></button>
+      <span className="sf-kicker">Choose accounts</span>
+      <h2 id="picker-title">Which {data ? accountNouns[data.platform] : 'accounts'} should Socialflow manage?</h2>
+      {isLoading && <p>Loading the accounts you shared…</p>}
+      {error && <p className="sf-picker__error">This selection expired. Start the connection again.</p>}
+      {data && <>
+        <p>These came back from {name}. Pick the ones you want in this workspace — you can add or remove them later.</p>
+        <ul className="sf-picker__list">
+          {data.candidates.map((candidate) => {
+            const disabled = !candidate.selectable;
+            return <li key={candidate.externalAccountId}>
+              <label className={disabled ? 'is-disabled' : ''} data-testid={`option-candidate-${candidate.externalAccountId}`}>
+                <input type="checkbox" disabled={disabled} checked={choices.includes(candidate.externalAccountId)} onChange={() => toggle(candidate.externalAccountId)} />
+                {candidate.avatarUrl ? <img src={candidate.avatarUrl} alt="" /> : <span className="sf-connected__avatar">{candidate.displayName.slice(0, 1)}</span>}
+                <span className="sf-picker__copy"><strong>{candidate.displayName}</strong>
+                  {candidate.alreadyConnected && <small>Already connected — selecting it refreshes its token.</small>}
+                  {candidate.warnings.map((warning) => <small className="is-warning" key={warning}>{warning}</small>)}
+                </span>
+              </label>
+            </li>;
+          })}
+        </ul>
+        {complete.error && <p className="sf-picker__error">{complete.error.data?.message ?? 'Could not connect those accounts.'}</p>}
+        <button className="sf-button sf-button--primary" disabled={choices.length === 0 || complete.isPending} data-testid="button-confirm-accounts"
+          onClick={() => complete.mutate({ pendingId, data: { externalAccountIds: choices } }, { onSuccess: (result) => onDone(result.accounts.length, data.platform) })}>
+          {complete.isPending ? 'Connecting…' : `Connect ${choices.length} ${choices.length === 1 ? 'account' : 'accounts'}`} <ArrowRight size={15} />
+        </button>
+      </>}
+    </div>
+  </div>;
+}
+
+function Workspace() {
+  const queryClient = useQueryClient();
+  const { notice, setNotice, pendingId, clearPending } = useConnectionResult();
+  const { data: providerData } = useListConnectionProviders();
+  const { data: accountData, isLoading } = useListConnectedAccounts();
+  const refresh = () => queryClient.invalidateQueries({ queryKey: getListConnectedAccountsQueryKey() });
+  const disconnect = useDisconnectAccount({ mutation: { onSuccess: refresh } });
+  const verify = useVerifyConnectedAccount({ mutation: { onSuccess: refresh, onError: (error) => setNotice({ tone: 'error', text: error.data?.message ?? 'The check failed.' }) } });
+  const accounts = accountData?.accounts ?? [];
+  const providers = new Map((providerData?.providers ?? []).map((provider) => [provider.platform, provider]));
+  const connectedCount = accounts.length;
+  const busy = disconnect.isPending || verify.isPending;
 
   return <div className="sf-workspace">
     <header className="sf-workspace__header">
@@ -222,7 +322,9 @@ function Workspace() {
     </header>
     <main className="sf-workspace__main">
       <div className="sf-container">
-        <div className="sf-workspace__notice"><span className="sf-workspace__notice-dot" /> Demo workspace — connection states are saved in this browser for the preview.</div>
+        {notice
+          ? <div className={`sf-workspace__notice sf-workspace__notice--${notice.tone}`} role="status" data-testid="status-connection"><span className="sf-workspace__notice-dot" /> {notice.text}<button onClick={() => setNotice(null)} aria-label="Dismiss"><X size={14} /></button></div>
+          : <div className="sf-workspace__notice"><span className="sf-workspace__notice-dot" /> Accounts connect through each platform's official OAuth. Socialflow never sees your passwords.</div>}
         <div className="sf-workspace__intro">
           <div>
             <span className="sf-kicker">Workspace setup</span>
@@ -230,24 +332,42 @@ function Workspace() {
             <p>Connect the places your audience already checks in. Once they are together, planning gets clearer and publishing gets lighter.</p>
           </div>
           <div className="sf-workspace__summary">
-            <span className="sf-workspace__summary-label">Connected channels</span>
-            <strong>{connectedCount}<small>/ {channelOptions.length}</small></strong>
+            <span className="sf-workspace__summary-label">Connected accounts</span>
+            <strong>{connectedCount}</strong>
             <span className="sf-workspace__summary-note">{connectedCount === 0 ? 'Start with your most important channel.' : 'Your workspace is taking shape.'}</span>
           </div>
         </div>
         <section className="sf-accounts" aria-labelledby="accounts-title">
           <div className="sf-accounts__head">
             <div><span className="sf-kicker">Your channels</span><h2 id="accounts-title">Connect your social accounts.</h2></div>
-            <span className="sf-accounts__secure">Private to your workspace</span>
+            <span className="sf-accounts__secure"><ShieldCheck size={13} /> Tokens encrypted, private to your workspace</span>
           </div>
           <div className="sf-account-grid">
             {channelOptions.map((channel) => {
-              const connected = connections[channel.key];
-              return <article className={`sf-account-card ${connected ? 'is-connected' : ''}`} key={channel.key} data-testid={`card-account-${channel.key}`}>
-                <div className={`sf-account-mark sf-account-mark--${channel.tone}`}>{channel.mark}</div>
-                <div className="sf-account-card__copy"><div className="sf-account-card__title"><h3>{channel.name}</h3>{connected && <span className="sf-account-status"><Check size={12} /> Connected</span>}</div><p>{channel.description}</p></div>
-                <button className={`sf-account-card__button ${connected ? 'is-connected' : ''}`} onClick={() => setConnections((current) => ({ ...current, [channel.key]: !current[channel.key] }))} data-testid={`button-account-${channel.key}`}>
-                  {connected ? 'Disconnect' : 'Connect account'} {connected ? <X size={14} /> : <ArrowRight size={14} />}
+              const provider = channel.key === 'x' ? undefined : providers.get(channel.key);
+              const own = accounts.filter((account) => account.platform === channel.key);
+              const ready = Boolean(provider?.configured);
+              let label = 'Not available yet';
+              if (provider?.implemented && !ready) label = 'Setup required';
+              if (ready) label = own.length > 0 ? 'Add another' : 'Connect account';
+              if (isLoading && ready) label = 'Checking…';
+              return <article className={`sf-account-card ${own.length > 0 ? 'is-connected' : ''}`} key={channel.key} data-testid={`card-account-${channel.key}`}>
+                <div className="sf-account-card__top">
+                  <div className={`sf-account-mark sf-account-mark--${channel.tone}`}>{channel.mark}</div>
+                  <div className="sf-account-card__copy">
+                    <div className="sf-account-card__title"><h3>{channel.name}</h3>{own.length > 0 && <span className="sf-account-status"><Check size={12} /> {own.length} connected</span>}</div>
+                    <p>{channel.description}</p>
+                    {provider?.implemented && !ready && <p className="sf-account-card__setup">Server setup needed: {provider.missingConfiguration.join(', ')}. See docs/oauth-setup.md.</p>}
+                    {provider && !provider.implemented && <p className="sf-account-card__setup">Coming next — the connection architecture is ready for this platform.</p>}
+                  </div>
+                </div>
+                {own.length > 0 && <ul className="sf-connected-list">
+                  {own.map((account) => <AccountRow key={account.id} account={account} busy={busy}
+                    onVerify={() => verify.mutate({ accountId: account.id })}
+                    onDisconnect={() => { if (window.confirm(`Disconnect ${account.displayName}? Its stored tokens will be deleted.`)) disconnect.mutate({ accountId: account.id }); }} />)}
+                </ul>}
+                <button className={`sf-account-card__button ${own.length > 0 ? 'is-connected' : ''}`} disabled={!ready || isLoading} onClick={() => startConnection(channel.key as Platform)} data-testid={`button-account-${channel.key}`}>
+                  {own.length > 0 && ready ? <Plus size={14} /> : null} {label} {own.length === 0 && ready ? <ArrowRight size={14} /> : null}
                 </button>
               </article>;
             })}
@@ -259,6 +379,8 @@ function Workspace() {
         </section>
       </div>
     </main>
+    {pendingId && <AccountPicker pendingId={pendingId} onClose={clearPending}
+      onDone={(count, platform) => { clearPending(); refresh(); setNotice({ tone: 'success', text: `${count} ${platformNames[platform]} ${count === 1 ? 'account' : 'accounts'} connected.` }); }} />}
   </div>;
 }
 

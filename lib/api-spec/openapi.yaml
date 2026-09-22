@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: social
+    description: Social account connections
 paths:
   /healthz:
     get:
@@ -24,6 +26,151 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /connections/providers:
+    get:
+      operationId: listConnectionProviders
+      tags: [social]
+      summary: List supported platforms and whether each is configured
+      responses:
+        "200":
+          description: Provider setup status (never includes secret values)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionProviderList"
+  /connections:
+    get:
+      operationId: listConnectedAccounts
+      tags: [social]
+      summary: List connected accounts for the current workspace
+      responses:
+        "200":
+          description: Connected accounts (tokens are never returned)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectedAccountList"
+  /connections/pending/{pendingId}:
+    parameters:
+      - name: pendingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getPendingConnection
+      tags: [social]
+      summary: Get accounts returned by the provider that are awaiting selection
+      responses:
+        "200":
+          description: Pending connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingConnection"
+        "404":
+          description: Not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: cancelPendingConnection
+      tags: [social]
+      summary: Discard a pending connection
+      responses:
+        "204":
+          description: Discarded
+  /connections/pending/{pendingId}/complete:
+    parameters:
+      - name: pendingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: completePendingConnection
+      tags: [social]
+      summary: Connect the selected accounts from a pending connection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PendingSelection"
+      responses:
+        "200":
+          description: Accounts connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectedAccountList"
+        "400":
+          description: Invalid selection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /connections/{accountId}:
+    parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      operationId: disconnectAccount
+      tags: [social]
+      summary: Disconnect an account and delete its stored tokens
+      responses:
+        "204":
+          description: Disconnected
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /connections/{accountId}/verify:
+    parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: verifyConnectedAccount
+      tags: [social]
+      summary: Check the account's token and permissions with the provider
+      responses:
+        "200":
+          description: Updated account status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectedAccount"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Platform not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +180,143 @@ components:
           type: string
       required:
         - status
-
+    Platform:
+      type: string
+      enum: [facebook, instagram, linkedin, youtube]
+    ConnectionStatus:
+      type: string
+      enum: [active, expired, revoked, missing_permissions, error]
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required: [error, message]
+    ConnectionProvider:
+      type: object
+      properties:
+        platform:
+          $ref: "#/components/schemas/Platform"
+        name:
+          type: string
+        implemented:
+          type: boolean
+        configured:
+          type: boolean
+        missingConfiguration:
+          type: array
+          items: { type: string }
+        requiredScopes:
+          type: array
+          items: { type: string }
+        optionalScopes:
+          type: array
+          items: { type: string }
+        callbackUrl:
+          type: ["string", "null"]
+      required: [platform, name, implemented, configured, missingConfiguration, requiredScopes, optionalScopes, callbackUrl]
+    ConnectionProviderList:
+      type: object
+      properties:
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConnectionProvider"
+      required: [providers]
+    ConnectedAccount:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          $ref: "#/components/schemas/Platform"
+        accountType:
+          type: string
+        externalAccountId:
+          type: string
+        displayName:
+          type: string
+        username:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        status:
+          $ref: "#/components/schemas/ConnectionStatus"
+        statusDetail:
+          type: ["string", "null"]
+        scopes:
+          type: array
+          items: { type: string }
+        missingScopes:
+          type: array
+          items: { type: string }
+        tokenExpiresAt:
+          type: ["string", "null"]
+          format: date-time
+        lastVerifiedAt:
+          type: ["string", "null"]
+          format: date-time
+        connectedAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, platform, accountType, externalAccountId, displayName, username, avatarUrl, status, statusDetail, scopes, missingScopes, tokenExpiresAt, lastVerifiedAt, connectedAt, updatedAt]
+    ConnectedAccountList:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConnectedAccount"
+      required: [accounts]
+    PendingCandidate:
+      type: object
+      properties:
+        externalAccountId:
+          type: string
+        accountType:
+          type: string
+        displayName:
+          type: string
+        username:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        selectable:
+          type: boolean
+        warnings:
+          type: array
+          items: { type: string }
+        alreadyConnected:
+          type: boolean
+      required: [externalAccountId, accountType, displayName, username, avatarUrl, selectable, warnings, alreadyConnected]
+    PendingConnection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          $ref: "#/components/schemas/Platform"
+        expiresAt:
+          type: string
+          format: date-time
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/PendingCandidate"
+      required: [id, platform, expiresAt, candidates]
+    PendingSelection:
+      type: object
+      properties:
+        externalAccountIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { type: string, minLength: 1 }
+      required: [externalAccountIds]
