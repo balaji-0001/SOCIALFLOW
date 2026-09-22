@@ -23,15 +23,19 @@ export class EncryptionConfigError extends Error {}
 
 function parseKey(raw: string, name: string): Buffer {
   const trimmed = raw.trim();
-  const key = /^[0-9a-f]{64}$/i.test(trimmed)
-    ? Buffer.from(trimmed, "hex")
-    : Buffer.from(trimmed, "base64");
-  if (key.length !== 32) {
+  if (!trimmed || trimmed.length < 16) {
     throw new EncryptionConfigError(
-      `${name} must be 32 bytes encoded as base64 or hex (got ${key.length} bytes).`,
+      `${name} must be at least 16 characters or 32 bytes base64/hex.`,
     );
   }
-  return key;
+  if (/^[0-9a-f]{64}$/i.test(trimmed)) {
+    return Buffer.from(trimmed, "hex");
+  }
+  const key = Buffer.from(trimmed, "base64");
+  if (key.length === 32) {
+    return key;
+  }
+  return createHash("sha256").update(trimmed).digest();
 }
 
 function currentKey(): Buffer {
