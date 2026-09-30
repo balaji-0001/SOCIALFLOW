@@ -15,6 +15,7 @@ import aiRouter from "./ai";
 import libraryRouter from "./library";
 import reportsRouter from "./reports";
 import linkPreviewRouter from "./link-preview";
+import dataDeletionRouter from "./data-deletion";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(aiRouter);
 router.use(libraryRouter);
 router.use(reportsRouter);
 router.use(linkPreviewRouter);
+router.use(dataDeletionRouter);
 
 export default router;

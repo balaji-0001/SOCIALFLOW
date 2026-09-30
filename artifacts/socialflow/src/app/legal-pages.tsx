@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import './legal.css';
 
@@ -88,8 +88,34 @@ export function TermsPage() {
   </LegalShell>;
 }
 
+type DeletionStatus = { code: string; status: string; accountsRemoved: number; completedAt: string | null };
+
+/** Shown when Meta's confirmation link (/data-deletion?code=...) is opened: what happened to that request. */
+function DeletionResult() {
+  const [state, setState] = useState<{ kind: 'none' } | { kind: 'loading' } | { kind: 'found'; data: DeletionStatus } | { kind: 'missing' }>({ kind: 'none' });
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get('code');
+    if (!code) return;
+    setState({ kind: 'loading' });
+    fetch(`/api/data-deletion/status/${encodeURIComponent(code)}`)
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error('missing'))))
+      .then((data: DeletionStatus) => setState({ kind: 'found', data }))
+      .catch(() => setState({ kind: 'missing' }));
+  }, []);
+  if (state.kind === 'none') return null;
+  return <div className="sfl-result" role="status" data-testid="deletion-result">
+    {state.kind === 'loading' && <p>Checking your deletion request…</p>}
+    {state.kind === 'missing' && <p><strong>We couldn't find that request.</strong> Check the confirmation code, or write to us at the address below.</p>}
+    {state.kind === 'found' && <>
+      <p><strong>Your deletion request is {state.data.status}.</strong></p>
+      <p>Confirmation code <code>{state.data.code}</code>. {state.data.accountsRemoved === 0 ? 'No connected accounts were stored for you, so there was nothing to remove.' : `${state.data.accountsRemoved} connected account${state.data.accountsRemoved === 1 ? ' was' : 's were'} removed, together with the access tokens and post records that belonged to ${state.data.accountsRemoved === 1 ? 'it' : 'them'}.`}</p>
+    </>}
+  </div>;
+}
+
 export function DataDeletionPage() {
   return <LegalShell testid="page-data-deletion" title="Data deletion" intro="You can remove the connection between SocialFlow and your social accounts yourself, and you can ask us to delete everything we hold about you. Here is how.">
+    <DeletionResult />
     <H>1. Remove a social account yourself (immediate)</H>
     <ol>
       <li>Sign in to SocialFlow and open <a href="/workspace">Connected accounts</a>.</li>
@@ -97,10 +123,12 @@ export function DataDeletionPage() {
       <li>SocialFlow deletes that account's stored access token and its post records straight away, and can no longer act for it.</li>
     </ol>
     <p>You can also remove SocialFlow from the network itself: in Facebook go to <em>Settings → Business integrations</em> (or <em>Apps and websites</em>) and remove SocialFlow; in Instagram, <em>Settings → Website permissions → Apps and websites</em>; in LinkedIn, <em>Settings → Data privacy → Permitted services</em>; in Google, <em>Security → Third-party access</em>.</p>
-    <H>2. Ask us to delete your account and all data</H>
+    <H>2. Remove SocialFlow from Facebook or Instagram (automatic)</H>
+    <p>If you remove SocialFlow in your Facebook or Instagram settings and choose to delete your data, Facebook or Instagram tells us and we automatically delete the connected accounts you authorised, with their access tokens and post records. You are given a confirmation code, and you can check it on this page at any time.</p>
+    <H>3. Ask us to delete your account and all data</H>
     <p>Email <a href={`mailto:${CONTACT_EMAIL}?subject=Delete%20my%20SocialFlow%20data`}>{CONTACT_EMAIL}</a> from the address you signed up with, with the subject <strong>Delete my SocialFlow data</strong>. If you signed in with Facebook or Instagram, mention that too. We will confirm the request and delete your account and everything linked to it.</p>
     <p>What is deleted: your sign-in details, your workspace and its posts, drafts, schedules, uploaded files, library items, tags, saved analytics numbers, inbox items, team invitations and connected-account tokens. Copies held in our hosting providers' routine backups are removed as those backups expire. We keep nothing that identifies you beyond what the law requires us to keep.</p>
-    <H>3. What is not deleted</H>
+    <H>4. What is not deleted</H>
     <p>Posts already published on Facebook, Instagram, LinkedIn or YouTube belong to those networks and to you. Deleting your SocialFlow data does not remove them; delete them on the network itself if you want them gone.</p>
   </LegalShell>;
 }

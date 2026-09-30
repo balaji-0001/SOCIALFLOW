@@ -19,3 +19,6 @@
 .sfl-doc li { margin: 6px 0; }
 .sfl-doc a { color: hsl(var(--primary)); overflow-wrap: anywhere; }
 .sfl-contact { border-top: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground)); margin-top: 40px !important; padding-top: 18px; }
+.sfl-result { background: hsl(var(--surface-2, var(--surface))); border: 1px solid hsl(var(--border)); border-radius: 12px; margin: 18px 0 8px; padding: 14px 18px; }
+.sfl-result p { margin: 4px 0; }
+.sfl-result code { background: hsl(var(--surface-3, var(--border))); border-radius: 4px; padding: 1px 6px; }

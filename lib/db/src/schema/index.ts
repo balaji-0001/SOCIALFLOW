@@ -20,3 +20,4 @@ export * from "./inbox";
 export * from "./ai";
 export * from "./library";
 export * from "./reports";
+export * from "./data-deletions";

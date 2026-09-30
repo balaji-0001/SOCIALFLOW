@@ -1,4 +1,5 @@
 import { linkMigrations } from "./migrations-link";
+import { dataDeletionMigrations } from "./migrations-data-deletion";
 import { inboxDmMigrations } from "./migrations-inbox-dm";
 import { reportsMigrations } from "./migrations-reports";
 import { approvalsMigrations } from "./migrations-approvals";
@@ -224,4 +225,5 @@ export const migrations: Array<{ name: string; sql: string }> = [
   ...inboxDmMigrations,
   ...reportsMigrations,
   ...linkMigrations,
+  ...dataDeletionMigrations,
 ];
