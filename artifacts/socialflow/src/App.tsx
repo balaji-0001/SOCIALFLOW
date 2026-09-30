@@ -28,6 +28,9 @@ const DraftsPage = lazy(() => import('@/app/posts-pages').then((m) => ({ default
 const QueuePage = lazy(() => import('@/app/queue-page').then((m) => ({ default: m.QueuePage })));
 const RecurringPage = lazy(() => import('@/app/recurring-page').then((m) => ({ default: m.RecurringPage })));
 const SettingsPage = lazy(() => import('@/app/settings-page').then((m) => ({ default: m.SettingsPage })));
+const PrivacyPage = lazy(() => import('@/app/legal-pages').then((m) => ({ default: m.PrivacyPage })));
+const TermsPage = lazy(() => import('@/app/legal-pages').then((m) => ({ default: m.TermsPage })));
+const DataDeletionPage = lazy(() => import('@/app/legal-pages').then((m) => ({ default: m.DataDeletionPage })));
 const AnalyticsPage = lazy(() => import('@/app/analytics-page').then((m) => ({ default: m.AnalyticsPage })));
 const TeamPage = lazy(() => import('@/app/team-page').then((m) => ({ default: m.TeamPage })));
 const AcceptInvitePage = lazy(() => import('@/app/accept-invite').then((m) => ({ default: m.AcceptInvitePage })));
@@ -719,7 +722,7 @@ function Workspace() {
 }
 
 function Footer() {
-  return <footer className="sf-footer"><div className="sf-container"><div className="sf-footer__top"><div className="sf-footer__brand"><Logo /><p>Social media management for people who care about the work — and the rhythm it takes to make it.</p></div><div className="sf-footer__links"><div><h4>Explore</h4><a href="#product">Product</a><a href="#channels">Channels</a><a href="#pricing">Pricing</a></div><div><h4>Learn</h4><a href="#faq">FAQ</a><a href="#top">Customer stories</a><a href="#top">Notes</a></div><div><h4>Connect</h4><a href="mailto:hello@socialflow.example">Contact</a><a href="#top">Instagram</a><a href="#top">LinkedIn</a></div></div></div><div className="sf-footer__bottom"><span>© 2025 Socialflow, Inc.</span><span>Made for better Mondays.</span></div></div></footer>;
+  return <footer className="sf-footer"><div className="sf-container"><div className="sf-footer__top"><div className="sf-footer__brand"><Logo /><p>Social media management for people who care about the work — and the rhythm it takes to make it.</p></div><div className="sf-footer__links"><div><h4>Explore</h4><a href="#product">Product</a><a href="#channels">Channels</a><a href="#pricing">Pricing</a></div><div><h4>Learn</h4><a href="#faq">FAQ</a><a href="#top">Customer stories</a><a href="#top">Notes</a></div><div><h4>Connect</h4><a href="mailto:lakshmipathibalaji44@gmail.com">Contact</a><a href="#top">Instagram</a><a href="#top">LinkedIn</a></div></div></div><div className="sf-footer__bottom"><span>© 2026 SocialFlow</span><span className="sf-footer__legal"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/data-deletion">Data deletion</a></span></div></div></footer>;
 }
 
  function SignupModal({ mode, onClose }: { mode: ModalMode; onClose: () => void }) {
@@ -737,6 +740,9 @@ function Router() {
   return <RoutedErrorBoundary><Suspense fallback={<div className="sfa-app" aria-busy="true" />}><Switch>
     <Route path="/" component={Home} />
     <Route path="/signin" component={SignIn} />
+    <Route path="/privacy" component={PrivacyPage} />
+    <Route path="/terms" component={TermsPage} />
+    <Route path="/data-deletion" component={DataDeletionPage} />
     <Route path="/reset-password" component={ResetPassword} />
     <Route path="/dashboard">{() => <AppShell active="dashboard"><DashboardPage /></AppShell>}</Route>
     <Route path="/calendar">{() => <AppShell active="calendar"><CalendarPage /></AppShell>}</Route>

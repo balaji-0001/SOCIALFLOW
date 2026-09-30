@@ -84,3 +84,6 @@ html[data-theme='aurora'] .sf-modal { background: var(--glass-strong); backdrop-
 html[data-theme='aurora'] .sf-modal-backdrop { background: hsl(240 30% 2% / .62); backdrop-filter: blur(4px); }
 html[data-theme='aurora'] .sf-form input, html[data-theme='aurora'] .sf-form select { background: hsl(0 0% 100% / .04); border-color: hsl(0 0% 100% / .1); color: hsl(var(--foreground)); }
 html[data-theme='aurora'] .sf-success { background: hsl(var(--success) / .12); border-color: hsl(var(--success) / .3); color: hsl(var(--success)); }
+
+.sf-footer__legal a { color: inherit; }
+.sf-footer__legal a:hover { color: hsl(190 80% 79%); }

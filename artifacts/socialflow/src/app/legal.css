@@ -1,0 +1,21 @@
+/* Public legal pages: a plain reading column that follows the site's light and dark themes. */
+.sfl-page { background: hsl(var(--background)); color: hsl(var(--foreground)); min-height: 100vh; }
+.sfl-top { align-items: center; border-bottom: 1px solid hsl(var(--border)); display: flex; flex-wrap: wrap; gap: 12px 24px; justify-content: space-between; margin: 0 auto; max-width: 860px; padding: 18px 20px; }
+.sfl-back { align-items: center; color: hsl(var(--foreground)); display: inline-flex; font-weight: 600; gap: 8px; text-decoration: none; }
+.sfl-top nav { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.sfl-top nav a { color: hsl(var(--muted-foreground)); font-size: 14px; text-decoration: none; }
+.sfl-top nav a:hover, .sfl-back:hover { color: hsl(var(--primary)); }
+.sfl-doc { margin: 0 auto; max-width: 860px; padding: 40px 20px 80px; }
+.sfl-doc h1 { font-size: clamp(1.8rem, 4vw, 2.4rem); letter-spacing: -.02em; line-height: 1.15; margin: 0 0 8px; }
+.sfl-meta { color: hsl(var(--muted-foreground)); font-size: 14px; margin: 0 0 20px; }
+.sfl-lead { font-size: 1.05rem; line-height: 1.65; margin: 0 0 12px; }
+.sfl-doc h2 { font-size: 1.2rem; margin: 34px 0 8px; }
+.sfl-doc p, .sfl-doc li { line-height: 1.7; }
+.sfl-doc p { margin: 0 0 12px; }
+.sfl-doc ul, .sfl-doc ol { margin: 0 0 12px; padding-left: 24px; }
+.sfl-doc ul { list-style: disc; }
+.sfl-doc ol { list-style: decimal; }
+.sfl-doc h1, .sfl-doc h2 { font-weight: 700; }
+.sfl-doc li { margin: 6px 0; }
+.sfl-doc a { color: hsl(var(--primary)); overflow-wrap: anywhere; }
+.sfl-contact { border-top: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground)); margin-top: 40px !important; padding-top: 18px; }
