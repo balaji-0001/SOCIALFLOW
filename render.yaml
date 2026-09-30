@@ -69,11 +69,24 @@ services:
       - key: NODE_VERSION
         value: 24
     routes:
+      # The legal pages are pre-rendered to <page>/index.html; serve them before the app fallback below.
+      - type: rewrite
+        source: /privacy
+        destination: /privacy/index.html
+      - type: rewrite
+        source: /terms
+        destination: /terms/index.html
+      - type: rewrite
+        source: /data-deletion
+        destination: /data-deletion/index.html
+      - type: rewrite
+        source: /datadeletion
+        destination: /datadeletion/index.html
       # Forwards /api to the API service, so cookies stay on the website's own address.
       # After the first deploy, replace the host below with your socialflow-api service address if Render assigned another.
       - type: rewrite
         source: /api/*
-        destination: https://socialflow-api.onrender.com/api/*
+        destination: https://socialflow-api-n3e0.onrender.com/api/*
       - type: rewrite
         source: /*
         destination: /index.html
