@@ -76,3 +76,6 @@ Browser scripts sign up a temporary `@socialflow.test` user, exercise the UI, sc
 | False type errors after schema edits | `pnpm run typecheck:libs` first. |
 | AI Studio says not configured | Set `ANTHROPIC_API_KEY` and restart the API. |
 | Inbox, analytics or DMs empty | The needed scope flag is off, the network permission isn't approved, or the account wasn't reconnected. The page shows which. |
+
+## 8. Hosting on Render + Supabase
+`render.yaml` (repo root) describes two Render services: `socialflow-api` (always-on Node service with a 5 GB disk for uploads at `/var/data/media`) and `socialflow-web` (static site that forwards `/api/*` to the API, so the browser sees one address). The database is Supabase: set `DATABASE_URL` to its **Session pooler** (port 5432) or **Direct** connection string, never the Transaction pooler (port 6543), because startup migrations hold an advisory lock. SSL is switched on automatically for Supabase addresses (or with `DATABASE_SSL=true`). Set `OAUTH_REDIRECT_BASE_URL` to the website's address and add `<address>/api/connections/<platform>/callback` in each network's developer console. The free Render plan sleeps when idle, which stops scheduled posts, so the API uses the paid `starter` plan.

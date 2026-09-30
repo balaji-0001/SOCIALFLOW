@@ -1,0 +1,79 @@
+# Render Blueprint: the API (always-on Node service with a disk for uploads) and the website (static site that
+# forwards /api to the API, so the browser sees one address). The database is Supabase: set DATABASE_URL below.
+# Secrets are left as `sync: false`, so Render asks for them in its dashboard and they are never stored in git.
+services:
+  - type: web
+    name: socialflow-api
+    runtime: node
+    plan: starter            # the free plan sleeps when idle, which would stop scheduled posts; starter stays on
+    region: singapore
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build
+    startCommand: pnpm --filter @workspace/api-server run start
+    healthCheckPath: /api/healthz
+    disk:
+      name: socialflow-media
+      mountPath: /var/data
+      sizeGB: 5
+    envVars:
+      - key: NODE_VERSION
+        value: 24
+      - key: NODE_ENV
+        value: production
+      - key: MEDIA_STORAGE_DIR
+        value: /var/data/media
+      - key: DATABASE_URL          # Supabase: Session pooler (port 5432) or Direct connection string
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: TOKEN_ENCRYPTION_KEY  # 32 random bytes, base64. Keep a backup: losing it makes stored social tokens unreadable.
+        sync: false
+      - key: OAUTH_REDIRECT_BASE_URL   # the website's address (the static site below, or your domain), no trailing slash
+        sync: false
+      - key: FACEBOOK_APP_ID
+        sync: false
+      - key: FACEBOOK_APP_SECRET
+        sync: false
+      - key: INSTAGRAM_APP_ID
+        sync: false
+      - key: INSTAGRAM_APP_SECRET
+        sync: false
+      - key: LINKEDIN_CLIENT_ID
+        sync: false
+      - key: LINKEDIN_CLIENT_SECRET
+        sync: false
+      - key: LINKEDIN_API_VERSION
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: ANTHROPIC_API_KEY     # optional: turns on AI Studio
+        sync: false
+
+  - type: web
+    name: socialflow-web
+    runtime: static
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @workspace/socialflow run build
+    staticPublishPath: artifacts/socialflow/dist/public
+    envVars:
+      - key: NODE_VERSION
+        value: 24
+    routes:
+      # Forwards /api to the API service, so cookies stay on the website's own address.
+      # After the first deploy, replace the host below with your socialflow-api service address if Render assigned another.
+      - type: rewrite
+        source: /api/*
+        destination: https://socialflow-api.onrender.com/api/*
+      - type: rewrite
+        source: /*
+        destination: /index.html
