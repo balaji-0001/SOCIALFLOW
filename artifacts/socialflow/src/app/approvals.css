@@ -1,0 +1,68 @@
+/* Approvals page + approval controls. Tokens only so both themes work. */
+.sfa-approvals-badge { align-items: center; background: hsl(var(--foreground) / .06); border-radius: 999px; color: hsl(var(--muted-foreground)); display: inline-flex; font-size: 11.5px; font-weight: 600; gap: 4px; padding: 3px 9px; white-space: nowrap; }
+.sfa-approvals-badge.is-pending { background: hsl(var(--warning-soft)); color: hsl(var(--warning)); }
+.sfa-approvals-badge.is-approved { background: hsl(var(--success-soft)); color: hsl(var(--success)); }
+.sfa-approvals-badge.is-rejected { background: hsl(var(--error) / .12); color: hsl(var(--error)); }
+.sfa-approvals-badge.is-changes_requested { background: hsl(var(--primary-soft)); color: hsl(var(--primary)); }
+
+.sfa-approvals-muted { color: hsl(var(--muted-foreground)); font-size: var(--text-small); margin: 0; overflow-wrap: anywhere; }
+.sfa-approvals-error { color: hsl(var(--error)); font-size: var(--text-small); margin: 0; }
+.sfa-approvals-label { color: hsl(var(--muted-foreground)); font-size: 12.5px; font-weight: 600; }
+.sfa-approvals-quote { background: hsl(var(--foreground) / .06); border-left: 3px solid hsl(var(--border-strong)); border-radius: var(--radius-md-app); font-size: var(--text-small); margin: 0; overflow-wrap: anywhere; padding: var(--space-2) var(--space-3); white-space: pre-wrap; }
+.sfa-approvals-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.sfa-textarea.sfa-approvals-note { font-size: var(--text-body); min-height: 72px; padding: var(--space-2) var(--space-3); }
+
+.sfa-approvals-panel { border: 1px solid hsl(var(--border)); border-radius: var(--radius-md-app); display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); }
+.sfa-approvals-panelhead { align-items: center; display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: space-between; }
+.sfa-approvals-panelhead strong { align-items: center; display: inline-flex; gap: var(--space-2); }
+
+.sfa-approvals-settings { align-items: center; display: flex; gap: var(--space-4); justify-content: space-between; margin-bottom: var(--space-4); padding: var(--space-4) var(--space-5); }
+.sfa-approvals-settings h2 { font-size: 15px; margin: 0 0 var(--space-1); }
+.sfa-approvals-settings p { color: hsl(var(--muted-foreground)); font-size: var(--text-small); margin: 0 0 var(--space-1); max-width: 68ch; }
+.sfa-approvals-switch { background: hsl(var(--surface-3)); border: 1px solid hsl(var(--border-strong)); border-radius: 999px; flex: none; height: 26px; padding: 2px; position: relative; transition: background var(--dur-1) ease; width: 46px; }
+.sfa-approvals-switch span { background: hsl(var(--foreground)); border-radius: 50%; display: block; height: 20px; transition: transform var(--dur-1) ease; width: 20px; }
+.sfa-approvals-switch.is-on { background: hsl(var(--primary)); border-color: hsl(var(--primary)); }
+.sfa-approvals-switch.is-on span { background: hsl(var(--primary-foreground)); transform: translateX(20px); }
+.sfa-approvals-switch:disabled { opacity: .55; }
+.sfa-approvals-switch:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: 2px; }
+
+.sfa-approvals-tabs { border-bottom: 1px solid hsl(var(--border)); display: flex; gap: var(--space-1); overflow-x: auto; padding: 0 var(--space-5); scrollbar-width: none; }
+.sfa-approvals-tabs::-webkit-scrollbar { display: none; }
+.sfa-approvals-tabs button { align-items: center; background: none; border: 0; border-bottom: 2px solid transparent; color: hsl(var(--muted-foreground)); display: flex; font-size: 13.5px; font-weight: 500; gap: var(--space-2); margin-bottom: -1px; padding: 12px var(--space-3); white-space: nowrap; }
+.sfa-approvals-tabs button:hover { color: hsl(var(--foreground)); }
+.sfa-approvals-tabs button:focus-visible { border-radius: var(--radius-md-app); outline: 2px solid hsl(var(--primary)); outline-offset: -2px; }
+.sfa-approvals-tabs button.is-on { border-bottom-color: hsl(var(--primary)); color: hsl(var(--primary)); font-weight: 600; }
+.sfa-approvals-count { background: hsl(var(--primary-soft)); border-radius: 999px; color: hsl(var(--primary)); font-size: 11.5px; font-weight: 700; line-height: 1; padding: 3px 7px; }
+
+.sfa-approvals-list { padding: var(--space-3) var(--space-5) var(--space-5); }
+.sfa-approvals-skelrow { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) 0; }
+.sfa-approvals-rows { list-style: none; margin: 0; padding: 0; }
+.sfa-approvals-rows li { border-top: 1px solid hsl(var(--border)); }
+.sfa-approvals-rows li:first-child { border-top: 0; }
+.sfa-approvals-item { background: none; border: 0; border-radius: var(--radius-md-app); color: inherit; display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); text-align: left; width: 100%; }
+.sfa-approvals-item:hover { background: hsl(var(--foreground) / .04); }
+.sfa-approvals-item:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: -2px; }
+.sfa-approvals-item__text { font-size: var(--text-body); overflow-wrap: anywhere; }
+.sfa-approvals-item__meta { align-items: center; color: hsl(var(--muted-foreground)); display: flex; flex-wrap: wrap; font-size: 12.5px; gap: var(--space-3); }
+
+.sfa-approvals-overlay { inset: 0; position: fixed; z-index: 60; }
+.sfa-approvals-scrim { background: hsl(var(--background) / .7); border: 0; inset: 0; position: absolute; }
+.sfa-approvals-drawer { background: hsl(var(--surface)); border-left: 1px solid hsl(var(--border)); bottom: 0; box-shadow: 0 0 40px hsl(var(--background) / .6); display: flex; flex-direction: column; max-width: 100vw; position: absolute; right: 0; top: 0; width: 520px; }
+.sfa-approvals-drawer header { align-items: center; border-bottom: 1px solid hsl(var(--border)); display: flex; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
+.sfa-approvals-drawer header h2 { flex: 1; font-size: 16px; margin: 0; }
+.sfa-approvals-body { display: flex; flex-direction: column; gap: var(--space-3); overflow-y: auto; padding: var(--space-4); }
+.sfa-approvals-body h3 { font-size: 13px; letter-spacing: .02em; margin: var(--space-2) 0 0; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+.sfa-approvals-post { background: hsl(var(--foreground) / .04); border: 1px solid hsl(var(--border)); border-radius: var(--radius-md-app); font-size: var(--text-body); line-height: 1.55; overflow-wrap: anywhere; padding: var(--space-3); white-space: pre-wrap; }
+.sfa-approvals-note-box { align-items: flex-start; background: hsl(var(--foreground) / .06); border-radius: var(--radius-md-app); color: hsl(var(--muted-foreground)); display: flex; font-size: var(--text-small); gap: var(--space-2); margin: 0; padding: var(--space-3); }
+.sfa-approvals-note-box svg { flex: none; margin-top: 1px; }
+.sfa-approvals-decide, .sfa-approvals-commentform { display: flex; flex-direction: column; gap: var(--space-2); }
+.sfa-approvals-comments { display: flex; flex-direction: column; gap: var(--space-3); list-style: none; margin: 0; padding: 0; }
+.sfa-approvals-comments p { font-size: var(--text-small); margin: 2px 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.sfa-approvals-comments time { color: hsl(var(--muted-foreground)); font-size: 12px; }
+
+@media (max-width: 640px) {
+  .sfa-approvals-tabs { padding: 0 var(--space-3); }
+  .sfa-approvals-list { padding: var(--space-2) var(--space-3) var(--space-4); }
+  .sfa-approvals-settings { align-items: flex-start; padding: var(--space-4); }
+  .sfa-approvals-drawer { width: 100vw; }
+}

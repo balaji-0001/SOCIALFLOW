@@ -1,38 +1,36 @@
-import { signedCookie } from "cookie-parser";
 import { eq, inArray, sql } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   connectedAccountsTable,
   db,
-  sessionsTable,
+  usersTable,
   workspacesTable,
 } from "@workspace/db";
 import app from "../app";
-import { sha256 } from "../lib/crypto";
 import { installFakeGraph } from "../test/fake-graph";
 
-// End-to-end test of the OAuth routes against the real database, with only
-// the Facebook Graph API faked. Skipped until the schema has been pushed
-// (`pnpm --filter @workspace/db run push`).
+// End-to-end test of the auth + OAuth routes against the real database, with
+// only the Facebook Graph API faked. Skipped until the schema has been
+// pushed (`pnpm --filter @workspace/db run push`).
 const tablesExist = await db
   .execute(sql`select to_regclass('public.socialflow_connected_accounts') as t`)
   .then((r) => Boolean((r.rows[0] as { t: string | null }).t))
   .catch(() => false);
 
 type Agent = ReturnType<typeof request.agent>;
-const sessionTokens = new Set<string>();
+const createdUserIds = new Set<string>();
+const createdWorkspaceIds = new Set<string>();
+let emailCounter = 0;
 
-function newAgent(): Agent {
+/** A signed-up, signed-in agent with its own fresh user + workspace. */
+async function newAgent(): Promise<Agent> {
   const agent = request.agent(app);
-  // Remember every session this test creates so afterAll can clean them up.
-  agent.on("response", (res: { headers: Record<string, string[] | undefined> }) => {
-    for (const header of res.headers["set-cookie"] ?? []) {
-      const match = /^sf_session=([^;]+)/.exec(header);
-      const raw = match ? signedCookie(decodeURIComponent(match[1]!), process.env.SESSION_SECRET!) : false;
-      if (raw) sessionTokens.add(raw);
-    }
-  });
+  const email = `oauth-test-${Date.now()}-${emailCounter++}-${Math.random().toString(36).slice(2)}@socialflow.test`;
+  const res = await agent.post("/api/auth/signup").send({ email, password: "correct horse battery staple" });
+  expect(res.status).toBe(201);
+  createdUserIds.add(res.body.user.id);
+  createdWorkspaceIds.add(res.body.workspace.id);
   return agent;
 }
 
@@ -71,31 +69,58 @@ describe.skipIf(!tablesExist)("OAuth connection routes (database)", () => {
   });
 
   afterAll(async () => {
-    // Remove every workspace created by this test's sessions (cascades).
-    const tokenHashes = [...sessionTokens].map(sha256);
-    if (tokenHashes.length > 0) {
-      const sessions = await db.select().from(sessionsTable).where(inArray(sessionsTable.tokenHash, tokenHashes));
-      const ids = sessions.map((s) => s.workspaceId);
-      if (ids.length > 0) await db.delete(workspacesTable).where(inArray(workspacesTable.id, ids));
+    // Deleting workspaces cascades pending connections, OAuth states,
+    // connected accounts and workspace-membership rows; deleting users
+    // cascades their sessions.
+    if (createdWorkspaceIds.size > 0) {
+      await db.delete(workspacesTable).where(inArray(workspacesTable.id, [...createdWorkspaceIds]));
+    }
+    if (createdUserIds.size > 0) {
+      await db.delete(usersTable).where(inArray(usersTable.id, [...createdUserIds]));
     }
   });
 
-  it("reports Facebook as configured and the others as not implemented", async () => {
+  it("reports all four platforms as implemented and configured in the test environment", async () => {
     const res = await request(app).get("/api/connections/providers");
     expect(res.status).toBe(200);
-    const facebook = res.body.providers.find((p: { platform: string }) => p.platform === "facebook");
-    expect(facebook).toMatchObject({
-      configured: true,
-      implemented: true,
-      missingConfiguration: [],
-      callbackUrl: "https://socialflow.test/api/connections/facebook/callback",
-    });
-    expect(res.body.providers.filter((p: { implemented: boolean }) => !p.implemented)).toHaveLength(3);
-    expect(JSON.stringify(res.body)).not.toContain("test-app-secret");
+    expect(res.body.providers).toHaveLength(4);
+    for (const platform of ["facebook", "instagram", "linkedin", "youtube"]) {
+      const provider = res.body.providers.find((p: { platform: string }) => p.platform === platform);
+      expect(provider).toMatchObject({
+        platform,
+        configured: true,
+        implemented: true,
+        missingConfiguration: [],
+        callbackUrl: `https://socialflow.test/api/connections/${platform}/callback`,
+      });
+    }
+    const body = JSON.stringify(res.body);
+    for (const secret of ["test-app-secret", "test-ig-app-secret", "test-linkedin-secret", "test-google-secret"]) {
+      expect(body).not.toContain(secret);
+    }
+  });
+
+  it("requires sign-in to start a connection, list, verify or disconnect", async () => {
+    const anon = request.agent(app);
+    const start = await anon.get("/api/connections/facebook/start");
+    expect(start.status).toBe(302);
+    expect(start.headers.location as string).toMatch(/^\/signin\?next=/);
+
+    expect((await anon.get("/api/connections")).status).toBe(401);
+    expect((await anon.post("/api/connections/00000000-0000-0000-0000-000000000000/verify")).status).toBe(401);
+    expect((await anon.delete("/api/connections/00000000-0000-0000-0000-000000000000")).status).toBe(401);
+  });
+
+  it("resumes the connect flow's exact start URL, including query params, in the sign-in redirect", async () => {
+    const anon = request.agent(app);
+    const start = await anon.get("/api/connections/facebook/start?reconnect=abc");
+    const location = start.headers.location as string;
+    const next = new URL(location, "https://x").searchParams.get("next");
+    expect(next).toBe("/api/connections/facebook/start?reconnect=abc");
   });
 
   it("runs connect → select → list → verify → disconnect, storing tokens encrypted", async () => {
-    const agent = newAgent();
+    const agent = await newAgent();
     const { fetchMock } = installFakeGraph();
     const { state, dialog } = await startFlow(agent);
     expect(dialog.searchParams.get("redirect_uri")).toBe("https://socialflow.test/api/connections/facebook/callback");
@@ -144,7 +169,7 @@ describe.skipIf(!tablesExist)("OAuth connection routes (database)", () => {
   });
 
   it("supports multiple Pages in one workspace", async () => {
-    const agent = newAgent();
+    const agent = await newAgent();
     installFakeGraph({
       pages: [
         { id: "2001", name: "Page A", access_token: "T_A", tasks: ["CREATE_CONTENT"] },
@@ -161,12 +186,12 @@ describe.skipIf(!tablesExist)("OAuth connection routes (database)", () => {
   });
 
   it("rejects replayed, unknown and cross-browser state values", async () => {
-    const agent = newAgent();
+    const agent = await newAgent();
     installFakeGraph();
     const { state } = await startFlow(agent);
 
-    // A different browser (no session cookie) cannot use this state.
-    const other = newAgent();
+    // A different signed-in browser cannot use this state.
+    const other = await newAgent();
     expect(redirectParams(await other.get(`/api/connections/facebook/callback?code=C&state=${state}`)).get("connection_error")).toBe(
       "invalid_state",
     );
@@ -180,7 +205,7 @@ describe.skipIf(!tablesExist)("OAuth connection routes (database)", () => {
   });
 
   it("handles the user cancelling the dialog", async () => {
-    const agent = newAgent();
+    const agent = await newAgent();
     const { state } = await startFlow(agent);
     const res = await agent.get(
       `/api/connections/facebook/callback?error=access_denied&error_reason=user_denied&error_description=Permissions+error&state=${state}`,
@@ -189,7 +214,7 @@ describe.skipIf(!tablesExist)("OAuth connection routes (database)", () => {
   });
 
   it("reports declined required permissions", async () => {
-    const agent = newAgent();
+    const agent = await newAgent();
     installFakeGraph({ granted: ["pages_show_list"], declined: ["pages_manage_posts", "pages_read_engagement"] });
     const { state } = await startFlow(agent);
     const params = redirectParams(await agent.get(`/api/connections/facebook/callback?code=C&state=${state}`));
@@ -198,7 +223,7 @@ describe.skipIf(!tablesExist)("OAuth connection routes (database)", () => {
   });
 
   it("marks revoked accounts on verify and restores them via reconnect", async () => {
-    const agent = newAgent();
+    const agent = await newAgent();
     const account = await connectFirstPage(agent);
 
     installFakeGraph({ debugToken: { is_valid: false, error: { code: 190, subcode: 460, message: "Password changed" } } });
@@ -217,7 +242,7 @@ describe.skipIf(!tablesExist)("OAuth connection routes (database)", () => {
   });
 
   it("fails reconnect if the user didn't grant access to that Page again", async () => {
-    const agent = newAgent();
+    const agent = await newAgent();
     const account = await connectFirstPage(agent);
     installFakeGraph({ pages: [{ id: "9999", name: "Other", access_token: "T", tasks: ["CREATE_CONTENT"] }] });
     const { state } = await startFlow(agent, `?reconnect=${account.id}`);
@@ -226,11 +251,10 @@ describe.skipIf(!tablesExist)("OAuth connection routes (database)", () => {
     );
   });
 
-  it("isolates workspaces", async () => {
-    const owner = newAgent();
+  it("isolates workspaces between different users", async () => {
+    const owner = await newAgent();
     const account = await connectFirstPage(owner);
-    const intruder = newAgent();
-    await intruder.get("/api/connections/facebook/start"); // gets its own workspace
+    const intruder = await newAgent();
     expect((await intruder.get("/api/connections")).body.accounts).toHaveLength(0);
     expect((await intruder.post(`/api/connections/${account.id}/verify`)).status).toBe(404);
     expect((await intruder.delete(`/api/connections/${account.id}`)).status).toBe(404);
@@ -240,7 +264,8 @@ describe.skipIf(!tablesExist)("OAuth connection routes (database)", () => {
   it("refuses to start when credentials are missing instead of faking a connection", async () => {
     vi.stubEnv("FACEBOOK_APP_SECRET", "");
     try {
-      const res = await newAgent().get("/api/connections/facebook/start");
+      const agent = await newAgent();
+      const res = await agent.get("/api/connections/facebook/start");
       expect(redirectParams(res).get("connection_error")).toBe("not_configured");
       const providers = await request(app).get("/api/connections/providers");
       const facebook = providers.body.providers.find((p: { platform: string }) => p.platform === "facebook");
@@ -251,8 +276,14 @@ describe.skipIf(!tablesExist)("OAuth connection routes (database)", () => {
     }
   });
 
-  it("returns not_configured for platforms that aren't implemented yet", async () => {
-    const res = await newAgent().get("/api/connections/linkedin/start");
-    expect(redirectParams(res).get("connection_error")).toBe("not_configured");
+  it("returns not_configured for a platform missing its credentials, never a fake connection", async () => {
+    vi.stubEnv("LINKEDIN_CLIENT_SECRET", "");
+    try {
+      const agent = await newAgent();
+      const res = await agent.get("/api/connections/linkedin/start");
+      expect(redirectParams(res).get("connection_error")).toBe("not_configured");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });

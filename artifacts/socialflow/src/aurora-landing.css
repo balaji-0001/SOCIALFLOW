@@ -1,0 +1,86 @@
+/* =========================================================================
+   SocialFlow Aurora for the marketing page. The sections were designed as coloured blocks (navy, coral, pale blue,
+   solid violet); here they become one continuous charcoal surface with restrained aurora light, so the front page
+   reads as the same product as the app.
+   ========================================================================= */
+
+html[data-theme='aurora'] .sf-page { background: transparent; }
+html[data-theme='aurora'] .sf-header { background: hsl(240 14% 5% / .72); border-bottom-color: hsl(0 0% 100% / .06); }
+html[data-theme='aurora'] .sf-logo-mark { background: linear-gradient(135deg, hsl(258 90% 64%), hsl(200 90% 52%)); }
+html[data-theme='aurora'] .sf-button--primary { background: linear-gradient(180deg, hsl(255 90% 68%), hsl(251 84% 60%)); box-shadow: 0 1px 0 hsl(0 0% 100% / .22) inset, 0 8px 26px hsl(258 90% 66% / .3); }
+html[data-theme='aurora'] .sf-button--primary:hover { background: linear-gradient(180deg, hsl(255 92% 72%), hsl(251 86% 64%)); box-shadow: 0 1px 0 hsl(0 0% 100% / .25) inset, 0 10px 32px hsl(258 90% 66% / .4); }
+html[data-theme='aurora'] .sf-button--coral { background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); box-shadow: 0 10px 26px hsl(var(--accent) / .25); }
+html[data-theme='aurora'] .sf-button--ghost { background: hsl(0 0% 100% / .03); border-color: hsl(0 0% 100% / .14); }
+html[data-theme='aurora'] .sf-button--ghost:hover { background: hsl(0 0% 100% / .07); }
+html[data-theme='aurora'] .sf-dropdown { background: var(--glass-strong); backdrop-filter: blur(24px); border-color: hsl(0 0% 100% / .1); box-shadow: var(--shadow-lg); }
+html[data-theme='aurora'] .sf-dropdown a:hover { background: hsl(0 0% 100% / .06); }
+html[data-theme='aurora'] .sf-mobile-nav { background: hsl(240 13% 7% / .96); }
+html[data-theme='aurora'] .sf-kicker, html[data-theme='aurora'] .sf-eyebrow { color: hsl(var(--accent)); letter-spacing: .12em; }
+
+/* ---------- Hero: the product mock becomes a dark app window ---------- */
+html[data-theme='aurora'] .sf-hero h1 em { color: hsl(258 95% 76%); }
+html[data-theme='aurora'] .sf-hero__orbit { opacity: .5; }
+html[data-theme='aurora'] .sf-dashboard { background: hsl(240 12% 8%); border-color: hsl(0 0% 100% / .1); box-shadow: 0 40px 90px hsl(240 30% 2% / .7), 0 0 0 1px hsl(258 90% 66% / .12), 0 0 80px hsl(258 90% 66% / .12); }
+html[data-theme='aurora'] .sf-dashboard__bar { background: hsl(240 12% 6%); border-bottom: 1px solid hsl(0 0% 100% / .06); }
+html[data-theme='aurora'] .sf-dashboard__side { background: hsl(240 13% 6.5%); border-right: 1px solid hsl(0 0% 100% / .05); color: hsl(240 8% 70%); }
+html[data-theme='aurora'] .sf-dashboard__side-label { color: hsl(240 6% 46%); }
+html[data-theme='aurora'] .sf-dashboard__side-item.is-active { background: linear-gradient(90deg, hsl(258 90% 66% / .28), hsl(258 90% 66% / .08)); box-shadow: inset 0 0 0 1px hsl(258 90% 66% / .3); color: #fff; }
+html[data-theme='aurora'] .sf-dashboard__main { background: hsl(240 12% 9%); }
+html[data-theme='aurora'] .sf-dash-head h3 { color: hsl(var(--foreground)); }
+html[data-theme='aurora'] .sf-dash-tabs { border-bottom-color: hsl(0 0% 100% / .08); }
+html[data-theme='aurora'] .sf-dash-tabs span.is-active { border-bottom-color: hsl(258 90% 70%); color: hsl(258 95% 80%); }
+html[data-theme='aurora'] .sf-calendar { background: hsl(240 12% 7%); border-color: hsl(0 0% 100% / .08); }
+html[data-theme='aurora'] .sf-calendar__days { background: hsl(240 11% 10%); border-bottom-color: hsl(0 0% 100% / .07); }
+html[data-theme='aurora'] .sf-calendar__cell { border-color: hsl(0 0% 100% / .06); }
+html[data-theme='aurora'] .sf-post--blue { background: hsl(258 60% 50% / .2); border-left-color: hsl(258 90% 70%); color: hsl(258 90% 86%); }
+html[data-theme='aurora'] .sf-post--coral { background: hsl(340 70% 55% / .16); border-left-color: hsl(340 80% 65%); color: hsl(340 90% 84%); }
+html[data-theme='aurora'] .sf-post--sky { background: hsl(190 80% 50% / .15); border-left-color: hsl(190 90% 55%); color: hsl(190 90% 82%); }
+html[data-theme='aurora'] .sf-floating-note { background: linear-gradient(135deg, hsl(190 90% 52%), hsl(215 90% 58%)); color: hsl(240 20% 8%); box-shadow: 0 14px 34px hsl(190 90% 55% / .3); }
+html[data-theme='aurora'] .sf-hero__sticker { background: hsl(240 12% 10% / .9); border: 1px solid hsl(190 90% 55% / .4); color: hsl(190 90% 75%); backdrop-filter: blur(8px); }
+
+/* ---------- Proof strip ---------- */
+html[data-theme='aurora'] .sf-proof { border-color: hsl(0 0% 100% / .06); }
+html[data-theme='aurora'] .sf-proof__brand { color: hsl(240 8% 62%); opacity: .8; }
+
+/* ---------- Story: charcoal with a violet horizon instead of a navy block ---------- */
+html[data-theme='aurora'] .sf-story { background: radial-gradient(900px 420px at 80% 0%, hsl(258 90% 66% / .16), transparent 65%), radial-gradient(700px 380px at 0% 100%, hsl(190 90% 55% / .08), transparent 60%), hsl(240 13% 6%); border-bottom: 1px solid hsl(0 0% 100% / .05); border-top: 1px solid hsl(0 0% 100% / .05); }
+html[data-theme='aurora'] .sf-story::before { background-image: radial-gradient(hsl(0 0% 100% / .18) 1px, transparent 1px); opacity: .22; }
+html[data-theme='aurora'] .sf-story h2 span { color: hsl(var(--accent)); }
+html[data-theme='aurora'] .sf-story__intro { color: hsl(240 8% 68%); }
+html[data-theme='aurora'] .sf-feature-card { background: hsl(0 0% 100% / .03); border-color: hsl(0 0% 100% / .09); backdrop-filter: blur(12px); }
+html[data-theme='aurora'] .sf-feature-card--large { background: linear-gradient(160deg, hsl(258 60% 40% / .18), hsl(0 0% 100% / .02)); }
+
+/* ---------- Platforms ---------- */
+html[data-theme='aurora'] .sf-platform { background: hsl(0 0% 100% / .03); border-color: hsl(0 0% 100% / .08); }
+html[data-theme='aurora'] .sf-platform:hover { border-color: hsl(258 90% 66% / .5); box-shadow: 0 18px 40px hsl(240 30% 2% / .5), 0 0 0 1px hsl(258 90% 66% / .15); }
+
+/* ---------- Quote / numbers: was coral ---------- */
+html[data-theme='aurora'] .sf-metric-band { background: linear-gradient(120deg, hsl(258 70% 45% / .28), hsl(215 80% 45% / .14) 55%, hsl(190 90% 45% / .08)), hsl(240 13% 7%); border-bottom: 1px solid hsl(0 0% 100% / .06); border-top: 1px solid hsl(0 0% 100% / .06); color: hsl(var(--foreground)); }
+html[data-theme='aurora'] .sf-metric-band__quote { border-left-color: hsl(0 0% 100% / .14); }
+html[data-theme='aurora'] .sf-stat { border-top-color: hsl(0 0% 100% / .16); }
+html[data-theme='aurora'] .sf-stat span, html[data-theme='aurora'] .sf-metric-band__quote small { color: hsl(240 8% 68%); }
+
+/* ---------- Pricing: was pale blue ---------- */
+html[data-theme='aurora'] .sf-pricing { background: transparent; }
+html[data-theme='aurora'] .sf-pricing-card { background: hsl(240 12% 9% / .85); backdrop-filter: blur(16px); border-color: hsl(0 0% 100% / .1); box-shadow: 0 30px 70px hsl(240 30% 2% / .55), 0 0 0 1px hsl(258 90% 66% / .12), 0 0 70px hsl(258 90% 66% / .1); color: hsl(var(--foreground)); }
+html[data-theme='aurora'] .sf-pricing__note { color: hsl(var(--accent)); }
+
+/* ---------- Testimonials ---------- */
+html[data-theme='aurora'] .sf-testimonial-grid > * { background: hsl(0 0% 100% / .035); border: 1px solid hsl(0 0% 100% / .09); color: hsl(var(--foreground)); }
+html[data-theme='aurora'] .sf-round-button { border-color: hsl(0 0% 100% / .14); }
+
+/* ---------- FAQ: was light grey ---------- */
+html[data-theme='aurora'] .sf-faq { background: transparent; border-top: 1px solid hsl(0 0% 100% / .05); }
+html[data-theme='aurora'] .sf-faq__list, html[data-theme='aurora'] .sf-faq__item { border-color: hsl(0 0% 100% / .09); }
+html[data-theme='aurora'] .sf-faq__question { color: hsl(var(--foreground)); }
+
+/* ---------- Final call to action: gradient panel instead of a flat violet block ---------- */
+html[data-theme='aurora'] .sf-cta { background: radial-gradient(900px 400px at 15% 0%, hsl(258 90% 62% / .5), transparent 65%), radial-gradient(700px 360px at 100% 100%, hsl(190 90% 50% / .22), transparent 60%), hsl(240 16% 8%); border-top: 1px solid hsl(0 0% 100% / .07); color: #fff; }
+html[data-theme='aurora'] .sf-cta::after { border-color: hsl(0 0% 100% / .1); }
+
+/* ---------- Footer & modal ---------- */
+html[data-theme='aurora'] .sf-footer { background: hsl(240 14% 5%); border-top: 1px solid hsl(0 0% 100% / .06); }
+html[data-theme='aurora'] .sf-modal { background: var(--glass-strong); backdrop-filter: blur(24px); border: 1px solid hsl(0 0% 100% / .1); color: hsl(var(--foreground)); }
+html[data-theme='aurora'] .sf-modal-backdrop { background: hsl(240 30% 2% / .62); backdrop-filter: blur(4px); }
+html[data-theme='aurora'] .sf-form input, html[data-theme='aurora'] .sf-form select { background: hsl(0 0% 100% / .04); border-color: hsl(0 0% 100% / .1); color: hsl(var(--foreground)); }
+html[data-theme='aurora'] .sf-success { background: hsl(var(--success) / .12); border-color: hsl(var(--success) / .3); color: hsl(var(--success)); }

@@ -14,17 +14,24 @@ export class ProviderHttpError extends Error {
  * Calls a provider API and parses JSON. Throws ProviderHttpError on non-2xx so
  * adapters can map provider-specific error bodies. Never logs URLs, since
  * some providers (Meta) take tokens as query parameters.
+ *
+ * `preprocessRawText`, if given, runs on the raw response body before
+ * JSON.parse. Use it to quote bare-numeric ID fields that can exceed
+ * Number.MAX_SAFE_INTEGER (JSON.parse silently rounds those to the nearest
+ * representable double, corrupting the ID) — see providers/instagram.ts.
  */
 export async function requestJson(
   url: string | URL,
   init: RequestInit = {},
+  options?: { preprocessRawText?: (text: string) => string; timeoutMs?: number },
 ): Promise<unknown> {
   const response = await fetch(url, {
     ...init,
     headers: { accept: "application/json", ...init.headers },
-    signal: init.signal ?? AbortSignal.timeout(TIMEOUT_MS),
+    signal: init.signal ?? AbortSignal.timeout(options?.timeoutMs ?? TIMEOUT_MS),
   });
-  const text = await response.text();
+  let text = await response.text();
+  if (text && options?.preprocessRawText) text = options.preprocessRawText(text);
   let body: unknown = null;
   if (text) {
     try {

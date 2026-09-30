@@ -1,15 +1,39 @@
-import { useEffect, useState } from 'react';
-import { AlertTriangle, ArrowRight, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Inbox, Menu, PenLine, Play, Plus, RefreshCw, Send, ShieldCheck, Sparkles, Users, X, Zap } from 'lucide-react';
+import { lazy, Suspense, useEffect, useState, type FormEvent, useLayoutEffect } from 'react';
+import { AlertTriangle, ArrowLeft, ArrowRight, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, Eye, EyeOff, Inbox, Info, Lock, MailCheck, Menu, PenLine, Play, Plus, RefreshCw, Send, ShieldCheck, Sparkles, Users, X, Zap } from 'lucide-react';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { formatDistanceToNow } from 'date-fns';
 import { type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { type ConnectedAccount, type Platform, getGetPendingConnectionQueryKey, getListConnectedAccountsQueryKey, useCancelPendingConnection, useCompletePendingConnection, useDisconnectAccount, useGetPendingConnection, useListConnectedAccounts, useListConnectionProviders, useVerifyConnectedAccount } from '@workspace/api-client-react';
+import { type ConnectedAccount, type Platform, getAuthMeQueryKey, getGetPendingConnectionQueryKey, getListConnectedAccountsQueryKey, getListConnectionProvidersQueryKey, useAuthLogin, useAuthLogout, useAuthMe, useAuthSignup, useCancelPendingConnection, useCompletePendingConnection, useDisconnectAccount, useGetPendingConnection, useListConnectedAccounts, useListConnectionProviders, useVerifyConnectedAccount } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { applyTheme } from '@/lib/theme';
+import { ThemeToggle } from '@/app/theme-toggle';
 import NotFound from '@/pages/not-found';
+import { useConfirm } from '@/app/confirm';
+import { AccountAvatar, PLATFORM_META } from '@/app/platforms';
+import { Button, Skeleton } from '@/app/ui';
+import { useToast } from '@/hooks/use-toast';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 
 const queryClient = new QueryClient();
+
+// The signed-in app is split out so visitors to the marketing page don't download it.
+const AppShell = lazy(() => import('@/app/AppShell').then((m) => ({ default: m.AppShell })));
+const CalendarPage = lazy(() => import('@/app/calendar').then((m) => ({ default: m.CalendarPage })));
+const DashboardPage = lazy(() => import('@/app/posts-pages').then((m) => ({ default: m.DashboardPage })));
+const PostsPage = lazy(() => import('@/app/posts-pages').then((m) => ({ default: m.PostsPage })));
+const DraftsPage = lazy(() => import('@/app/posts-pages').then((m) => ({ default: m.DraftsPage })));
+const QueuePage = lazy(() => import('@/app/queue-page').then((m) => ({ default: m.QueuePage })));
+const RecurringPage = lazy(() => import('@/app/recurring-page').then((m) => ({ default: m.RecurringPage })));
+const SettingsPage = lazy(() => import('@/app/settings-page').then((m) => ({ default: m.SettingsPage })));
+const AnalyticsPage = lazy(() => import('@/app/analytics-page').then((m) => ({ default: m.AnalyticsPage })));
+const TeamPage = lazy(() => import('@/app/team-page').then((m) => ({ default: m.TeamPage })));
+const AcceptInvitePage = lazy(() => import('@/app/accept-invite').then((m) => ({ default: m.AcceptInvitePage })));
+const LibraryPage = lazy(() => import('@/app/library-page').then((m) => ({ default: m.LibraryPage })));
+const ApprovalsPage = lazy(() => import('@/app/approvals-page').then((m) => ({ default: m.ApprovalsPage })));
+const AiStudioPage = lazy(() => import('@/app/ai-page').then((m) => ({ default: m.AiStudioPage })));
 
 type ModalMode = 'trial' | 'demo';
 
@@ -43,21 +67,23 @@ function Header({ onOpen }: { onOpen: (mode: ModalMode) => void }) {
             </div>
           ))}
           <a className="sf-nav__item" href="#pricing" data-testid="link-pricing">Pricing</a>
-          <a className="sf-nav__item sf-nav__item--workspace" href="/workspace" data-testid="link-workspace">Workspace</a>
+          <a className="sf-nav__item sf-nav__item--workspace" href="/dashboard" data-testid="link-workspace">Workspace</a>
         </nav>
         <div className="sf-header__actions">
-          <button className="sf-login" onClick={() => onOpen('demo')} data-testid="button-login">Sign in</button>
-          <button className="sf-button sf-button--primary sf-button--small" onClick={() => onOpen('trial')} data-testid="button-header-trial">Start free</button>
+          <ThemeToggle />
+          <a className="sf-login" href="/signin" data-testid="button-login">Sign in</a>
+          <a className="sf-button sf-button--primary sf-button--small" href="/signin?mode=signup" data-testid="button-header-trial">Start free</a>
         </div>
         <button className="sf-menu-toggle" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle menu" data-testid="button-mobile-menu">
           {mobileOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
       {mobileOpen && <div className="sf-mobile-nav">
+        <div className="sf-mobile-nav__theme"><span>Appearance</span><ThemeToggle /></div>
         {menuItems.map((item) => <div key={item.label}><button onClick={() => setOpenMenu(openMenu === item.label ? null : item.label)} data-testid={`button-mobile-${item.label.toLowerCase()}`}>{item.label}<ChevronDown size={13} /></button>{openMenu === item.label && <div className="sf-mobile-nav__links">{item.links.map(([title]) => <a key={title} href="#product" onClick={closeMenu}>{title}</a>)}</div>}</div>)}
          <a href="#pricing" onClick={closeMenu} data-testid="link-mobile-pricing">Pricing</a>
-         <a href="/workspace" onClick={closeMenu} data-testid="link-mobile-workspace">Workspace</a>
-        <button onClick={() => { closeMenu(); onOpen('trial'); }} data-testid="button-mobile-trial">Start free</button>
+         <a href="/dashboard" onClick={closeMenu} data-testid="link-mobile-workspace">Workspace</a>
+        <a href="/signin?mode=signup" onClick={closeMenu} data-testid="button-mobile-trial">Start free</a>
       </div>}
     </header>
   );
@@ -248,20 +274,43 @@ function useConnectionResult(): { notice: Notice | null; pendingId: string | nul
   return { notice, pendingId, clearPending: () => setPendingId(null), setNotice };
 }
 
-function AccountRow({ account, busy, onVerify, onDisconnect }: { account: ConnectedAccount; busy: boolean; onVerify: () => void; onDisconnect: () => void }) {
+const statusTone: Record<ConnectedAccount['status'], 'success' | 'warning' | 'error'> = { active: 'success', expired: 'warning', revoked: 'error', missing_permissions: 'warning', error: 'error' };
+
+/** Shows "Connecting…" after an OAuth start until the page leaves, regains focus, or a short timeout passes. */
+function useConnecting<T>() {
+  const [value, setValue] = useState<T | null>(null);
+  useEffect(() => {
+    if (value === null) return;
+    const reset = () => setValue(null);
+    const timer = window.setTimeout(reset, 8000);
+    window.addEventListener('focus', reset);
+    window.addEventListener('pageshow', reset);
+    return () => { window.clearTimeout(timer); window.removeEventListener('focus', reset); window.removeEventListener('pageshow', reset); };
+  }, [value]);
+  return [value, setValue] as const;
+}
+
+const ACCOUNT_TYPE_LABEL: Record<string, string> = {
+  facebook_page: 'Facebook Page', instagram_business: 'Business account', instagram_creator: 'Creator account',
+  linkedin_member: 'Personal profile', linkedin_organization: 'Organization page', youtube_channel: 'YouTube channel',
+};
+
+function AccountRow({ account, busy, checking, onVerify, onDisconnect }: { account: ConnectedAccount; busy: boolean; checking: boolean; onVerify: () => void; onDisconnect: () => void }) {
   const healthy = account.status === 'active';
-  return <li className={`sf-connected ${healthy ? '' : 'is-unhealthy'}`} data-testid={`row-account-${account.id}`}>
-    {account.avatarUrl ? <img className="sf-connected__avatar" src={account.avatarUrl} alt="" /> : <span className="sf-connected__avatar">{account.displayName.slice(0, 1)}</span>}
-    <div className="sf-connected__copy">
-      <strong>{account.displayName}</strong>
-      <span className={`sf-connected__status sf-connected__status--${account.status}`}>{healthy ? <Check size={11} /> : <AlertTriangle size={11} />} {statusCopy[account.status]}</span>
-      {!healthy && account.statusDetail && <span className="sf-connected__detail">{account.statusDetail}</span>}
+  const [connecting, setConnecting] = useConnecting<true>();
+  return <li className={`sfa-conn ${healthy ? '' : 'is-warn'}`} data-testid={`row-account-${account.id}`}>
+    <AccountAvatar account={account} size={36} />
+    <div className="sfa-conn__copy">
+      <strong title={account.displayName}>{account.displayName}</strong>
+      <span className={`sfa-pill sfa-pill--${statusTone[account.status]}`}>{statusCopy[account.status]}</span>
+      <span className="sfa-conn__meta" data-testid={`meta-account-${account.id}`}>{ACCOUNT_TYPE_LABEL[account.accountType] ?? 'Account'} · {account.lastVerifiedAt ? `Checked ${formatDistanceToNow(new Date(account.lastVerifiedAt), { addSuffix: true })}` : 'Not checked yet'}</span>
+      {!healthy && account.statusDetail && <span className="sfa-conn__detail">{account.statusDetail}</span>}
     </div>
-    <div className="sf-connected__actions">
+    <div className="sfa-conn__actions">
       {healthy
-        ? <button onClick={onVerify} disabled={busy} title="Check the token with the provider" data-testid={`button-verify-${account.id}`}><RefreshCw size={13} /> Check</button>
-        : <button className="is-primary" onClick={() => startConnection(account.platform, account.id)} data-testid={`button-reconnect-${account.id}`}><RefreshCw size={13} /> Reconnect</button>}
-      <button onClick={onDisconnect} disabled={busy} data-testid={`button-disconnect-${account.id}`}><X size={13} /> Disconnect</button>
+        ? <Button size="sm" variant="secondary" icon={<RefreshCw size={13} />} loading={checking} onClick={onVerify} disabled={busy} title="Check the token with the provider" data-testid={`button-verify-${account.id}`}>Check</Button>
+        : <Button size="sm" variant="primary" icon={<RefreshCw size={13} />} loading={connecting !== null} onClick={() => { setConnecting(true); startConnection(account.platform, account.id); }} data-testid={`button-reconnect-${account.id}`}>{connecting ? 'Connecting…' : 'Reconnect'}</Button>}
+      <Button size="sm" variant="ghost" icon={<X size={13} />} onClick={onDisconnect} disabled={busy} data-testid={`button-disconnect-${account.id}`}>Disconnect</Button>
     </div>
   </li>;
 }
@@ -276,48 +325,295 @@ function AccountPicker({ pendingId, onDone, onClose }: { pendingId: string; onDo
   const close = () => { cancel.mutate({ pendingId }); onClose(); };
   const name = data ? platformNames[data.platform] : '';
 
-  return <div className="sf-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
-    <div className="sf-modal sf-picker" role="dialog" aria-modal="true" aria-labelledby="picker-title">
-      <button className="sf-modal__close" onClick={close} aria-label="Close dialog" data-testid="button-close-picker"><X size={18} /></button>
-      <span className="sf-kicker">Choose accounts</span>
-      <h2 id="picker-title">Which {data ? accountNouns[data.platform] : 'accounts'} should Socialflow manage?</h2>
-      {isLoading && <p>Loading the accounts you shared…</p>}
-      {error && <p className="sf-picker__error">This selection expired. Start the connection again.</p>}
-      {data && <>
-        <p>These came back from {name}. Pick the ones you want in this workspace — you can add or remove them later.</p>
-        <ul className="sf-picker__list">
-          {data.candidates.map((candidate) => {
-            const disabled = !candidate.selectable;
-            return <li key={candidate.externalAccountId}>
-              <label className={disabled ? 'is-disabled' : ''} data-testid={`option-candidate-${candidate.externalAccountId}`}>
-                <input type="checkbox" disabled={disabled} checked={choices.includes(candidate.externalAccountId)} onChange={() => toggle(candidate.externalAccountId)} />
-                {candidate.avatarUrl ? <img src={candidate.avatarUrl} alt="" /> : <span className="sf-connected__avatar">{candidate.displayName.slice(0, 1)}</span>}
-                <span className="sf-picker__copy"><strong>{candidate.displayName}</strong>
-                  {candidate.alreadyConnected && <small>Already connected — selecting it refreshes its token.</small>}
-                  {candidate.warnings.map((warning) => <small className="is-warning" key={warning}>{warning}</small>)}
-                </span>
-              </label>
-            </li>;
-          })}
-        </ul>
-        {complete.error && <p className="sf-picker__error">{complete.error.data?.message ?? 'Could not connect those accounts.'}</p>}
-        <button className="sf-button sf-button--primary" disabled={choices.length === 0 || complete.isPending} data-testid="button-confirm-accounts"
-          onClick={() => complete.mutate({ pendingId, data: { externalAccountIds: choices } }, { onSuccess: (result) => onDone(result.accounts.length, data.platform) })}>
-          {complete.isPending ? 'Connecting…' : `Connect ${choices.length} ${choices.length === 1 ? 'account' : 'accounts'}`} <ArrowRight size={15} />
-        </button>
-      </>}
+  return <DialogPrimitive.Root open onOpenChange={(open) => { if (!open) close(); }}>
+    <DialogPrimitive.Portal>
+      <DialogPrimitive.Overlay className="sfa-overlay" />
+      <DialogPrimitive.Content className="sfa-dialog sfa-picker" aria-describedby={undefined} data-testid="dialog-picker"
+        onOpenAutoFocus={(event) => { event.preventDefault(); (event.currentTarget as HTMLElement).focus(); }}>
+        <DialogPrimitive.Close asChild><button className="sfa-iconbtn sfa-dialog__close" aria-label="Close dialog" data-testid="button-close-picker"><X size={18} /></button></DialogPrimitive.Close>
+        {data && <span className="sfa-mark sfa-mark--lg" style={{ background: PLATFORM_META[data.platform].color }} aria-hidden="true">{(() => { const Icon = PLATFORM_META[data.platform].Icon; return <Icon size={22} />; })()}</span>}
+        <span className="sfa-eyebrow">Choose accounts</span>
+        <DialogPrimitive.Title className="sfa-dialog__title">Which {data ? accountNouns[data.platform] : 'accounts'} should Socialflow manage?</DialogPrimitive.Title>
+        {isLoading && <>
+          <p className="sfa-dialog__desc">Loading the accounts you shared…</p>
+          <ul className="sfa-picker__list" aria-busy="true">{[0, 1, 2].map((i) => <li key={i} className="sfa-picker__skel"><Skeleton width={18} height={18} radius={5} /><Skeleton width={36} height={36} radius={999} /><Skeleton width="55%" /></li>)}</ul>
+        </>}
+        {error && <div className="sfa-alert" role="alert"><CircleAlert size={15} /> <span>This selection expired. Start the connection again.</span></div>}
+        {data && <>
+          <p className="sfa-dialog__desc">These came back from {name}. Pick the ones you want in this workspace — you can add or remove them later.</p>
+          <ul className="sfa-picker__list">
+            {data.candidates.map((candidate) => {
+              const disabled = !candidate.selectable;
+              const on = choices.includes(candidate.externalAccountId);
+              return <li key={candidate.externalAccountId}>
+                <label className={`sfa-picker__item ${disabled ? 'is-disabled' : ''} ${on ? 'is-on' : ''}`} data-testid={`option-candidate-${candidate.externalAccountId}`}>
+                  <input type="checkbox" disabled={disabled} checked={on} onChange={() => toggle(candidate.externalAccountId)} />
+                  <AccountAvatar account={{ displayName: candidate.displayName, avatarUrl: candidate.avatarUrl, platform: data.platform }} size={36} />
+                  <span className="sfa-picker__copy"><strong>{candidate.displayName}</strong>
+                    {candidate.alreadyConnected && <small>Already connected — selecting it refreshes its token.</small>}
+                    {candidate.warnings.map((warning) => <small className="is-warning" key={warning}>{warning}</small>)}
+                  </span>
+                </label>
+              </li>;
+            })}
+          </ul>
+          {complete.error && <div className="sfa-alert" role="alert"><CircleAlert size={15} /> <span>{complete.error.data?.message ?? 'Could not connect those accounts.'}</span></div>}
+          <Button variant="primary" size="lg" className="sfa-picker__confirm" disabled={choices.length === 0} loading={complete.isPending} data-testid="button-confirm-accounts"
+            onClick={() => complete.mutate({ pendingId, data: { externalAccountIds: choices } }, { onSuccess: (result) => onDone(result.accounts.length, data.platform) })}>
+            {complete.isPending ? 'Connecting…' : `Connect ${choices.length} ${choices.length === 1 ? 'account' : 'accounts'}`} {!complete.isPending && <ArrowRight size={15} />}
+          </Button>
+        </>}
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+  </DialogPrimitive.Root>;
+}
+
+type AuthMode = 'signin' | 'signup' | 'forgot';
+
+function AuthBrand() {
+  return (
+   <aside className="sfa-auth__brand" aria-label="About Socialflow">
+      <span className="sfa-auth__tag">Social media management</span>
+      <div>
+        <h2>Plan once. <em>Show up everywhere.</em></h2>
+        <p>Socialflow brings planning, publishing, and performance into one clear rhythm — so your best ideas reach people while they still feel fresh.</p>
+      </div>
+      <ul className="sfa-auth__points">
+        <li><ShieldCheck size={16} /> Accounts connect through each platform's official OAuth. Socialflow never sees your passwords.</li>
+        <li><Lock size={16} /> Tokens encrypted, private to your workspace</li>
+        <li><CalendarDays size={16} /> Calendar, drafts and scheduling in one place</li>
+      </ul>
+    </aside>
+  );
+}
+
+/** Calls one of the password-reset endpoints and returns the server's message, or throws with a readable one. */
+async function postAuth(path: string, body: Record<string, string>): Promise<string> {
+  let response: Response;
+  try {
+    response = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  } catch {
+    throw new Error('Could not reach the server. Check your connection and try again.');
+  }
+  const data = (await response.json().catch(() => null)) as { message?: string } | null;
+  if (!response.ok) throw new Error(data?.message ?? 'Something went wrong. Please try again.');
+  return data?.message ?? 'Done.';
+}
+
+/** "Forgot password": asks for the email and has the server send a reset link. */
+function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
+  const [error, setError] = useState<string | null>(null);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    setBusy(true);
+    const email = String(new FormData(event.currentTarget).get('email') ?? '').trim();
+    try {
+      await postAuth('/api/auth/forgot-password', { email });
+      setSentTo(email);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (sentTo) {
+    return <div className="sfa-auth__done" role="status" data-testid="status-forgot-sent">
+      <MailCheck size={22} aria-hidden />
+      <strong>Check your email</strong>
+      <p>If an account exists for <b>{sentTo}</b>, we've sent a link to reset the password. It works once and expires in an hour. Check spam if you don't see it.</p>
+      <button type="button" className="sfa-linkbtn" onClick={onBack} data-testid="button-forgot-back">Back to sign in</button>
+    </div>;
+  }
+  return <form className="sfa-form" onSubmit={onSubmit} aria-labelledby="auth-title">
+    <div className="sfa-field">
+      <label htmlFor="forgot-email">Email</label>
+      <input id="forgot-email" className="sfa-input" type="email" name="email" placeholder="you@yourcompany.com" required autoComplete="email" data-testid="input-forgot-email" />
     </div>
+    {error && <div className="sfa-alert" role="alert" data-testid="status-forgot-error"><CircleAlert size={15} /> <span>{error}</span></div>}
+    <Button type="submit" variant="primary" size="lg" loading={busy} className="sfa-auth__submit" data-testid="button-forgot-submit">
+      {busy ? 'Sending…' : 'Send reset link'} {!busy && <ArrowRight size={15} />}
+    </Button>
+  </form>;
+}
+
+/** The page the emailed link opens: choose a new password. */
+function ResetPassword() {
+  const token = new URLSearchParams(window.location.search).get('token') ?? '';
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  useEffect(() => { document.title = 'Choose a new password · Socialflow'; }, []);
+
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    const form = new FormData(event.currentTarget);
+    const password = String(form.get('password') ?? '');
+    if (password !== String(form.get('confirm') ?? '')) { setError('The two passwords don’t match.'); return; }
+    setBusy(true);
+    try {
+      await postAuth('/api/auth/reset-password', { token, password });
+      setDone(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return <div className="sfa-auth">
+    <main className="sfa-auth__panel">
+      <a className="sfa-auth__back" href="/signin"><ArrowLeft size={14} /> Back to sign in</a>
+      <ThemeToggle className="sfa-themetoggle--corner" />
+      <div className="sfa-auth__card">
+        <a href="/" className="sfa-side__logo" aria-label="Socialflow home"><span className="sf-logo-mark"><Send size={14} strokeWidth={2.5} /></span><span>socialflow</span></a>
+        {done ? <div className="sfa-auth__done" role="status" data-testid="status-reset-done">
+          <MailCheck size={22} aria-hidden />
+          <strong>Password changed</strong>
+          <p>You've been signed out everywhere. Sign in with your new password.</p>
+          <a className="sf-button sf-button--primary" href="/signin" data-testid="link-reset-signin">Go to sign in</a>
+        </div> : !token ? <>
+          <h1 id="auth-title">This link isn't valid.</h1>
+          <p>Open the link from the reset email, or <a href="/signin" className="sfa-linkbtn">request a new one</a>.</p>
+        </> : <>
+          <span className="sfa-eyebrow">Reset password</span>
+          <h1 id="auth-title">Choose a new password.</h1>
+          <p>Use 8 or more characters.</p>
+          <form className="sfa-form" onSubmit={onSubmit} aria-labelledby="auth-title">
+            <div className="sfa-field">
+              <label htmlFor="reset-password">New password</label>
+              <div className="sfa-field__wrap">
+                <input id="reset-password" className="sfa-input" type={showPassword ? 'text' : 'password'} name="password" minLength={8} required autoComplete="new-password" data-testid="input-reset-password" />
+                <button type="button" className="sfa-field__toggle" onClick={() => setShowPassword((shown) => !shown)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword}>
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+            <div className="sfa-field">
+              <label htmlFor="reset-confirm">Confirm new password</label>
+              <input id="reset-confirm" className="sfa-input" type={showPassword ? 'text' : 'password'} name="confirm" minLength={8} required autoComplete="new-password" data-testid="input-reset-confirm" />
+            </div>
+            {error && <div className="sfa-alert" role="alert" data-testid="status-reset-error"><CircleAlert size={15} /> <span>{error} {/expired|invalid/.test(error) && <a href="/signin" className="sfa-linkbtn">Request a new link</a>}</span></div>}
+            <Button type="submit" variant="primary" size="lg" loading={busy} className="sfa-auth__submit" data-testid="button-reset-submit">
+              {busy ? 'Saving…' : 'Change password'} {!busy && <ArrowRight size={15} />}
+            </Button>
+          </form>
+        </>}
+      </div>
+    </main>
+    <AuthBrand />
   </div>;
 }
 
-function Workspace() {
+/** Reads `?next=`, the path to resume after signing in. A `/api/...` value
+ * resumes a server-side OAuth start redirect (see connections.ts) and needs
+ * a full navigation, not client-side routing. */
+function useNextPath(): { next: string; goNext: () => void } {
+  const [, navigate] = useLocation();
   const queryClient = useQueryClient();
+  const next = new URLSearchParams(window.location.search).get('next') || '/dashboard';
+  const goNext = () => {
+    queryClient.invalidateQueries({ queryKey: getAuthMeQueryKey() });
+    if (next.startsWith('/api/')) window.location.assign(next);
+    else navigate(next);
+  };
+  return { next, goNext };
+}
+
+function SignIn() {
+  const [mode, setMode] = useState<AuthMode>(() => (new URLSearchParams(window.location.search).get('mode') === 'signup' ? 'signup' : 'signin'));
+  const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const { goNext } = useNextPath();
+
+  const signup = useAuthSignup({ mutation: { onSuccess: goNext, onError: (err) => setError(err.data?.message ?? 'Could not create your account.') } });
+  const login = useAuthLogin({ mutation: { onSuccess: goNext, onError: (err) => setError(err.data?.message ?? 'Incorrect email or password.') } });
+  const busy = signup.isPending || login.isPending;
+  const isSignup = mode === 'signup';
+  const isForgot = mode === 'forgot';
+
+  useEffect(() => { document.title = `${isSignup ? 'Create your account' : isForgot ? 'Reset your password' : 'Sign in'} · Socialflow`; }, [isSignup, isForgot]);
+
+  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get('email') ?? '').trim();
+    const password = String(form.get('password') ?? '');
+    if (isSignup) {
+      const displayName = String(form.get('displayName') ?? '').trim();
+      signup.mutate({ data: { email, password, ...(displayName ? { displayName } : {}) } });
+    } else {
+      login.mutate({ data: { email, password } });
+    }
+  };
+
+  return <div className="sfa-auth">
+    <main className="sfa-auth__panel">
+      <a className="sfa-auth__back" href="/"><ArrowLeft size={14} /> Back to site</a>
+      <ThemeToggle className="sfa-themetoggle--corner" />
+      <div className="sfa-auth__card">
+        <a href="/" className="sfa-side__logo" aria-label="Socialflow home"><span className="sf-logo-mark"><Send size={14} strokeWidth={2.5} /></span><span>socialflow</span></a>
+        <span className="sfa-eyebrow">{isSignup ? 'Create your workspace' : isForgot ? 'Forgot your password?' : 'Welcome back'}</span>
+        <h1 id="auth-title">{isSignup ? 'Set up Socialflow.' : isForgot ? 'Reset your password.' : 'Sign in to Socialflow.'}</h1>
+        <p>{isSignup ? 'One account, one workspace. Connect your channels right after.' : isForgot ? 'Enter your email and we’ll send you a link to choose a new password.' : 'Sign in to manage your connected channels.'}</p>
+        {isForgot ? <ForgotPasswordForm onBack={() => { setMode('signin'); setError(null); }} /> : <form className="sfa-form" onSubmit={onSubmit} aria-labelledby="auth-title">
+          {isSignup && <div className="sfa-field">
+            <label htmlFor="auth-name">Name <span className="sfa-muted">(optional)</span></label>
+            <input id="auth-name" className="sfa-input" type="text" name="displayName" placeholder="Ada Lovelace" autoComplete="name" data-testid="input-display-name" />
+          </div>}
+          <div className="sfa-field">
+            <label htmlFor="auth-email">Work email</label>
+            <input id="auth-email" className="sfa-input" type="email" name="email" placeholder="you@yourcompany.com" required autoComplete="email" data-testid="input-auth-email" />
+          </div>
+          <div className="sfa-field">
+            <div className="sfa-field__row">
+              <label htmlFor="auth-password">Password</label>
+              {!isSignup && <button type="button" className="sfa-linkbtn" onClick={() => { setMode('forgot'); setError(null); }} data-testid="button-forgot-password">Forgot password?</button>}
+            </div>
+            <div className="sfa-field__wrap">
+              <input id="auth-password" className="sfa-input" type={showPassword ? 'text' : 'password'} name="password" minLength={8} required placeholder="At least 8 characters"
+                autoComplete={isSignup ? 'new-password' : 'current-password'} aria-describedby={isSignup ? 'auth-password-hint' : undefined} data-testid="input-auth-password" />
+              <button type="button" className="sfa-field__toggle" onClick={() => setShowPassword((shown) => !shown)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword}>
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            {isSignup && <span id="auth-password-hint" className="sfa-field__hint">Use 8 or more characters.</span>}
+          </div>
+          {error && <div className="sfa-alert" role="alert" data-testid="status-auth-error"><CircleAlert size={15} /> <span>{error}</span></div>}
+          <Button type="submit" variant="primary" size="lg" loading={busy} className="sfa-auth__submit" data-testid="button-auth-submit">
+            {busy ? 'Please wait…' : isSignup ? 'Create account' : 'Sign in'} {!busy && <ArrowRight size={15} />}
+          </Button>
+        </form>}
+        <p className="sfa-auth__switch">
+          {isSignup ? 'Already have an account? ' : isForgot ? 'Remembered it? ' : "Don't have an account? "}
+          <button type="button" className="sfa-linkbtn" onClick={() => { setMode(isSignup || isForgot ? 'signin' : 'signup'); setError(null); }} data-testid="button-toggle-auth-mode">
+            {isSignup || isForgot ? 'Sign in' : 'Create one'}
+          </button>
+        </p>
+      </div>
+    </main>
+    <AuthBrand />
+  </div>;
+}
+
+/** The connect-your-accounts page. Rendered inside AppShell, which has already confirmed the user is signed in. */
+function AccountsContent() {
+  const queryClient = useQueryClient();
+  const confirm = useConfirm();
+  const { toast } = useToast();
   const { notice, setNotice, pendingId, clearPending } = useConnectionResult();
-  const { data: providerData } = useListConnectionProviders();
-  const { data: accountData, isLoading } = useListConnectedAccounts();
+  const [connecting, setConnecting] = useConnecting<ChannelKey>();
+
+  const { data: providerData } = useListConnectionProviders({ query: { queryKey: getListConnectionProvidersQueryKey() } });
+  const { data: accountData, isLoading } = useListConnectedAccounts({ query: { queryKey: getListConnectedAccountsQueryKey() } });
   const refresh = () => queryClient.invalidateQueries({ queryKey: getListConnectedAccountsQueryKey() });
-  const disconnect = useDisconnectAccount({ mutation: { onSuccess: refresh } });
-  const verify = useVerifyConnectedAccount({ mutation: { onSuccess: refresh, onError: (error) => setNotice({ tone: 'error', text: error.data?.message ?? 'The check failed.' }) } });
+  const disconnect = useDisconnectAccount({ mutation: { onSuccess: () => { refresh(); toast({ title: 'Account disconnected' }); } } });
+  const verify = useVerifyConnectedAccount({ mutation: { onSuccess: () => { refresh(); toast({ title: 'Connection checked' }); }, onError: (error) => setNotice({ tone: 'error', text: error.data?.message ?? 'The check failed.' }) } });
   const accounts = accountData?.accounts ?? [];
   const providers = new Map((providerData?.providers ?? []).map((provider) => [provider.platform, provider]));
   const connectedCount = accounts.length;
@@ -330,89 +626,96 @@ function Workspace() {
     return () => window.removeEventListener('focus', onFocus);
   }, []);
 
-  return <div className="sf-workspace">
-    <header className="sf-workspace__header">
-      <div className="sf-container sf-workspace__header-inner">
-        <Logo />
-        <div className="sf-workspace__header-actions">
-          <span className="sf-workspace__avatar">NS</span>
-          <a className="sf-workspace__back" href="/">Back to site <ArrowUpRight size={14} /></a>
+  return <div className="sfa-page" data-testid="page-accounts">
+    {isEmbedded && <div className="sfa-banner sfa-banner--info">
+      <Info size={16} />
+      <span>
+        Preview mode: Social account logins open in a new tab because Meta forbids login inside embedded panels. You can also{' '}
+        <a href={window.location.href} target="_blank" rel="noopener noreferrer">open Socialflow in a full tab <ArrowUpRight size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /></a>
+      </span>
+    </div>}
+    {notice
+      ? <div className={`sfa-banner sfa-banner--${notice.tone}`} role="status" data-testid="status-connection">
+          {notice.tone === 'success' ? <CircleCheck size={16} /> : <AlertTriangle size={16} />}<span>{notice.text}</span>
+          <button className="sfa-iconbtn sfa-banner__close" onClick={() => setNotice(null)} aria-label="Dismiss"><X size={14} /></button>
         </div>
+      : <div className="sfa-banner sfa-banner--neutral"><ShieldCheck size={16} /><span>Accounts connect through each platform's official OAuth. Socialflow never sees your passwords.</span></div>}
+
+    <header className="sfa-pageheader">
+      <div>
+        <span className="sfa-eyebrow">Workspace setup</span>
+        <h1>Bring your channels <em>into the flow.</em></h1>
+        <p>Connect the places your audience already checks in. Once they are together, planning gets clearer and publishing gets lighter.</p>
+      </div>
+      <div className="sfa-summary" data-testid="stat-connected">
+        <span>Connected accounts</span>
+        <strong className="sfa-num">{isLoading ? '–' : connectedCount}</strong>
+        <small>{connectedCount === 0 ? 'Start with your most important channel.' : 'Your workspace is taking shape.'}</small>
       </div>
     </header>
-    <main className="sf-workspace__main">
-      <div className="sf-container">
-        {isEmbedded && (
-          <div className="sf-workspace__notice" style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e3a8a', marginBottom: '1rem' }}>
-            <span className="sf-workspace__notice-dot" style={{ background: '#2563eb' }} />
-            <span>
-              Preview mode: Social account logins open in a new tab because Meta forbids login inside embedded panels. You can also{' '}
-              <a href={window.location.href} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline', fontWeight: 600 }}>
-                open Socialflow in a full tab <ArrowUpRight size={13} style={{ display: 'inline', verticalAlign: 'middle' }} />
-              </a>
-            </span>
-          </div>
-        )}
-        {notice
-          ? <div className={`sf-workspace__notice sf-workspace__notice--${notice.tone}`} role="status" data-testid="status-connection"><span className="sf-workspace__notice-dot" /> {notice.text}<button onClick={() => setNotice(null)} aria-label="Dismiss"><X size={14} /></button></div>
-          : <div className="sf-workspace__notice"><span className="sf-workspace__notice-dot" /> Accounts connect through each platform's official OAuth. Socialflow never sees your passwords.</div>}
-        <div className="sf-workspace__intro">
-          <div>
-            <span className="sf-kicker">Workspace setup</span>
-            <h1 className="sf-display">Bring your channels<br /><em>into the flow.</em></h1>
-            <p>Connect the places your audience already checks in. Once they are together, planning gets clearer and publishing gets lighter.</p>
-          </div>
-          <div className="sf-workspace__summary">
-            <span className="sf-workspace__summary-label">Connected accounts</span>
-            <strong>{connectedCount}</strong>
-            <span className="sf-workspace__summary-note">{connectedCount === 0 ? 'Start with your most important channel.' : 'Your workspace is taking shape.'}</span>
-          </div>
-        </div>
-        <section className="sf-accounts" aria-labelledby="accounts-title">
-          <div className="sf-accounts__head">
-            <div><span className="sf-kicker">Your channels</span><h2 id="accounts-title">Connect your social accounts.</h2></div>
-            <span className="sf-accounts__secure"><ShieldCheck size={13} /> Tokens encrypted, private to your workspace</span>
-          </div>
-          <div className="sf-account-grid">
-            {channelOptions.map((channel) => {
-              const provider = channel.key === 'x' ? undefined : providers.get(channel.key);
-              const own = accounts.filter((account) => account.platform === channel.key);
-              const ready = Boolean(provider?.configured);
-              let label = 'Not available yet';
-              if (provider?.implemented && !ready) label = 'Setup required';
-              if (ready) label = own.length > 0 ? 'Add another' : 'Connect account';
-              if (isLoading && ready) label = 'Checking…';
-              return <article className={`sf-account-card ${own.length > 0 ? 'is-connected' : ''}`} key={channel.key} data-testid={`card-account-${channel.key}`}>
-                <div className="sf-account-card__top">
-                  <div className={`sf-account-mark sf-account-mark--${channel.tone}`}>{channel.mark}</div>
-                  <div className="sf-account-card__copy">
-                    <div className="sf-account-card__title"><h3>{channel.name}</h3>{own.length > 0 && <span className="sf-account-status"><Check size={12} /> {own.length} connected</span>}</div>
-                    <p>{channel.description}</p>
-                    {provider?.implemented && !ready && <p className="sf-account-card__setup">Server setup needed: {provider.missingConfiguration.join(', ')}. See docs/oauth-setup.md.</p>}
-                    {provider && !provider.implemented && <p className="sf-account-card__setup">Coming next — the connection architecture is ready for this platform.</p>}
-                  </div>
-                </div>
-                {own.length > 0 && <ul className="sf-connected-list">
-                  {own.map((account) => <AccountRow key={account.id} account={account} busy={busy}
-                    onVerify={() => verify.mutate({ accountId: account.id })}
-                    onDisconnect={() => { if (window.confirm(`Disconnect ${account.displayName}? Its stored tokens will be deleted.`)) disconnect.mutate({ accountId: account.id }); }} />)}
-                </ul>}
-                <button className={`sf-account-card__button ${own.length > 0 ? 'is-connected' : ''}`} disabled={!ready || isLoading} onClick={() => startConnection(channel.key as Platform)} data-testid={`button-account-${channel.key}`}>
-                  {own.length > 0 && ready ? <Plus size={14} /> : null} {label} {own.length === 0 && ready ? <ArrowRight size={14} /> : null}
-                </button>
-              </article>;
-            })}
-          </div>
-        </section>
-        <section className="sf-workspace__next">
-          <div><span className="sf-kicker">Next up</span><h2>Once your channels are in, your calendar is ready.</h2><p>See every post, approval, and conversation in one connected view.</p></div>
-          <a className="sf-button sf-button--primary" href="/#product">Explore the workspace <ArrowRight size={15} /></a>
-        </section>
+
+    <section aria-labelledby="accounts-title">
+      <div className="sfa-sectionhead">
+        <div><span className="sfa-eyebrow">Your channels</span><h2 id="accounts-title">Connect your social accounts.</h2></div>
+        <span className="sfa-secure"><ShieldCheck size={14} /> Tokens encrypted, private to your workspace</span>
       </div>
-    </main>
+      <div className="sfa-channels">
+        {channelOptions.map((channel) => {
+          const provider = channel.key === 'x' ? undefined : providers.get(channel.key);
+          const own = accounts.filter((account) => account.platform === channel.key);
+          const ready = Boolean(provider?.configured);
+          let label = 'Not available yet';
+          if (provider?.implemented && !ready) label = 'Setup required';
+          if (ready) label = own.length > 0 ? 'Add another' : 'Connect account';
+          if (isLoading && ready) label = 'Checking…';
+          const meta = channel.key === 'x' ? null : PLATFORM_META[channel.key];
+          const Icon = meta?.Icon;
+          const isConnecting = connecting === channel.key;
+          return <article className={`sfa-channel ${own.length > 0 ? 'is-connected' : ''}`} key={channel.key} data-testid={`card-account-${channel.key}`}>
+            <div className="sfa-channel__top">
+              <span className="sfa-mark" style={{ background: meta?.color ?? 'hsl(240 8% 22%)' }} aria-hidden="true">{Icon ? <Icon size={20} /> : channel.mark}</span>
+              <div className="sfa-channel__copy">
+                <div className="sfa-channel__title">
+                  <h3>{channel.name}</h3>
+                  {own.length > 0 && <span className="sfa-pill sfa-pill--success">{own.length} connected</span>}
+                  {provider?.implemented && !ready && <span className="sfa-pill sfa-pill--warning">Setup required</span>}
+                  {(channel.key === 'x' || (provider && !provider.implemented)) && <span className="sfa-pill sfa-pill--draft">Coming soon</span>}
+                </div>
+                <p>{channel.description}</p>
+              </div>
+            </div>
+            {provider?.implemented && !ready && <p className="sfa-channel__setup">Server setup needed: {provider.missingConfiguration.join(', ')}. See docs/oauth-setup.md.</p>}
+            {provider && !provider.implemented && <p className="sfa-channel__setup">Coming next — the connection architecture is ready for this platform.</p>}
+            {own.length > 0 && <ul className="sfa-connlist">
+              {own.map((account) => <AccountRow key={account.id} account={account} busy={busy}
+                checking={verify.isPending && verify.variables?.accountId === account.id}
+                onVerify={() => verify.mutate({ accountId: account.id })}
+                onDisconnect={async () => {
+                  if (await confirm({ title: `Disconnect ${account.displayName}?`, description: 'Its stored tokens will be deleted.', confirmLabel: 'Disconnect', destructive: true })) disconnect.mutate({ accountId: account.id });
+                }} />)}
+            </ul>}
+            <Button variant={own.length > 0 ? 'secondary' : 'primary'} className="sfa-channel__cta" disabled={!ready || isLoading} loading={isConnecting || (isLoading && ready)}
+              icon={own.length > 0 && ready && !isConnecting && !isLoading ? <Plus size={14} /> : undefined}
+              onClick={() => { setConnecting(channel.key); startConnection(channel.key as Platform); }} data-testid={`button-account-${channel.key}`}>
+              {isConnecting ? 'Connecting…' : label} {own.length === 0 && ready && !isConnecting && !isLoading ? <ArrowRight size={14} /> : null}
+            </Button>
+          </article>;
+        })}
+      </div>
+    </section>
+
+    <section className="sfa-nextcard">
+      <div><span className="sfa-eyebrow">Next up</span><h2>Once your channels are in, your calendar is ready.</h2><p>See every post, approval, and conversation in one connected view.</p></div>
+      <a className="sfa-btn sfa-btn--primary sfa-btn--md" href="/#product">Explore the workspace <ArrowRight size={15} /></a>
+    </section>
+
     {pendingId && <AccountPicker pendingId={pendingId} onClose={clearPending}
       onDone={(count, platform) => { clearPending(); refresh(); setNotice({ tone: 'success', text: `${count} ${platformNames[platform]} ${count === 1 ? 'account' : 'accounts'} connected.` }); }} />}
   </div>;
+}
+
+function Workspace() {
+  return <AppShell active="accounts"><AccountsContent /></AppShell>;
 }
 
 function Footer() {
@@ -431,11 +734,32 @@ function Home() {
 }
 
 function Router() {
-  return <RoutedErrorBoundary><Switch><Route path="/" component={Home} /><Route path="/workspace" component={Workspace} /><Route component={NotFound} /></Switch></RoutedErrorBoundary>;
+  return <RoutedErrorBoundary><Suspense fallback={<div className="sfa-app" aria-busy="true" />}><Switch>
+    <Route path="/" component={Home} />
+    <Route path="/signin" component={SignIn} />
+    <Route path="/reset-password" component={ResetPassword} />
+    <Route path="/dashboard">{() => <AppShell active="dashboard"><DashboardPage /></AppShell>}</Route>
+    <Route path="/calendar">{() => <AppShell active="calendar"><CalendarPage /></AppShell>}</Route>
+    <Route path="/posts">{() => <AppShell active="posts"><PostsPage /></AppShell>}</Route>
+    <Route path="/drafts">{() => <AppShell active="drafts"><DraftsPage /></AppShell>}</Route>
+    <Route path="/queue">{() => <AppShell active="queue"><QueuePage /></AppShell>}</Route>
+    <Route path="/recurring">{() => <AppShell active="recurring"><RecurringPage /></AppShell>}</Route>
+    <Route path="/settings">{() => <AppShell active="settings"><SettingsPage /></AppShell>}</Route>
+    <Route path="/library">{() => <AppShell active="library"><LibraryPage /></AppShell>}</Route>
+    <Route path="/analytics">{() => <AppShell active="analytics"><AnalyticsPage /></AppShell>}</Route>
+    <Route path="/approvals">{() => <AppShell active="approvals"><ApprovalsPage /></AppShell>}</Route>
+    <Route path="/ai">{() => <AppShell active="ai"><AiStudioPage /></AppShell>}</Route>
+    <Route path="/team">{() => <AppShell active="team"><TeamPage /></AppShell>}</Route>
+    <Route path="/accept-invite" component={AcceptInvitePage} />
+    <Route path="/workspace" component={Workspace} />
+    <Route component={NotFound} />
+  </Switch></Suspense></RoutedErrorBoundary>;
 }
 
 function RoutedErrorBoundary({ children }: { children: ReactNode }) {
   const [location] = useLocation();
+  // The theme (dark Aurora by default, or light) comes from the visitor's saved choice.
+  useLayoutEffect(() => { applyTheme(); }, [location]);
   return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
 }
 

@@ -2,6 +2,8 @@ import {
   createCipheriv,
   createDecipheriv,
   createHash,
+  createHmac,
+  timingSafeEqual,
   randomBytes,
 } from "node:crypto";
 
@@ -51,6 +53,11 @@ function decryptionKeys(): Buffer[] {
   const previous = process.env.TOKEN_ENCRYPTION_KEY_PREVIOUS;
   if (previous) keys.push(parseKey(previous, "TOKEN_ENCRYPTION_KEY_PREVIOUS"));
   return keys;
+}
+
+/** HMAC-SHA256 (base64url) keyed by the app's encryption key, for short-lived signed links. */
+export function signWithAppKey(data: string): string {
+  return createHmac("sha256", currentKey()).update("socialflow:signed-link:").update(data).digest("base64url");
 }
 
 export function isEncryptionConfigured(): boolean {

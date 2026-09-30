@@ -1,3 +1,8 @@
 <svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="180" height="180" rx="36" fill="#FF3C00"/>
+  <!-- Speech bubble: a circle with a tail at the bottom right -->
+  <path d="M 90 12 A 74 74 0 1 0 128 150 L 152 168 L 146 134 A 74 74 0 0 0 90 12 Z" fill="#1FA3E0"/>
+  <!-- Paper plane -->
+  <path d="M 42 78 L 138 52 L 96 130 L 84 100 Z" fill="#FFFFFF"/>
+  <path d="M 84 100 L 138 52 L 66 96 Z" fill="#E6E6E6"/>
+  <path d="M 66 96 L 84 100 L 86 124 L 66 96 Z" fill="#B9B9B9"/>
 </svg>

@@ -2,50 +2,21 @@ import { isEncryptionConfigured } from "../crypto";
 import { getCallbackUrl } from "./config";
 import { OAuthError } from "./errors";
 import { facebookProvider } from "./providers/facebook";
+import { instagramProvider } from "./providers/instagram";
+import { linkedinProvider } from "./providers/linkedin";
+import { youtubeProvider } from "./providers/youtube";
 import type { OAuthProviderAdapter, Platform, ProviderDefinition } from "./types";
 
-// Platforms not yet implemented are registered so the UI and setup checks can
-// report them honestly. Implementing one means writing a `create` adapter in
-// ./providers and flipping `implemented` to true.
+// A platform not yet implemented would be registered here as a placeholder
+// with `implemented: false`, so the UI and setup checks can report it
+// honestly instead of mocking it. All four platforms currently ship an
+// adapter; this stays exported for the next platform that doesn't.
 function notImplemented(platform: Platform): never {
   throw new OAuthError("not_configured", `${platform} connections are not implemented yet.`);
 }
 
-const placeholders: ProviderDefinition[] = [
-  {
-    platform: "instagram",
-    displayName: "Instagram Business",
-    requiredEnv: ["INSTAGRAM_APP_ID", "INSTAGRAM_APP_SECRET"],
-    requiredScopes: ["instagram_business_basic", "instagram_business_content_publish"],
-    optionalScopes: [],
-    implemented: false,
-    create: () => notImplemented("instagram"),
-  },
-  {
-    platform: "linkedin",
-    displayName: "LinkedIn",
-    requiredEnv: ["LINKEDIN_CLIENT_ID", "LINKEDIN_CLIENT_SECRET"],
-    requiredScopes: ["openid", "profile", "w_member_social"],
-    optionalScopes: ["r_organization_social", "w_organization_social", "rw_organization_admin"],
-    implemented: false,
-    create: () => notImplemented("linkedin"),
-  },
-  {
-    platform: "youtube",
-    displayName: "YouTube",
-    requiredEnv: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
-    requiredScopes: [
-      "https://www.googleapis.com/auth/youtube.readonly",
-      "https://www.googleapis.com/auth/youtube.upload",
-    ],
-    optionalScopes: [],
-    implemented: false,
-    create: () => notImplemented("youtube"),
-  },
-];
-
 const definitions: Record<Platform, ProviderDefinition> = Object.fromEntries(
-  [facebookProvider, ...placeholders].map((d) => [d.platform, d]),
+  [facebookProvider, instagramProvider, linkedinProvider, youtubeProvider].map((d) => [d.platform, d]),
 ) as Record<Platform, ProviderDefinition>;
 
 export function getProviderDefinition(platform: Platform): ProviderDefinition {

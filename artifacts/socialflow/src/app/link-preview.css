@@ -1,0 +1,57 @@
+.sfa-linkprev { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
+.sfa-linkprev-head { align-items: center; display: flex; justify-content: space-between; gap: var(--space-2); }
+.sfa-linkprev-label { color: hsl(var(--muted-foreground)); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.sfa-linkprev-actions { display: inline-flex; gap: var(--space-2); }
+.sfa-linkprev-icon { align-items: center; background: transparent; border: 0; border-radius: 8px; color: hsl(var(--muted-foreground)); cursor: pointer; display: inline-flex; height: 30px; justify-content: center; width: 30px; }
+.sfa-linkprev-icon:hover, .sfa-linkprev-icon[aria-pressed="true"] { background: hsl(var(--surface-3)); color: hsl(var(--foreground)); }
+.sfa-linkprev-icon:focus-visible, .sfa-linkprev-btn:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: 2px; }
+.sfa-linkprev-btn { align-items: center; background: transparent; border: 1px solid hsl(var(--border)); border-radius: 8px; color: hsl(var(--foreground)); cursor: pointer; display: inline-flex; font-size: 12.5px; gap: 6px; min-height: 30px; padding: 0 10px; }
+.sfa-linkprev-btn:hover { background: hsl(var(--surface-3)); }
+.sfa-linkprev-card { background: hsl(var(--surface-2, var(--surface))); border: 1px solid hsl(var(--border)); border-radius: 10px; overflow: hidden; }
+.sfa-linkprev-img { aspect-ratio: 1.91 / 1; background: hsl(var(--surface-3)); border-bottom: 1px solid hsl(var(--border)); display: block; object-fit: cover; width: 100%; }
+.sfa-linkprev-body { display: grid; gap: 3px; padding: 10px 12px; }
+.sfa-linkprev-domain { color: hsl(var(--muted-foreground)); font-size: 11.5px; letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sfa-linkprev-title { color: hsl(var(--foreground)); font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
+.sfa-linkprev-desc { -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: hsl(var(--muted-foreground)); display: -webkit-box; font-size: 13px; line-height: 1.35; overflow: hidden; overflow-wrap: anywhere; }
+
+/* The composer's own editable card: a thumbnail beside the title, url and description (not a per-network render). */
+/* Laid out like SocialPilot's link preview: the picture on a soft tile at the left (with arrows on its edges to pick
+   another of the page's pictures), then the title with edit/remove beside it, the link and the description. */
+.sfa-linkprev-heading { margin: 0; }
+.sfa-linkprev-edit { align-items: flex-start; display: flex; gap: 18px; padding: 4px 0; }
+.sfa-linkprev-edit-media { background: hsl(var(--surface-2, var(--surface))); border-radius: 10px; flex: none; padding: 10px; position: relative; }
+.sfa-linkprev-edit-thumb { background: hsl(var(--surface-3)); border-radius: 4px; display: block; height: 118px; object-fit: cover; width: 200px; }
+.sfa-linkprev-edit-thumb--empty { align-items: center; color: hsl(var(--muted-foreground)); display: flex; justify-content: center; }
+.sfa-linkprev-edit-arrow { align-items: center; background: hsl(var(--surface) / .92); border: 1px solid hsl(var(--border)); border-radius: 999px; color: hsl(var(--foreground)); cursor: pointer; display: inline-flex; height: 26px; justify-content: center; position: absolute; top: 50%; transform: translateY(-50%); width: 26px; }
+.sfa-linkprev-edit-arrow:hover { background: hsl(var(--surface)); }
+.sfa-linkprev-edit-arrow:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: 1px; }
+.sfa-linkprev-edit-arrow { box-shadow: var(--shadow-xs); }
+.sfa-linkprev-edit-arrow--prev { left: -3px; }
+.sfa-linkprev-edit-arrow--next { right: -3px; }
+.sfa-linkprev-edit-count { background: hsl(var(--surface) / .92); border-radius: 999px; bottom: 4px; color: hsl(var(--muted-foreground)); font-size: 10.5px; font-variant-numeric: tabular-nums; left: 50%; padding: 1px 7px; position: absolute; transform: translateX(-50%); }
+.sfa-linkprev-edit-body { display: grid; flex: 1; gap: 6px; min-width: 0; padding-top: 2px; }
+.sfa-linkprev-edit-top { align-items: flex-start; display: flex; gap: var(--space-2); justify-content: space-between; }
+.sfa-linkprev-edit-title { color: hsl(var(--foreground)); font-size: 16.5px; font-weight: 500; line-height: 1.35; overflow-wrap: anywhere; }
+.sfa-linkprev-edit-top .sfa-linkprev-actions { flex: none; gap: 2px; margin: -4px -6px 0 0; }
+.sfa-linkprev-edit-url { color: hsl(var(--primary)); font-size: 13.5px; line-height: 1.45; overflow-wrap: anywhere; text-decoration: none; }
+.sfa-linkprev-edit-url:hover { text-decoration: underline; }
+.sfa-linkprev-edit-desc { -webkit-box-orient: vertical; -webkit-line-clamp: 3; color: hsl(var(--foreground) / .82); display: -webkit-box; font-size: 13.5px; line-height: 1.5; overflow: hidden; overflow-wrap: anywhere; }
+@media (max-width: 480px) { .sfa-linkprev-edit { flex-direction: column; } .sfa-linkprev-edit-media { width: 100%; } .sfa-linkprev-edit-thumb { aspect-ratio: 1.91 / 1; height: auto; width: 100%; } }
+.sfa-linkprev-form { display: grid; gap: var(--space-2); }
+.sfa-linkprev-form label { color: hsl(var(--muted-foreground)); display: grid; font-size: 12px; font-weight: 600; gap: 4px; }
+.sfa-linkprev-form input, .sfa-linkprev-form textarea { background: hsl(var(--surface)); border: 1px solid hsl(var(--input)); border-radius: 8px; color: hsl(var(--foreground)); font: inherit; font-size: 14px; font-weight: 400; padding: 8px 10px; resize: vertical; width: 100%; }
+.sfa-linkprev-form input:focus-visible, .sfa-linkprev-form textarea:focus-visible { border-color: hsl(var(--primary)); outline: 2px solid hsl(var(--primary) / .3); }
+.sfa-linkprev-notes { color: hsl(var(--muted-foreground)); display: grid; font-size: 12px; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.sfa-linkprev-notes li { align-items: flex-start; display: flex; gap: 6px; }
+.sfa-linkprev-notes svg { flex: none; margin-top: 2px; }
+.sfa-linkprev-err { align-items: flex-start; color: hsl(var(--error)); display: flex; font-size: 13px; gap: 6px; margin: 0; }
+.sfa-linkprev-err svg { flex: none; margin-top: 2px; }
+.sfa-linkprev-skel .sfa-linkprev-edit-thumb, .sfa-linkprev-skel .sfa-linkprev-edit-body span { animation: sfa-linkprev-pulse 1.2s ease-in-out infinite; background: hsl(var(--surface-3)); }
+.sfa-linkprev-skel .sfa-linkprev-edit-body span { border-radius: 4px; display: block; height: 12px; }
+.sfa-linkprev-skel .sfa-linkprev-edit-body span:first-child { width: 60%; }
+.sfa-linkprev-skel .sfa-linkprev-edit-body span:nth-child(2) { width: 85%; }
+.sfa-linkprev-skel .sfa-linkprev-edit-body span:nth-child(3) { width: 70%; }
+@keyframes sfa-linkprev-pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .sfa-linkprev-skel .sfa-linkprev-edit-thumb, .sfa-linkprev-skel .sfa-linkprev-edit-body span { animation: none; } }
+.sfa-pv .sfa-linkprev-card { margin: 0 12px 10px; }
+.sfa-linkprev-hint { align-items: center; color: hsl(var(--muted-foreground)); display: flex; flex-wrap: wrap; font-size: 12.5px; gap: var(--space-2) var(--space-3); margin: 0; }

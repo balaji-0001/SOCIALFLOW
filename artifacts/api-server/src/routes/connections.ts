@@ -22,6 +22,7 @@ import {
   type PendingCandidateSummary,
 } from "@workspace/db";
 import { decryptSecret, encryptSecret, randomToken, sha256 } from "../lib/crypto";
+import { jsonError } from "../lib/http-errors";
 import {
   findAccount,
   saveConnectedAccount,
@@ -30,6 +31,7 @@ import {
 } from "../lib/oauth/accounts";
 import {
   PENDING_TTL_MS,
+  SIGNIN_PATH,
   STATE_TTL_MS,
   WORKSPACE_PATH,
   getCallbackUrl,
@@ -41,7 +43,10 @@ import {
   missingConfiguration,
 } from "../lib/oauth/registry";
 import { isPlatform, type AccountCandidate, type Platform } from "../lib/oauth/types";
-import { resolveWorkspace } from "../lib/session";
+import { requireAccess } from "../lib/access";
+import { recordAudit } from "../lib/audit";
+import { can } from "../lib/permissions";
+import { resolveUser, resolveWorkspace, type WorkspaceContext } from "../lib/session";
 
 const router: IRouter = Router();
 
@@ -66,8 +71,9 @@ function queryString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 && value.length < 4096 ? value : null;
 }
 
-function jsonError(res: Response, status: number, error: string, message: string): void {
-  res.status(status).json({ error, message });
+/** Resolves the signed-in user's workspace, or writes a 401 and returns null. */
+async function requireWorkspace(req: Request, res: Response): Promise<WorkspaceContext | null> {
+  return requireAccess(req, res, req.method === "GET" ? "accounts:read" : "accounts:manage");
 }
 
 type PendingPayload = {
@@ -120,14 +126,13 @@ router.get("/connections/providers", (_req, res): void => {
 // ---------------------------------------------------------------------------
 
 router.get("/connections", async (req, res): Promise<void> => {
-  const ctx = await resolveWorkspace(req, res, { create: false });
-  const rows = ctx
-    ? await db
-        .select()
-        .from(connectedAccountsTable)
-        .where(eq(connectedAccountsTable.workspaceId, ctx.workspaceId))
-        .orderBy(asc(connectedAccountsTable.platform), asc(connectedAccountsTable.createdAt))
-    : [];
+  const ctx = await requireWorkspace(req, res);
+  if (!ctx) return;
+  const rows = await db
+    .select()
+    .from(connectedAccountsTable)
+    .where(eq(connectedAccountsTable.workspaceId, ctx.workspaceId))
+    .orderBy(asc(connectedAccountsTable.platform), asc(connectedAccountsTable.createdAt));
   res.json(ListConnectedAccountsResponse.parse({ accounts: rows.map(serializeAccount) }));
 });
 
@@ -137,8 +142,8 @@ router.get("/connections", async (req, res): Promise<void> => {
 // ---------------------------------------------------------------------------
 
 async function loadPending(req: Request, res: Response, pendingId: string) {
-  const ctx = await resolveWorkspace(req, res, { create: false });
-  if (!ctx) return null;
+  const ctx = await resolveWorkspace(req, res);
+  if (!ctx || !can(ctx.role, "accounts:manage")) return null;
   const [pending] = await db
     .select()
     .from(pendingConnectionsTable)
@@ -156,6 +161,8 @@ async function loadPending(req: Request, res: Response, pendingId: string) {
 router.get("/connections/pending/:pendingId", async (req, res): Promise<void> => {
   const params = GetPendingConnectionParams.safeParse(req.params);
   if (!params.success) return jsonError(res, 404, "not_found", "Pending connection not found.");
+  const authed = await resolveUser(req);
+  if (!authed) return jsonError(res, 401, "unauthorized", "Sign in to continue.");
   const loaded = await loadPending(req, res, params.data.pendingId);
   if (!loaded) return jsonError(res, 404, "not_found", "This selection expired. Start the connection again.");
 
@@ -185,6 +192,8 @@ router.post("/connections/pending/:pendingId/complete", async (req, res): Promis
   if (!params.success) return jsonError(res, 404, "not_found", "Pending connection not found.");
   const body = CompletePendingConnectionBody.safeParse(req.body);
   if (!body.success) return jsonError(res, 400, "invalid_selection", "Select at least one account.");
+  const authed = await resolveUser(req);
+  if (!authed) return jsonError(res, 401, "unauthorized", "Sign in to continue.");
 
   const loaded = await loadPending(req, res, params.data.pendingId);
   if (!loaded) return jsonError(res, 404, "not_found", "This selection expired. Start the connection again.");
@@ -216,7 +225,7 @@ router.post("/connections/pending/:pendingId/complete", async (req, res): Promis
 
 router.delete("/connections/pending/:pendingId", async (req, res): Promise<void> => {
   const params = CancelPendingConnectionParams.safeParse(req.params);
-  const ctx = await resolveWorkspace(req, res, { create: false });
+  const ctx = await resolveWorkspace(req, res);
   if (params.success && ctx) {
     await db
       .delete(pendingConnectionsTable)
@@ -246,8 +255,18 @@ router.get("/connections/:platform/start", async (req, res): Promise<void> => {
     return redirectWithError(res, platform, "not_configured");
   }
 
-  const ctx = await resolveWorkspace(req, res, { create: true });
-  if (!ctx) return redirectWithError(res, platform, "invalid_state");
+  const ctx = await resolveWorkspace(req, res);
+  if (!ctx) {
+    // Not signed in: send the browser to sign-in, remembering this exact
+    // start URL so the connect flow resumes automatically after login.
+    const next = `/api/connections/${platform}/start${req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : ""}`;
+    res.redirect(302, `${SIGNIN_PATH}?${new URLSearchParams({ next }).toString()}`);
+    return;
+  }
+  if (!can(ctx.role, "accounts:manage")) {
+    workspaceRedirect(res, { error: "forbidden", platform });
+    return;
+  }
 
   let reconnectAccountId: string | null = null;
   const reconnect = queryString(req.query.reconnect);
@@ -324,7 +343,7 @@ router.get("/connections/:platform/callback", async (req, res): Promise<void> =>
     if (!oauthState) throw new OAuthError("invalid_state");
 
     // The state must belong to the same browser session that started the flow.
-    const ctx = await resolveWorkspace(req, res, { create: false });
+    const ctx = await resolveWorkspace(req, res);
     if (!ctx || ctx.sessionId !== oauthState.sessionId || ctx.workspaceId !== oauthState.workspaceId) {
       throw new OAuthError("invalid_state");
     }
@@ -399,8 +418,9 @@ router.get("/connections/:platform/callback", async (req, res): Promise<void> =>
 router.post("/connections/:accountId/verify", async (req, res): Promise<void> => {
   const params = VerifyConnectedAccountParams.safeParse(req.params);
   if (!params.success) return jsonError(res, 404, "not_found", "Account not found.");
-  const ctx = await resolveWorkspace(req, res, { create: false });
-  const account = ctx ? await findAccount(ctx.workspaceId, params.data.accountId) : null;
+  const ctx = await requireWorkspace(req, res);
+  if (!ctx) return;
+  const account = await findAccount(ctx.workspaceId, params.data.accountId);
   if (!account) return jsonError(res, 404, "not_found", "Account not found.");
 
   let adapter;
@@ -416,8 +436,8 @@ router.post("/connections/:accountId/verify", async (req, res): Promise<void> =>
 router.delete("/connections/:accountId", async (req, res): Promise<void> => {
   const params = DisconnectAccountParams.safeParse(req.params);
   if (!params.success) return jsonError(res, 404, "not_found", "Account not found.");
-  const ctx = await resolveWorkspace(req, res, { create: false });
-  if (!ctx) return jsonError(res, 404, "not_found", "Account not found.");
+  const ctx = await requireWorkspace(req, res);
+  if (!ctx) return;
 
   // Deleting the row removes the encrypted tokens. We intentionally don't call
   // the provider's revoke endpoint: for Meta that revokes the app for the
@@ -432,6 +452,7 @@ router.delete("/connections/:accountId", async (req, res): Promise<void> => {
     )
     .returning({ id: connectedAccountsTable.id, platform: connectedAccountsTable.platform });
   if (deleted.length === 0) return jsonError(res, 404, "not_found", "Account not found.");
+  await recordAudit({ workspaceId: ctx.workspaceId, actorUserId: ctx.userId, action: "account.disconnected", target: deleted[0]!.platform });
   req.log.info({ platform: deleted[0]!.platform }, "Disconnected social account");
   res.sendStatus(204);
 });

@@ -1,4 +1,6 @@
 import { createHmac } from "node:crypto";
+import { openAsBlob } from "node:fs";
+import { analyticsScopesEnabled, commentScopesEnabled, messagingScopesEnabled } from "../config";
 import { OAuthError } from "../errors";
 import {
   ProviderHttpError,
@@ -12,6 +14,12 @@ import type {
   OAuthProviderAdapter,
   ProviderCredentials,
   ProviderDefinition,
+  MetricsResult,
+  PostMetricValues,
+  PublishCommentInput,
+  PublishCommentResult,
+  PublishInput,
+  PublishResult,
   StoredAccountCredentials,
   VerificationResult,
 } from "../types";
@@ -31,7 +39,15 @@ export const FACEBOOK_REQUIRED_SCOPES = [
 ];
 // Needed when Pages are owned through a Business Portfolio; without it
 // /me/accounts can come back empty for those Pages.
+// pages_manage_engagement lets the Page comment under its own posts (first comment). Requested only when
+// COMMENT_SCOPES_ENABLED=true; text and media publishing work without it.
 export const FACEBOOK_OPTIONAL_SCOPES = ["business_management"];
+export const FACEBOOK_COMMENT_SCOPE = "pages_manage_engagement";
+// read_insights unlocks reach and impressions. Requested only when ANALYTICS_SCOPES_ENABLED=true.
+export const FACEBOOK_INSIGHTS_SCOPE = "read_insights";
+// Direct messages: pages_messaging reads and answers Messenger conversations, pages_manage_metadata is the companion Meta asks for. Requested only when
+// MESSAGING_SCOPES_ENABLED=true (both need Meta app review).
+export const FACEBOOK_MESSAGING_SCOPES = ["pages_messaging", "pages_manage_metadata"];
 
 // Page tasks that allow publishing content.
 const PUBLISH_TASKS = ["CREATE_CONTENT", "MANAGE"];
@@ -82,6 +98,53 @@ export function createFacebookAdapter(credentials: ProviderCredentials): OAuthPr
     url.searchParams.set("access_token", accessToken);
     url.searchParams.set("appsecret_proof", appSecretProof(accessToken));
     return url;
+  }
+
+  const UPLOAD_TIMEOUT_MS = 8 * 60_000;
+
+  /** POSTs multipart form data (a file plus fields) to the Page and returns the parsed JSON. */
+  async function uploadForm(account: StoredAccountCredentials, edge: string, fields: Record<string, string>, file?: { field: string; blob: Blob; name: string }): Promise<unknown> {
+    const form = new FormData();
+    for (const [key, value] of Object.entries(fields)) form.set(key, value);
+    form.set("access_token", account.accessToken);
+    form.set("appsecret_proof", appSecretProof(account.accessToken));
+    if (file) form.set(file.field, file.blob, file.name);
+    try {
+      return await requestJson(`${graph}/${encodeURIComponent(account.externalAccountId)}/${edge}`, { method: "POST", body: form }, { timeoutMs: UPLOAD_TIMEOUT_MS });
+    } catch (error) {
+      throw mapGraphError(error, "publish_failed");
+    }
+  }
+
+  async function publishMedia(account: StoredAccountCredentials, text: string, media: NonNullable<PublishInput["media"]>): Promise<PublishResult> {
+    const video = media.find((item) => item.kind === "video");
+    if (video) {
+      const response = await uploadForm(account, "videos", { description: text }, { field: "source", blob: await openAsBlob(video.filePath, { type: video.mimeType }), name: video.fileName });
+      const id = stringField(response, "id");
+      if (!id) throw new OAuthError("publish_failed", undefined, { providerMessage: "Facebook accepted the video but returned no ID." });
+      return { externalPostId: id };
+    }
+    if (media.length === 1) {
+      const photo = media[0]!;
+      const response = await uploadForm(account, "photos", { caption: text, published: "true" }, { field: "source", blob: await openAsBlob(photo.filePath, { type: photo.mimeType }), name: photo.fileName });
+      const id = stringField(response, "post_id") ?? stringField(response, "id");
+      if (!id) throw new OAuthError("publish_failed", undefined, { providerMessage: "Facebook accepted the photo but returned no post ID." });
+      return { externalPostId: id };
+    }
+    // Several photos: upload each unpublished, then one feed post attaches them all.
+    const photoIds: string[] = [];
+    for (const photo of media) {
+      const response = await uploadForm(account, "photos", { published: "false" }, { field: "source", blob: await openAsBlob(photo.filePath, { type: photo.mimeType }), name: photo.fileName });
+      const id = stringField(response, "id");
+      if (!id) throw new OAuthError("publish_failed", undefined, { providerMessage: "Facebook accepted a photo but returned no ID." });
+      photoIds.push(id);
+    }
+    const fields: Record<string, string> = { message: text };
+    photoIds.forEach((id, index) => { fields[`attached_media[${index}]`] = JSON.stringify({ media_fbid: id }); });
+    const feed = await uploadForm(account, "feed", fields);
+    const id = stringField(feed, "id");
+    if (!id) throw new OAuthError("publish_failed", undefined, { providerMessage: "Facebook accepted the post but returned no post ID." });
+    return { externalPostId: id };
   }
 
   async function exchangeCode(code: string, redirectUri: string): Promise<string> {
@@ -161,7 +224,7 @@ export function createFacebookAdapter(credentials: ProviderCredentials): OAuthPr
         // Facebook Login for Business: permissions come from the configuration.
         url.searchParams.set("config_id", loginConfigId);
       } else {
-        url.searchParams.set("scope", [...FACEBOOK_REQUIRED_SCOPES, ...FACEBOOK_OPTIONAL_SCOPES].join(","));
+        url.searchParams.set("scope", [...FACEBOOK_REQUIRED_SCOPES, ...FACEBOOK_OPTIONAL_SCOPES, ...(commentScopesEnabled() ? [FACEBOOK_COMMENT_SCOPE] : []), ...(analyticsScopesEnabled() ? [FACEBOOK_INSIGHTS_SCOPE] : []), ...(messagingScopesEnabled() ? FACEBOOK_MESSAGING_SCOPES : [])].join(","));
       }
       // Re-prompt for permissions the user previously declined.
       if (reconnect) url.searchParams.set("auth_type", "rerequest");
@@ -229,6 +292,101 @@ export function createFacebookAdapter(credentials: ProviderCredentials): OAuthPr
       } catch (error) {
         throw mapGraphError(error);
       }
+    },
+
+    /**
+     * Publishes to the Page: text to the feed, one photo (or a GIF) with its caption, several photos as one post
+     * (each uploaded unpublished, then attached to a single feed post), or one video. Files are uploaded as bytes,
+     * so no public URL is needed. `account.accessToken` is the Page access token.
+     */
+    async publishPost(account: StoredAccountCredentials, input: PublishInput): Promise<PublishResult> {
+      const media = input.media ?? [];
+      if (media.length > 0) return publishMedia(account, input.text, media);
+      const body = new URLSearchParams({
+        message: input.text,
+        access_token: account.accessToken,
+        appsecret_proof: appSecretProof(account.accessToken),
+      });
+      // A link post: Facebook builds the clickable card (image, title, description) itself from the website's Open Graph
+      // tags. Custom title/image overrides are not supported by the Graph API for Pages, so only the URL is sent. The
+      // text is sent exactly as written; the card appears in addition to it. With media attached the link stays text.
+      if (input.link?.url) body.set("link", input.link.url);
+      let response: unknown;
+      try {
+        response = await requestJson(`${graph}/${encodeURIComponent(account.externalAccountId)}/feed`, {
+          method: "POST",
+          headers: { "content-type": "application/x-www-form-urlencoded" },
+          body,
+        });
+      } catch (error) {
+        throw mapGraphError(error, "publish_failed");
+      }
+      const externalPostId = stringField(response, "id");
+      if (!externalPostId) throw new OAuthError("publish_failed", undefined, { providerMessage: "Facebook accepted the request but returned no post ID." });
+      return { externalPostId };
+    },
+
+    /**
+     * Follower count for the Page and likes, comments and shares for each published post. Uses only permissions the app
+     * already requires (pages_read_engagement). Reach and impressions are added when the Page was connected with read_insights.
+     */
+    async collectMetrics(account: StoredAccountCredentials, input: { postIds: string[] }): Promise<MetricsResult> {
+      const result: MetricsResult = { account: {}, posts: {}, notes: [] };
+      const withInsights = (account.scopes ?? []).includes(FACEBOOK_INSIGHTS_SCOPE);
+      try {
+        const page = await requestJson(graphUrl(`/${encodeURIComponent(account.externalAccountId)}`, account.accessToken, { fields: "followers_count,fan_count" }));
+        result.account.followers = numberField(page, "followers_count") ?? numberField(page, "fan_count");
+      } catch (error) {
+        const mapped = mapGraphError(error);
+        if (mapped.code === "token_revoked" || mapped.code === "token_expired") throw mapped;
+        result.notes.push({ code: "followers_unavailable", message: "Facebook didn't return the follower count." });
+      }
+      let missing = 0;
+      for (let i = 0; i < input.postIds.length; i += 5) {
+        await Promise.all(input.postIds.slice(i, i + 5).map(async (postId) => {
+          try {
+            const body = await requestJson(graphUrl(`/${encodeURIComponent(postId)}`, account.accessToken, { fields: "likes.summary(true).limit(0),comments.summary(true).limit(0),shares" }));
+            const values: PostMetricValues = {
+              likes: numberField(field(field(body, "likes"), "summary"), "total_count"),
+              comments: numberField(field(field(body, "comments"), "summary"), "total_count"),
+              shares: numberField(field(body, "shares"), "count") ?? 0,
+            };
+            if (withInsights) {
+              try {
+                const insights = await requestJson(graphUrl(`/${encodeURIComponent(postId)}/insights`, account.accessToken, { metric: "post_impressions,post_impressions_unique" }));
+                for (const item of field<Array<Record<string, unknown>>>(insights, "data") ?? []) {
+                  const value = numberField((field<unknown[]>(item, "values") ?? [])[0], "value");
+                  if (item.name === "post_impressions") values.impressions = value;
+                  if (item.name === "post_impressions_unique") values.reach = value;
+                }
+              } catch {
+                /* insights for this post aren't available; likes and comments still are */
+              }
+            }
+            result.posts[postId] = values;
+          } catch {
+            missing += 1;
+          }
+        }));
+      }
+      if (missing > 0) result.notes.push({ code: "posts_unavailable", message: `Facebook didn't return numbers for ${missing} ${missing === 1 ? "post" : "posts"} (deleted, or not visible to this connection).` });
+      if (!withInsights) result.notes.push({ code: "insights_permission", message: "Reach and impressions need the read_insights permission. Enable it on the Meta app, set ANALYTICS_SCOPES_ENABLED=true and reconnect this Page." });
+      return result;
+    },
+
+    commentScope: FACEBOOK_COMMENT_SCOPE,
+    /** Posts a comment as the Page under one of its own posts. */
+    async publishComment(account: StoredAccountCredentials, input: PublishCommentInput): Promise<PublishCommentResult> {
+      const body = new URLSearchParams({ message: input.text, access_token: account.accessToken, appsecret_proof: appSecretProof(account.accessToken) });
+      let response: unknown;
+      try {
+        response = await requestJson(`${graph}/${encodeURIComponent(input.externalPostId)}/comments`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body });
+      } catch (error) {
+        throw mapGraphError(error, "publish_failed");
+      }
+      const externalCommentId = stringField(response, "id");
+      if (!externalCommentId) throw new OAuthError("publish_failed", undefined, { providerMessage: "Facebook accepted the comment but returned no ID." });
+      return { externalCommentId };
     },
 
     async verifyAccount(account: StoredAccountCredentials): Promise<VerificationResult> {

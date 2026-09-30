@@ -7,6 +7,7 @@ import {
 } from "@workspace/db";
 import { decryptSecret, encryptSecret } from "../crypto";
 import { OAuthError } from "./errors";
+import { firstCommentSupport } from "../publisher";
 import { getProviderDefinition } from "./registry";
 import type {
   AccountCandidate,
@@ -76,6 +77,8 @@ export function readCredentials(account: ConnectedAccount): StoredAccountCredent
     accessToken: decryptSecret(account.accessTokenEncrypted, aad("access")),
     refreshToken: account.refreshTokenEncrypted ? decryptSecret(account.refreshTokenEncrypted, aad("refresh")) : null,
     tokenExpiresAt: account.tokenExpiresAt,
+    accountType: account.accountType,
+    scopes: account.scopes,
   };
 }
 
@@ -95,6 +98,14 @@ async function updateAccount(account: ConnectedAccount, set: Partial<typeof conn
     .where(eq(connectedAccountsTable.id, account.id))
     .returning();
   return row!;
+}
+
+/** Records that a provider call showed the account can't be used (revoked, expired, missing permission). */
+export async function markAccountStatus(accountId: string, status: ConnectionStatus, detail: string | null): Promise<void> {
+  await db
+    .update(connectedAccountsTable)
+    .set({ status, statusDetail: detail, updatedAt: new Date() })
+    .where(eq(connectedAccountsTable.id, accountId));
 }
 
 const REFRESH_MARGIN_MS = 5 * 60 * 1000;
@@ -129,6 +140,10 @@ export async function ensureFreshToken(
     });
   } catch (error) {
     const oauthError = error instanceof OAuthError ? error : new OAuthError("provider_error");
+    // Only a definitive answer from the provider changes the account's status. A timeout, 5xx or rate
+    // limit while refreshing says nothing about the credentials, and marking the account expired would
+    // wrongly demand a reconnect (and make scheduled posts skip it). The next attempt simply retries.
+    if (oauthError.code !== "token_revoked" && oauthError.code !== "token_expired") return account;
     const status: ConnectionStatus = oauthError.code === "token_revoked" ? "revoked" : "expired";
     return updateAccount(account, { status, statusDetail: oauthError.message });
   }
@@ -185,6 +200,7 @@ export function serializeAccount(account: ConnectedAccount) {
     statusDetail: status === "expired" && account.status === "active" ? "The access token has expired." : account.statusDetail,
     scopes: account.scopes,
     missingScopes: required.filter((scope) => !account.scopes.includes(scope)),
+    firstComment: firstCommentSupport(platform, account.scopes).state,
     tokenExpiresAt: account.tokenExpiresAt,
     lastVerifiedAt: account.lastVerifiedAt,
     connectedAt: account.createdAt,

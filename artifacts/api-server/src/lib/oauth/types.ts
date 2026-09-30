@@ -38,9 +38,14 @@ export interface AuthorizationResult {
 
 export interface StoredAccountCredentials {
   externalAccountId: string;
+  /** Permissions the account was connected with. */
+  scopes?: string[];
   accessToken: string;
   refreshToken: string | null;
   tokenExpiresAt: Date | null;
+  /** e.g. "facebook_page", "linkedin_organization". Optional so existing
+   * call sites and tests that only need the token still type-check. */
+  accountType?: string;
 }
 
 export interface VerificationResult {
@@ -57,6 +62,73 @@ export interface RefreshedTokens {
   refreshToken: string | null;
   tokenExpiresAt: Date | null;
   refreshTokenExpiresAt: Date | null;
+}
+
+/** A stored file to publish with a post. Adapters that upload bytes read `filePath`; ones the network pulls from a URL use `publicUrl`. */
+export interface PublishMedia {
+  kind: "image" | "video";
+  mimeType: string;
+  fileName: string;
+  sizeBytes: number;
+  filePath: string;
+  /** A time-limited public https link, or null when the app has no public address. */
+  publicUrl: string | null;
+}
+
+/** What to publish: the text and the post's media in the order the user arranged it. */
+/** A link attached to the post as a preview card (a snapshot of what the composer showed). */
+export interface PublishLink {
+  url: string;
+  title: string | null;
+  description: string | null;
+  imageUrl: string | null;
+}
+
+export interface PublishInput {
+  text: string;
+  media?: PublishMedia[];
+  /**
+   * Only acted on when the post has no media. Facebook and LinkedIn turn it into a clickable link card; Instagram
+   * (which has no such card and can't publish text alone) uses its imageUrl as the post's photo instead. YouTube
+   * ignores it.
+   */
+  link?: PublishLink | null;
+}
+
+/** Numbers for one post. undefined/null = the network didn't report it (never a made-up zero). */
+export interface PostMetricValues {
+  likes?: number | null;
+  comments?: number | null;
+  shares?: number | null;
+  views?: number | null;
+  impressions?: number | null;
+  reach?: number | null;
+  saves?: number | null;
+}
+
+export interface MetricsResult {
+  account: { followers?: number | null; mediaCount?: number | null; viewsTotal?: number | null };
+  /** By the network's own post ID. */
+  posts: Record<string, PostMetricValues>;
+  /** Reasons something is missing, shown to the user as-is. */
+  notes: Array<{ code: string; message: string }>;
+}
+
+export interface PublishCommentInput {
+  /** The network's ID for the post the comment goes under (from PublishResult). */
+  externalPostId: string;
+  text: string;
+}
+
+export interface PublishCommentResult {
+  externalCommentId: string;
+}
+
+export interface PublishResult {
+  /** The network's identifier for the created post. */
+  externalPostId: string;
+  /** Something that didn't go as planned but didn't stop the post (shown on the published post). */
+  notice?: string;
 }
 
 export interface BuildAuthorizationUrlInput {
@@ -91,6 +163,14 @@ export interface OAuthProviderAdapter {
   verifyAccount(account: StoredAccountCredentials): Promise<VerificationResult>;
   /** Present for providers that issue refresh tokens (Google, LinkedIn). */
   refreshAccessToken?(refreshToken: string): Promise<RefreshedTokens>;
+  /** Present for networks that can publish a post (text, with images or video where the network supports it). Throws OAuthError on failure. */
+  publishPost?(account: StoredAccountCredentials, input: PublishInput): Promise<PublishResult>;
+  /** Present for networks whose API reports follower and post numbers. Throws OAuthError only for token-level failures. */
+  collectMetrics?(account: StoredAccountCredentials, input: { postIds: string[] }): Promise<MetricsResult>;
+  /** Present for networks where the app can post a comment under its own post ("first comment"). */
+  publishComment?(account: StoredAccountCredentials, input: PublishCommentInput): Promise<PublishCommentResult>;
+  /** The permission publishComment needs; accounts connected without it are told to reconnect. */
+  commentScope?: string;
 }
 
 export interface ProviderDefinition {

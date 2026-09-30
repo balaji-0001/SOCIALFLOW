@@ -10,6 +10,10 @@ export interface FakeGraphOptions {
   tokenExchangeError?: { code: number; error_subcode?: number; message: string };
   debugToken?: Record<string, unknown>;
   pageError?: { code: number; error_subcode?: number; message: string };
+  /** Errors returned when publishing to a specific page ID (POST /{page}/feed). */
+  publishErrors?: Record<string, { code: number; error_subcode?: number; message: string }>;
+  /** Delay before answering a publish, to test overlapping operations. */
+  publishDelayMs?: number;
 }
 
 export const DEFAULT_PAGES = [
@@ -27,8 +31,12 @@ export function installFakeGraph(options: FakeGraphOptions = {}) {
   const granted = options.granted ?? ALL_SCOPES;
   const pages = options.pages ?? DEFAULT_PAGES;
   const calls: URL[] = [];
+  const feedPosts: Array<{ pageId: string; body: URLSearchParams }> = [];
+  /** Photo and video uploads: the form fields plus the uploaded file's name, type and bytes. */
+  const uploads: Array<{ pageId: string; edge: "photos" | "videos"; fields: Record<string, string>; fileName: string; mimeType: string; bytes: Buffer }> = [];
+  let feedCounter = 0;
 
-  const fetchMock = vi.fn(async (input: string | URL | Request) => {
+  const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input : input.url);
     calls.push(url);
     if (url.hostname !== "graph.facebook.com") throw new Error(`Unexpected request to ${url.hostname}`);
@@ -56,6 +64,30 @@ export function installFakeGraph(options: FakeGraphOptions = {}) {
         data: options.debugToken ?? { is_valid: true, expires_at: 0, scopes: granted, app_id: "test-app-id" },
       });
     }
+    const uploadMatch = init?.method === "POST" && init.body instanceof FormData ? /^\/([^/]+)\/(photos|videos)$/.exec(path) : null;
+    if (uploadMatch && pages.some((p) => p.id === uploadMatch[1])) {
+      const form = init!.body as FormData;
+      const file = form.get("source") as File;
+      const fields: Record<string, string> = {};
+      for (const [key, value] of form.entries()) if (typeof value === "string") fields[key] = value;
+      const publishError = options.publishErrors?.[uploadMatch[1]!];
+      if (publishError) return json({ error: publishError }, 400);
+      uploads.push({ pageId: uploadMatch[1]!, edge: uploadMatch[2] as "photos" | "videos", fields, fileName: file.name, mimeType: file.type, bytes: Buffer.from(await file.arrayBuffer()) });
+      const n = ++feedCounter;
+      return uploadMatch[2] === "videos" ? json({ id: `v${800000 + n}` }) : json(fields.published === "false" ? { id: `p${700000 + n}` } : { id: `p${700000 + n}`, post_id: `${uploadMatch[1]}_${700000 + n}` });
+    }
+    const feedMatch = init?.method === "POST" ? pages.find((p) => path === `/${p.id}/feed`) : undefined;
+    if (feedMatch) {
+      if (options.publishDelayMs) await new Promise((resolve) => setTimeout(resolve, options.publishDelayMs));
+      if (init?.body instanceof FormData) {
+        const fields = new URLSearchParams();
+        for (const [key, value] of init.body.entries()) if (typeof value === "string") fields.set(key, value);
+        feedPosts.push({ pageId: feedMatch.id, body: fields });
+      } else feedPosts.push({ pageId: feedMatch.id, body: new URLSearchParams(String(init?.body ?? "")) });
+      const publishError = options.publishErrors?.[feedMatch.id];
+      if (publishError) return json({ error: publishError }, 400);
+      return json({ id: `${feedMatch.id}_${900000 + ++feedCounter}` });
+    }
     const pageMatch = pages.find((p) => path === `/${p.id}`);
     if (pageMatch) {
       if (options.pageError) return json({ error: options.pageError }, 400);
@@ -65,5 +97,5 @@ export function installFakeGraph(options: FakeGraphOptions = {}) {
   });
 
   vi.stubGlobal("fetch", fetchMock);
-  return { fetchMock, calls };
+  return { fetchMock, calls, feedPosts, uploads };
 }

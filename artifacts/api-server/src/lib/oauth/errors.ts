@@ -11,6 +11,8 @@ export type OAuthErrorCode =
   | "token_revoked"
   | "insufficient_permissions"
   | "rate_limited"
+  | "publish_failed"
+  | "publish_unsupported"
   | "provider_error";
 
 const messages: Record<OAuthErrorCode, string> = {
@@ -32,6 +34,8 @@ const messages: Record<OAuthErrorCode, string> = {
   insufficient_permissions:
     "The app doesn't have permission for this action. Reconnect and grant the requested permissions.",
   rate_limited: "The provider is rate limiting requests. Try again in a few minutes.",
+  publish_failed: "The network rejected this post.",
+  publish_unsupported: "This network can't publish this kind of post yet.",
   provider_error: "The provider returned an unexpected error. Please try again.",
 };
 

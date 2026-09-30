@@ -1,22 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="aurora" style="background:#0b0b0e">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Socialflow</title>
-    <meta name="description" content="Socialflow — built on Replit. Update this description to reflect the app." />
+    <meta name="description" content="Socialflow brings planning, publishing and your connected social accounts into one calm workspace." />
     <meta name="robots" content="index, follow" />
     <meta property="og:title" content="Socialflow" />
-    <meta property="og:description" content="Socialflow — built on Replit. Update this description to reflect the app." />
+    <meta property="og:description" content="Socialflow brings planning, publishing and your connected social accounts into one calm workspace." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Socialflow" />
-    <meta name="twitter:description" content="Socialflow — built on Replit. Update this description to reflect the app." />
+    <meta name="twitter:description" content="Socialflow brings planning, publishing and your connected social accounts into one calm workspace." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    (function () {
+      try {
+        var c = localStorage.getItem('socialflow:theme') || 'dark';
+        var dark = c === 'system' ? window.matchMedia('(prefers-color-scheme: dark)').matches : c !== 'light';
+        var e = document.documentElement;
+        e.dataset.theme = dark ? 'aurora' : 'light';
+        e.style.background = dark ? '#0b0b0e' : '#f9fafc';
+        e.style.colorScheme = dark ? 'dark' : 'light';
+      } catch (_) {}
+    })();
+  </script>
   </head>
+
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

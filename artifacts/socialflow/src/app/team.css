@@ -1,0 +1,68 @@
+/* Team page + accept-invite. Tokens only so both themes work. */
+.sfa-team-tabs { border-bottom: 1px solid hsl(var(--border)); display: flex; gap: var(--space-1); overflow-x: auto; padding: 0 var(--space-5); scrollbar-width: none; }
+.sfa-team-tabs::-webkit-scrollbar { display: none; }
+.sfa-team-tabs button { align-items: center; background: none; border: 0; border-bottom: 2px solid transparent; color: hsl(var(--muted-foreground)); display: flex; font-size: 13.5px; font-weight: 500; gap: var(--space-2); margin-bottom: -1px; padding: 12px var(--space-3); white-space: nowrap; }
+.sfa-team-tabs button:hover { color: hsl(var(--foreground)); }
+.sfa-team-tabs button:focus-visible { border-radius: var(--radius-md-app); outline: 2px solid hsl(var(--primary)); outline-offset: -2px; }
+.sfa-team-tabs button.is-on { border-bottom-color: hsl(var(--primary)); color: hsl(var(--primary)); font-weight: 600; }
+.sfa-team-count { background: hsl(var(--primary-soft)); border-radius: 999px; color: hsl(var(--primary)); font-size: 11.5px; font-weight: 700; line-height: 1; padding: 3px 7px; }
+
+.sfa-team-panel { display: flex; flex-direction: column; gap: var(--space-5); padding: var(--space-5); }
+.sfa-team-note { align-items: flex-start; background: hsl(var(--foreground) / .06); border-radius: var(--radius-md-app); color: hsl(var(--muted-foreground)); display: flex; font-size: var(--text-small); gap: var(--space-2); margin: 0; padding: var(--space-3); }
+.sfa-team-note svg { flex: none; margin-top: 1px; }
+
+.sfa-team-invite { border: 1px solid hsl(var(--border)); border-radius: var(--radius-md-app); display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); }
+.sfa-team-invite h3, .sfa-team-result h3 { font-size: 15px; margin: 0; }
+.sfa-team-formrow { align-items: flex-end; display: grid; gap: var(--space-3); grid-template-columns: minmax(0, 1fr) 170px auto; }
+.sfa-team-formrow .sfa-field { min-width: 0; }
+.sfa-team-error { color: hsl(var(--error)); font-size: var(--text-small); margin: 0; }
+
+.sfa-team-result { background: hsl(var(--success-soft)); border: 1px solid hsl(var(--success) / .25); border-radius: var(--radius-md-app); display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); }
+.sfa-team-result p { color: hsl(var(--foreground)); font-size: var(--text-small); margin: 0; }
+.sfa-team-linkrow { align-items: center; display: flex; gap: var(--space-2); }
+.sfa-team-linkrow input { flex: 1; font-family: ui-monospace, monospace; font-size: 12.5px; min-width: 0; }
+
+.sfa-team-scroll { max-width: 100%; overflow-x: auto; }
+.sfa-team-table { border-collapse: collapse; font-size: var(--text-small); width: 100%; }
+.sfa-team-table th { color: hsl(var(--muted-foreground)); font-size: 12px; font-weight: 600; padding: var(--space-2) var(--space-3); text-align: left; white-space: nowrap; }
+.sfa-team-table td { border-top: 1px solid hsl(var(--border)); padding: var(--space-3); vertical-align: middle; }
+.sfa-team-table tbody tr:hover { background: hsl(var(--foreground) / .04); }
+.sfa-team-person { align-items: center; display: flex; gap: var(--space-3); min-width: 200px; }
+.sfa-team-person > div { display: flex; flex-direction: column; min-width: 0; }
+.sfa-team-person strong { align-items: center; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.sfa-team-person span { color: hsl(var(--muted-foreground)); overflow-wrap: anywhere; }
+.sfa-team-you { background: hsl(var(--foreground) / .06); border-radius: 999px; color: hsl(var(--muted-foreground)); font-size: 11px; font-weight: 600; padding: 2px 8px; }
+.sfa-team-role { background: hsl(var(--surface-3)); border-radius: 999px; color: hsl(var(--secondary-foreground)); display: inline-block; font-size: 12px; font-weight: 600; padding: 4px 10px; white-space: nowrap; }
+.sfa-team-rolesel { min-width: 130px; }
+.sfa-team-expired { background: hsl(var(--warning-soft)); border-radius: 999px; color: hsl(var(--warning)); font-size: 11px; font-weight: 600; margin-left: var(--space-2); padding: 2px 8px; }
+.sfa-team-actions { display: flex; gap: var(--space-2); justify-content: flex-end; white-space: nowrap; }
+.sfa-team-muted { color: hsl(var(--muted-foreground)); white-space: nowrap; }
+.sfa-team-skel { display: flex; flex-direction: column; gap: var(--space-4); }
+.sfa-team-skelrow { align-items: center; display: flex; gap: var(--space-3); }
+
+.sfa-team-matrix th, .sfa-team-matrix td { text-align: center; }
+.sfa-team-matrix th:first-child, .sfa-team-matrix td:first-child { min-width: 200px; text-align: left; }
+.sfa-team-matrix thead th { vertical-align: bottom; white-space: normal; min-width: 92px; }
+.sfa-team-matrix td:first-child span { color: hsl(var(--muted-foreground)); display: block; font-size: 12px; }
+.sfa-team-yes { color: hsl(var(--success)); }
+.sfa-team-no { color: hsl(var(--muted-foreground) / .5); }
+
+.sfa-team-feed { display: flex; flex-direction: column; list-style: none; margin: 0; padding: 0; }
+.sfa-team-feed li { align-items: baseline; border-top: 1px solid hsl(var(--border)); display: flex; gap: var(--space-3); justify-content: space-between; padding: var(--space-3) 0; }
+.sfa-team-feed li:first-child { border-top: 0; }
+.sfa-team-feed p { font-size: var(--text-small); margin: 0; overflow-wrap: anywhere; }
+.sfa-team-feed time { color: hsl(var(--muted-foreground)); flex: none; font-size: 12px; white-space: nowrap; }
+
+.sfa-team-accept { min-height: 100vh; grid-template-columns: minmax(0, 1fr); }
+.sfa-team-accept .sfa-auth__card { display: flex; flex-direction: column; gap: var(--space-4); }
+.sfa-team-accept h1 { font-size: 22px; line-height: 1.25; margin: 0; }
+.sfa-team-accept p { color: hsl(var(--muted-foreground)); margin: 0; }
+.sfa-team-accept__email { background: hsl(var(--foreground) / .06); border-radius: var(--radius-md-app); color: hsl(var(--foreground)); overflow-wrap: anywhere; padding: var(--space-3); }
+
+@media (max-width: 640px) {
+  .sfa-team-panel { padding: var(--space-4); }
+  .sfa-team-tabs { padding: 0 var(--space-3); }
+  .sfa-team-formrow { grid-template-columns: minmax(0, 1fr); }
+  .sfa-team-feed li { flex-direction: column; gap: 2px; }
+  .sfa-team-linkrow { flex-wrap: wrap; }
+}

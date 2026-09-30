@@ -18,6 +18,81 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Create an account and workspace, and sign in
+ */
+export const authSignupBodyPasswordMin = 8;
+export const authSignupBodyPasswordMax = 256;
+
+
+
+export const AuthSignupBody = zod.object({
+  "email": zod.string(),
+  "password": zod.string().min(authSignupBodyPasswordMin).max(authSignupBodyPasswordMax),
+  "displayName": zod.string().optional()
+})
+
+export const AuthSignupResponse = zod.object({
+  "user": zod.object({
+  "id": zod.string().uuid(),
+  "email": zod.string(),
+  "displayName": zod.string().nullable()
+}),
+  "workspace": zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string()
+})
+})
+
+
+/**
+ * @summary Sign in with email and password
+ */
+export const AuthLoginBody = zod.object({
+  "email": zod.string(),
+  "password": zod.string()
+})
+
+export const AuthLoginResponse = zod.object({
+  "user": zod.object({
+  "id": zod.string().uuid(),
+  "email": zod.string(),
+  "displayName": zod.string().nullable()
+})
+})
+
+
+/**
+ * @summary End the current session
+ */
+export const AuthLogoutResponse = zod.void()
+
+
+/**
+ * @summary The signed-in user and their workspace
+ */
+export const AuthMeResponse = zod.object({
+  "user": zod.object({
+  "id": zod.string().uuid(),
+  "email": zod.string(),
+  "displayName": zod.string().nullable()
+}),
+  "workspaceId": zod.string().uuid(),
+  "workspace": zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string()
+}),
+  "role": zod.enum(['owner', 'admin', 'editor', 'approver', 'viewer']),
+  "permissions": zod.array(zod.string()),
+  "workspaces": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "role": zod.enum(['owner', 'admin', 'editor', 'approver', 'viewer']),
+  "current": zod.boolean()
+}))
+})
+
+
+/**
  * @summary List supported platforms and whether each is configured
  */
 export const ListConnectionProvidersResponse = zod.object({
@@ -50,6 +125,7 @@ export const ListConnectedAccountsResponse = zod.object({
   "statusDetail": zod.string().nullable(),
   "scopes": zod.array(zod.string()),
   "missingScopes": zod.array(zod.string()),
+  "firstComment": zod.enum(['supported', 'needs_permission', 'unsupported']).describe('Whether a first comment can be posted with this account.'),
   "tokenExpiresAt": zod.coerce.date().nullable(),
   "lastVerifiedAt": zod.coerce.date().nullable(),
   "connectedAt": zod.coerce.date(),
@@ -121,6 +197,7 @@ export const CompletePendingConnectionResponse = zod.object({
   "statusDetail": zod.string().nullable(),
   "scopes": zod.array(zod.string()),
   "missingScopes": zod.array(zod.string()),
+  "firstComment": zod.enum(['supported', 'needs_permission', 'unsupported']).describe('Whether a first comment can be posted with this account.'),
   "tokenExpiresAt": zod.coerce.date().nullable(),
   "lastVerifiedAt": zod.coerce.date().nullable(),
   "connectedAt": zod.coerce.date(),
@@ -158,10 +235,2812 @@ export const VerifyConnectedAccountResponse = zod.object({
   "statusDetail": zod.string().nullable(),
   "scopes": zod.array(zod.string()),
   "missingScopes": zod.array(zod.string()),
+  "firstComment": zod.enum(['supported', 'needs_permission', 'unsupported']).describe('Whether a first comment can be posted with this account.'),
   "tokenExpiresAt": zod.coerce.date().nullable(),
   "lastVerifiedAt": zod.coerce.date().nullable(),
   "connectedAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Fetch the title, description and image of a web page, for the composer's link card
+ */
+export const getLinkPreviewQueryUrlMax = 2048;
+
+
+
+export const GetLinkPreviewQueryParams = zod.object({
+  "url": zod.coerce.string().max(getLinkPreviewQueryUrlMax)
+})
+
+export const GetLinkPreviewResponse = zod.object({
+  "url": zod.string().describe('The final address after redirects.'),
+  "title": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "imageUrl": zod.string().nullable().describe('Absolute http(s) address of the page\'s preferred image (the first of imageUrls).'),
+  "imageUrls": zod.array(zod.string()).describe('Every image the page offers for previews, best first, so another can be chosen.'),
+  "siteName": zod.string().nullable(),
+  "fetchedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List posts in the workspace, optionally within a date range or status
+ */
+export const ListPostsQueryParams = zod.object({
+  "from": zod.date().optional(),
+  "to": zod.date().optional(),
+  "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']).optional(),
+  "tag": zod.coerce.string().uuid().optional(),
+  "q": zod.coerce.string().optional()
+})
+
+export const listPostsResponsePostsItemLinkOneUrlMax = 2048;
+
+export const listPostsResponsePostsItemLinkOneTitleMax = 300;
+
+export const listPostsResponsePostsItemLinkOneDescriptionMax = 1000;
+
+export const listPostsResponsePostsItemLinkOneImageUrlMax = 2048;
+
+
+
+export const ListPostsResponse = zod.object({
+  "posts": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "content": zod.string(),
+  "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
+  "scheduledAt": zod.coerce.date().nullable(),
+  "publishedAt": zod.coerce.date().nullable(),
+  "targets": zod.array(zod.object({
+  "connectedAccountId": zod.string().uuid(),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "accountName": zod.string(),
+  "avatarUrl": zod.string().nullable(),
+  "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
+  "errorMessage": zod.string().nullable(),
+  "postUrl": zod.string().nullable().describe('Link to the live post on the network, once published.'),
+  "firstCommentStatus": zod.union([zod.literal('published'),zod.literal('failed'),zod.literal('unsupported'),zod.literal(null)]).nullable(),
+  "firstCommentError": zod.string().nullable()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "media": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "mimeType": zod.string(),
+  "fileName": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "width": zod.number().int().nullable(),
+  "height": zod.number().int().nullable(),
+  "durationMs": zod.number().int().nullable(),
+  "url": zod.string().describe('Signed-in members of the workspace can GET this to view the file.')
+})),
+  "platformContent": zod.object({
+  "facebook": zod.string().optional(),
+  "instagram": zod.string().optional(),
+  "linkedin": zod.string().optional(),
+  "youtube": zod.string().optional()
+}).describe('Per-network text overrides; a missing key means the base content is used.'),
+  "firstComment": zod.string().nullable(),
+  "link": zod.union([zod.object({
+  "url": zod.string().max(listPostsResponsePostsItemLinkOneUrlMax),
+  "title": zod.string().max(listPostsResponsePostsItemLinkOneTitleMax).nullish(),
+  "description": zod.string().max(listPostsResponsePostsItemLinkOneDescriptionMax).nullish(),
+  "imageUrl": zod.string().max(listPostsResponsePostsItemLinkOneImageUrlMax).nullish()
+}).describe('A link attached to a post as a preview card; a snapshot of what the composer showed.'),zod.null()]),
+  "recurrenceId": zod.string().uuid().nullable(),
+  "tags": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "postCount": zod.number().int().optional()
+})),
+  "customValues": zod.record(zod.string(), zod.string()).describe('Custom field values keyed by field ID.')
+}))
+})
+
+
+/**
+ * @summary Create a draft or scheduled post
+ */
+export const createPostBodyMediaIdsMax = 50;
+
+export const createPostBodyFirstCommentMax = 2000;
+
+export const createPostBodyLinkOneUrlMax = 2048;
+
+export const createPostBodyLinkOneTitleMax = 300;
+
+export const createPostBodyLinkOneDescriptionMax = 1000;
+
+export const createPostBodyLinkOneImageUrlMax = 2048;
+
+export const createPostBodyTagIdsMax = 50;
+
+
+
+export const CreatePostBody = zod.object({
+  "content": zod.string(),
+  "connectedAccountIds": zod.array(zod.string().uuid()),
+  "scheduledAt": zod.coerce.date().nullish().describe('When set, the post is scheduled for this time; otherwise it is saved as a draft.'),
+  "mediaIds": zod.array(zod.string().uuid()).max(createPostBodyMediaIdsMax).optional().describe('Uploaded media to attach, in display order.'),
+  "platformContent": zod.object({
+  "facebook": zod.string().optional(),
+  "instagram": zod.string().optional(),
+  "linkedin": zod.string().optional(),
+  "youtube": zod.string().optional()
+}).optional().describe('Per-network text overrides; a missing key means the base content is used.'),
+  "firstComment": zod.string().max(createPostBodyFirstCommentMax).nullish(),
+  "link": zod.union([zod.object({
+  "url": zod.string().max(createPostBodyLinkOneUrlMax),
+  "title": zod.string().max(createPostBodyLinkOneTitleMax).nullish(),
+  "description": zod.string().max(createPostBodyLinkOneDescriptionMax).nullish(),
+  "imageUrl": zod.string().max(createPostBodyLinkOneImageUrlMax).nullish()
+}).describe('A link attached to a post as a preview card; a snapshot of what the composer showed.'),zod.null()]).optional().describe('A link to show as a preview card on Facebook and LinkedIn. null removes it; omit to leave it unchanged.'),
+  "tagIds": zod.array(zod.string().uuid()).max(createPostBodyTagIdsMax).optional(),
+  "customValues": zod.record(zod.string(), zod.string()).optional(),
+  "queue": zod.boolean().optional().describe('Schedule into the next free slot of the selected accounts\' posting queues.')
+})
+
+export const createPostResponseLinkOneUrlMax = 2048;
+
+export const createPostResponseLinkOneTitleMax = 300;
+
+export const createPostResponseLinkOneDescriptionMax = 1000;
+
+export const createPostResponseLinkOneImageUrlMax = 2048;
+
+
+
+export const CreatePostResponse = zod.object({
+  "id": zod.string().uuid(),
+  "content": zod.string(),
+  "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
+  "scheduledAt": zod.coerce.date().nullable(),
+  "publishedAt": zod.coerce.date().nullable(),
+  "targets": zod.array(zod.object({
+  "connectedAccountId": zod.string().uuid(),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "accountName": zod.string(),
+  "avatarUrl": zod.string().nullable(),
+  "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
+  "errorMessage": zod.string().nullable(),
+  "postUrl": zod.string().nullable().describe('Link to the live post on the network, once published.'),
+  "firstCommentStatus": zod.union([zod.literal('published'),zod.literal('failed'),zod.literal('unsupported'),zod.literal(null)]).nullable(),
+  "firstCommentError": zod.string().nullable()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "media": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "mimeType": zod.string(),
+  "fileName": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "width": zod.number().int().nullable(),
+  "height": zod.number().int().nullable(),
+  "durationMs": zod.number().int().nullable(),
+  "url": zod.string().describe('Signed-in members of the workspace can GET this to view the file.')
+})),
+  "platformContent": zod.object({
+  "facebook": zod.string().optional(),
+  "instagram": zod.string().optional(),
+  "linkedin": zod.string().optional(),
+  "youtube": zod.string().optional()
+}).describe('Per-network text overrides; a missing key means the base content is used.'),
+  "firstComment": zod.string().nullable(),
+  "link": zod.union([zod.object({
+  "url": zod.string().max(createPostResponseLinkOneUrlMax),
+  "title": zod.string().max(createPostResponseLinkOneTitleMax).nullish(),
+  "description": zod.string().max(createPostResponseLinkOneDescriptionMax).nullish(),
+  "imageUrl": zod.string().max(createPostResponseLinkOneImageUrlMax).nullish()
+}).describe('A link attached to a post as a preview card; a snapshot of what the composer showed.'),zod.null()]),
+  "recurrenceId": zod.string().uuid().nullable(),
+  "tags": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "postCount": zod.number().int().optional()
+})),
+  "customValues": zod.record(zod.string(), zod.string()).describe('Custom field values keyed by field ID.')
+})
+
+
+/**
+ * Runs synchronously. Per-account results are on the returned targets; a failed publish still returns 200.
+ * @summary Publish a post immediately, or retry a failed one
+ */
+export const PublishPostNowParams = zod.object({
+  "postId": zod.coerce.string().uuid()
+})
+
+export const publishPostNowResponseLinkOneUrlMax = 2048;
+
+export const publishPostNowResponseLinkOneTitleMax = 300;
+
+export const publishPostNowResponseLinkOneDescriptionMax = 1000;
+
+export const publishPostNowResponseLinkOneImageUrlMax = 2048;
+
+
+
+export const PublishPostNowResponse = zod.object({
+  "id": zod.string().uuid(),
+  "content": zod.string(),
+  "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
+  "scheduledAt": zod.coerce.date().nullable(),
+  "publishedAt": zod.coerce.date().nullable(),
+  "targets": zod.array(zod.object({
+  "connectedAccountId": zod.string().uuid(),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "accountName": zod.string(),
+  "avatarUrl": zod.string().nullable(),
+  "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
+  "errorMessage": zod.string().nullable(),
+  "postUrl": zod.string().nullable().describe('Link to the live post on the network, once published.'),
+  "firstCommentStatus": zod.union([zod.literal('published'),zod.literal('failed'),zod.literal('unsupported'),zod.literal(null)]).nullable(),
+  "firstCommentError": zod.string().nullable()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "media": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "mimeType": zod.string(),
+  "fileName": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "width": zod.number().int().nullable(),
+  "height": zod.number().int().nullable(),
+  "durationMs": zod.number().int().nullable(),
+  "url": zod.string().describe('Signed-in members of the workspace can GET this to view the file.')
+})),
+  "platformContent": zod.object({
+  "facebook": zod.string().optional(),
+  "instagram": zod.string().optional(),
+  "linkedin": zod.string().optional(),
+  "youtube": zod.string().optional()
+}).describe('Per-network text overrides; a missing key means the base content is used.'),
+  "firstComment": zod.string().nullable(),
+  "link": zod.union([zod.object({
+  "url": zod.string().max(publishPostNowResponseLinkOneUrlMax),
+  "title": zod.string().max(publishPostNowResponseLinkOneTitleMax).nullish(),
+  "description": zod.string().max(publishPostNowResponseLinkOneDescriptionMax).nullish(),
+  "imageUrl": zod.string().max(publishPostNowResponseLinkOneImageUrlMax).nullish()
+}).describe('A link attached to a post as a preview card; a snapshot of what the composer showed.'),zod.null()]),
+  "recurrenceId": zod.string().uuid().nullable(),
+  "tags": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "postCount": zod.number().int().optional()
+})),
+  "customValues": zod.record(zod.string(), zod.string()).describe('Custom field values keyed by field ID.')
+})
+
+
+/**
+ * @summary Get one post
+ */
+export const GetPostParams = zod.object({
+  "postId": zod.coerce.string().uuid()
+})
+
+export const getPostResponseLinkOneUrlMax = 2048;
+
+export const getPostResponseLinkOneTitleMax = 300;
+
+export const getPostResponseLinkOneDescriptionMax = 1000;
+
+export const getPostResponseLinkOneImageUrlMax = 2048;
+
+
+
+export const GetPostResponse = zod.object({
+  "id": zod.string().uuid(),
+  "content": zod.string(),
+  "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
+  "scheduledAt": zod.coerce.date().nullable(),
+  "publishedAt": zod.coerce.date().nullable(),
+  "targets": zod.array(zod.object({
+  "connectedAccountId": zod.string().uuid(),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "accountName": zod.string(),
+  "avatarUrl": zod.string().nullable(),
+  "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
+  "errorMessage": zod.string().nullable(),
+  "postUrl": zod.string().nullable().describe('Link to the live post on the network, once published.'),
+  "firstCommentStatus": zod.union([zod.literal('published'),zod.literal('failed'),zod.literal('unsupported'),zod.literal(null)]).nullable(),
+  "firstCommentError": zod.string().nullable()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "media": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "mimeType": zod.string(),
+  "fileName": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "width": zod.number().int().nullable(),
+  "height": zod.number().int().nullable(),
+  "durationMs": zod.number().int().nullable(),
+  "url": zod.string().describe('Signed-in members of the workspace can GET this to view the file.')
+})),
+  "platformContent": zod.object({
+  "facebook": zod.string().optional(),
+  "instagram": zod.string().optional(),
+  "linkedin": zod.string().optional(),
+  "youtube": zod.string().optional()
+}).describe('Per-network text overrides; a missing key means the base content is used.'),
+  "firstComment": zod.string().nullable(),
+  "link": zod.union([zod.object({
+  "url": zod.string().max(getPostResponseLinkOneUrlMax),
+  "title": zod.string().max(getPostResponseLinkOneTitleMax).nullish(),
+  "description": zod.string().max(getPostResponseLinkOneDescriptionMax).nullish(),
+  "imageUrl": zod.string().max(getPostResponseLinkOneImageUrlMax).nullish()
+}).describe('A link attached to a post as a preview card; a snapshot of what the composer showed.'),zod.null()]),
+  "recurrenceId": zod.string().uuid().nullable(),
+  "tags": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "postCount": zod.number().int().optional()
+})),
+  "customValues": zod.record(zod.string(), zod.string()).describe('Custom field values keyed by field ID.')
+})
+
+
+/**
+ * @summary Edit, reschedule, or convert a draft or scheduled post
+ */
+export const UpdatePostParams = zod.object({
+  "postId": zod.coerce.string().uuid()
+})
+
+export const updatePostBodyMediaIdsMax = 50;
+
+export const updatePostBodyFirstCommentMax = 2000;
+
+export const updatePostBodyLinkOneUrlMax = 2048;
+
+export const updatePostBodyLinkOneTitleMax = 300;
+
+export const updatePostBodyLinkOneDescriptionMax = 1000;
+
+export const updatePostBodyLinkOneImageUrlMax = 2048;
+
+export const updatePostBodyTagIdsMax = 50;
+
+
+
+export const UpdatePostBody = zod.object({
+  "content": zod.string().optional(),
+  "connectedAccountIds": zod.array(zod.string().uuid()).optional(),
+  "scheduledAt": zod.coerce.date().nullish().describe('A time schedules the post; null moves it back to a draft.'),
+  "mediaIds": zod.array(zod.string().uuid()).max(updatePostBodyMediaIdsMax).optional().describe('Replaces the attached media, in display order. Omit to leave media unchanged.'),
+  "platformContent": zod.object({
+  "facebook": zod.string().optional(),
+  "instagram": zod.string().optional(),
+  "linkedin": zod.string().optional(),
+  "youtube": zod.string().optional()
+}).optional().describe('Per-network text overrides; a missing key means the base content is used.'),
+  "firstComment": zod.string().max(updatePostBodyFirstCommentMax).nullish(),
+  "link": zod.union([zod.object({
+  "url": zod.string().max(updatePostBodyLinkOneUrlMax),
+  "title": zod.string().max(updatePostBodyLinkOneTitleMax).nullish(),
+  "description": zod.string().max(updatePostBodyLinkOneDescriptionMax).nullish(),
+  "imageUrl": zod.string().max(updatePostBodyLinkOneImageUrlMax).nullish()
+}).describe('A link attached to a post as a preview card; a snapshot of what the composer showed.'),zod.null()]).optional().describe('A link to show as a preview card on Facebook and LinkedIn. null removes it; omit to leave it unchanged.'),
+  "tagIds": zod.array(zod.string().uuid()).max(updatePostBodyTagIdsMax).optional(),
+  "customValues": zod.record(zod.string(), zod.string()).optional(),
+  "queue": zod.boolean().optional().describe('Schedule into the next free slot of the selected accounts\' posting queues.')
+})
+
+export const updatePostResponseLinkOneUrlMax = 2048;
+
+export const updatePostResponseLinkOneTitleMax = 300;
+
+export const updatePostResponseLinkOneDescriptionMax = 1000;
+
+export const updatePostResponseLinkOneImageUrlMax = 2048;
+
+
+
+export const UpdatePostResponse = zod.object({
+  "id": zod.string().uuid(),
+  "content": zod.string(),
+  "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
+  "scheduledAt": zod.coerce.date().nullable(),
+  "publishedAt": zod.coerce.date().nullable(),
+  "targets": zod.array(zod.object({
+  "connectedAccountId": zod.string().uuid(),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "accountName": zod.string(),
+  "avatarUrl": zod.string().nullable(),
+  "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
+  "errorMessage": zod.string().nullable(),
+  "postUrl": zod.string().nullable().describe('Link to the live post on the network, once published.'),
+  "firstCommentStatus": zod.union([zod.literal('published'),zod.literal('failed'),zod.literal('unsupported'),zod.literal(null)]).nullable(),
+  "firstCommentError": zod.string().nullable()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "media": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "mimeType": zod.string(),
+  "fileName": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "width": zod.number().int().nullable(),
+  "height": zod.number().int().nullable(),
+  "durationMs": zod.number().int().nullable(),
+  "url": zod.string().describe('Signed-in members of the workspace can GET this to view the file.')
+})),
+  "platformContent": zod.object({
+  "facebook": zod.string().optional(),
+  "instagram": zod.string().optional(),
+  "linkedin": zod.string().optional(),
+  "youtube": zod.string().optional()
+}).describe('Per-network text overrides; a missing key means the base content is used.'),
+  "firstComment": zod.string().nullable(),
+  "link": zod.union([zod.object({
+  "url": zod.string().max(updatePostResponseLinkOneUrlMax),
+  "title": zod.string().max(updatePostResponseLinkOneTitleMax).nullish(),
+  "description": zod.string().max(updatePostResponseLinkOneDescriptionMax).nullish(),
+  "imageUrl": zod.string().max(updatePostResponseLinkOneImageUrlMax).nullish()
+}).describe('A link attached to a post as a preview card; a snapshot of what the composer showed.'),zod.null()]),
+  "recurrenceId": zod.string().uuid().nullable(),
+  "tags": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "postCount": zod.number().int().optional()
+})),
+  "customValues": zod.record(zod.string(), zod.string()).describe('Custom field values keyed by field ID.')
+})
+
+
+/**
+ * @summary Delete a post
+ */
+export const DeletePostParams = zod.object({
+  "postId": zod.coerce.string().uuid()
+})
+
+export const DeletePostResponse = zod.void()
+
+
+/**
+ * @summary List tags
+ */
+export const ListTagsResponse = zod.object({
+  "tags": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "postCount": zod.number().int().optional()
+}))
+})
+
+
+/**
+ * @summary Create a tag
+ */
+export const createTagBodyNameMax = 60;
+
+export const createTagBodyColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+
+
+export const CreateTagBody = zod.object({
+  "name": zod.string().max(createTagBodyNameMax).optional(),
+  "color": zod.string().regex(createTagBodyColorRegExp).optional()
+})
+
+export const CreateTagResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "postCount": zod.number().int().optional()
+})
+
+
+/**
+ * @summary Update a tag
+ */
+export const UpdateTagParams = zod.object({
+  "tagId": zod.coerce.string().uuid()
+})
+
+export const updateTagBodyNameMax = 60;
+
+export const updateTagBodyColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+
+
+export const UpdateTagBody = zod.object({
+  "name": zod.string().max(updateTagBodyNameMax).optional(),
+  "color": zod.string().regex(updateTagBodyColorRegExp).optional()
+})
+
+export const UpdateTagResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "postCount": zod.number().int().optional()
+})
+
+
+/**
+ * @summary Delete a tag
+ */
+export const DeleteTagParams = zod.object({
+  "tagId": zod.coerce.string().uuid()
+})
+
+export const DeleteTagResponse = zod.void()
+
+
+/**
+ * @summary List custom fields
+ */
+export const ListCustomFieldsResponse = zod.object({
+  "fields": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "type": zod.enum(['text', 'number', 'date', 'select', 'url']),
+  "options": zod.array(zod.string()),
+  "required": zod.boolean(),
+  "position": zod.number().int()
+}))
+})
+
+
+/**
+ * @summary Create a custom field
+ */
+export const createCustomFieldBodyLabelMax = 80;
+
+
+
+export const CreateCustomFieldBody = zod.object({
+  "label": zod.string().max(createCustomFieldBodyLabelMax).optional(),
+  "type": zod.enum(['text', 'number', 'date', 'select', 'url']).optional(),
+  "options": zod.array(zod.string()).optional(),
+  "required": zod.boolean().optional(),
+  "position": zod.number().int().optional()
+})
+
+export const CreateCustomFieldResponse = zod.object({
+  "id": zod.string().uuid(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "type": zod.enum(['text', 'number', 'date', 'select', 'url']),
+  "options": zod.array(zod.string()),
+  "required": zod.boolean(),
+  "position": zod.number().int()
+})
+
+
+/**
+ * @summary Update a custom field
+ */
+export const UpdateCustomFieldParams = zod.object({
+  "fieldId": zod.coerce.string().uuid()
+})
+
+export const updateCustomFieldBodyLabelMax = 80;
+
+
+
+export const UpdateCustomFieldBody = zod.object({
+  "label": zod.string().max(updateCustomFieldBodyLabelMax).optional(),
+  "type": zod.enum(['text', 'number', 'date', 'select', 'url']).optional(),
+  "options": zod.array(zod.string()).optional(),
+  "required": zod.boolean().optional(),
+  "position": zod.number().int().optional()
+})
+
+export const UpdateCustomFieldResponse = zod.object({
+  "id": zod.string().uuid(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "type": zod.enum(['text', 'number', 'date', 'select', 'url']),
+  "options": zod.array(zod.string()),
+  "required": zod.boolean(),
+  "position": zod.number().int()
+})
+
+
+/**
+ * @summary Delete a custom field
+ */
+export const DeleteCustomFieldParams = zod.object({
+  "fieldId": zod.coerce.string().uuid()
+})
+
+export const DeleteCustomFieldResponse = zod.void()
+
+
+/**
+ * @summary List mention groups
+ */
+export const ListMentionGroupsResponse = zod.object({
+  "groups": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "handles": zod.array(zod.string())
+}))
+})
+
+
+/**
+ * @summary Create a mention group
+ */
+export const createMentionGroupBodyNameMax = 60;
+
+
+
+export const CreateMentionGroupBody = zod.object({
+  "name": zod.string().max(createMentionGroupBodyNameMax).optional(),
+  "handles": zod.array(zod.string()).optional()
+})
+
+export const CreateMentionGroupResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "handles": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Update a mention group
+ */
+export const UpdateMentionGroupParams = zod.object({
+  "groupId": zod.coerce.string().uuid()
+})
+
+export const updateMentionGroupBodyNameMax = 60;
+
+
+
+export const UpdateMentionGroupBody = zod.object({
+  "name": zod.string().max(updateMentionGroupBodyNameMax).optional(),
+  "handles": zod.array(zod.string()).optional()
+})
+
+export const UpdateMentionGroupResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "handles": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Delete a mention group
+ */
+export const DeleteMentionGroupParams = zod.object({
+  "groupId": zod.coerce.string().uuid()
+})
+
+export const DeleteMentionGroupResponse = zod.void()
+
+
+/**
+ * @summary Every connected account's posting queue
+ */
+export const listQueuesResponseQueuesItemSlotsItemWeekdayMin = 0;
+export const listQueuesResponseQueuesItemSlotsItemWeekdayMax = 6;
+
+
+
+export const ListQueuesResponse = zod.object({
+  "queues": zod.array(zod.object({
+  "connectedAccountId": zod.string().uuid(),
+  "timezone": zod.string(),
+  "paused": zod.boolean(),
+  "slots": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "weekday": zod.number().int().min(listQueuesResponseQueuesItemSlotsItemWeekdayMin).max(listQueuesResponseQueuesItemSlotsItemWeekdayMax),
+  "time": zod.string().describe('HH:MM in the queue\'s time zone')
+})),
+  "nextSlots": zod.array(zod.coerce.date()).optional()
+}))
+})
+
+
+/**
+ * @summary One account's queue with its next free slots
+ */
+export const GetQueueParams = zod.object({
+  "accountId": zod.coerce.string().uuid()
+})
+
+export const getQueueResponseSlotsItemWeekdayMin = 0;
+export const getQueueResponseSlotsItemWeekdayMax = 6;
+
+
+
+export const GetQueueResponse = zod.object({
+  "connectedAccountId": zod.string().uuid(),
+  "timezone": zod.string(),
+  "paused": zod.boolean(),
+  "slots": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "weekday": zod.number().int().min(getQueueResponseSlotsItemWeekdayMin).max(getQueueResponseSlotsItemWeekdayMax),
+  "time": zod.string().describe('HH:MM in the queue\'s time zone')
+})),
+  "nextSlots": zod.array(zod.coerce.date()).optional()
+})
+
+
+/**
+ * @summary Replace an account's posting schedule
+ */
+export const UpdateQueueParams = zod.object({
+  "accountId": zod.coerce.string().uuid()
+})
+
+export const updateQueueBodySlotsItemWeekdayMin = 0;
+export const updateQueueBodySlotsItemWeekdayMax = 6;
+
+export const updateQueueBodySlotsMax = 70;
+
+
+
+export const UpdateQueueBody = zod.object({
+  "timezone": zod.string(),
+  "paused": zod.boolean().optional(),
+  "slots": zod.array(zod.object({
+  "weekday": zod.number().int().min(updateQueueBodySlotsItemWeekdayMin).max(updateQueueBodySlotsItemWeekdayMax),
+  "time": zod.string()
+})).max(updateQueueBodySlotsMax)
+})
+
+export const updateQueueResponseSlotsItemWeekdayMin = 0;
+export const updateQueueResponseSlotsItemWeekdayMax = 6;
+
+
+
+export const UpdateQueueResponse = zod.object({
+  "connectedAccountId": zod.string().uuid(),
+  "timezone": zod.string(),
+  "paused": zod.boolean(),
+  "slots": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "weekday": zod.number().int().min(updateQueueResponseSlotsItemWeekdayMin).max(updateQueueResponseSlotsItemWeekdayMax),
+  "time": zod.string().describe('HH:MM in the queue\'s time zone')
+})),
+  "nextSlots": zod.array(zod.coerce.date()).optional()
+})
+
+
+/**
+ * @summary Posts waiting in an account's queue, soonest first
+ */
+export const ListQueuedPostsParams = zod.object({
+  "accountId": zod.coerce.string().uuid()
+})
+
+export const listQueuedPostsResponsePostsItemLinkOneUrlMax = 2048;
+
+export const listQueuedPostsResponsePostsItemLinkOneTitleMax = 300;
+
+export const listQueuedPostsResponsePostsItemLinkOneDescriptionMax = 1000;
+
+export const listQueuedPostsResponsePostsItemLinkOneImageUrlMax = 2048;
+
+
+
+export const ListQueuedPostsResponse = zod.object({
+  "posts": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "content": zod.string(),
+  "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
+  "scheduledAt": zod.coerce.date().nullable(),
+  "publishedAt": zod.coerce.date().nullable(),
+  "targets": zod.array(zod.object({
+  "connectedAccountId": zod.string().uuid(),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "accountName": zod.string(),
+  "avatarUrl": zod.string().nullable(),
+  "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
+  "errorMessage": zod.string().nullable(),
+  "postUrl": zod.string().nullable().describe('Link to the live post on the network, once published.'),
+  "firstCommentStatus": zod.union([zod.literal('published'),zod.literal('failed'),zod.literal('unsupported'),zod.literal(null)]).nullable(),
+  "firstCommentError": zod.string().nullable()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "media": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "mimeType": zod.string(),
+  "fileName": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "width": zod.number().int().nullable(),
+  "height": zod.number().int().nullable(),
+  "durationMs": zod.number().int().nullable(),
+  "url": zod.string().describe('Signed-in members of the workspace can GET this to view the file.')
+})),
+  "platformContent": zod.object({
+  "facebook": zod.string().optional(),
+  "instagram": zod.string().optional(),
+  "linkedin": zod.string().optional(),
+  "youtube": zod.string().optional()
+}).describe('Per-network text overrides; a missing key means the base content is used.'),
+  "firstComment": zod.string().nullable(),
+  "link": zod.union([zod.object({
+  "url": zod.string().max(listQueuedPostsResponsePostsItemLinkOneUrlMax),
+  "title": zod.string().max(listQueuedPostsResponsePostsItemLinkOneTitleMax).nullish(),
+  "description": zod.string().max(listQueuedPostsResponsePostsItemLinkOneDescriptionMax).nullish(),
+  "imageUrl": zod.string().max(listQueuedPostsResponsePostsItemLinkOneImageUrlMax).nullish()
+}).describe('A link attached to a post as a preview card; a snapshot of what the composer showed.'),zod.null()]),
+  "recurrenceId": zod.string().uuid().nullable(),
+  "tags": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "postCount": zod.number().int().optional()
+})),
+  "customValues": zod.record(zod.string(), zod.string()).describe('Custom field values keyed by field ID.')
+}))
+})
+
+
+/**
+ * @summary Reorder the posts in an account's queue (they keep the same set of times)
+ */
+export const ReorderQueueParams = zod.object({
+  "accountId": zod.coerce.string().uuid()
+})
+
+export const ReorderQueueBody = zod.object({
+  "postIds": zod.array(zod.string().uuid())
+})
+
+export const reorderQueueResponsePostsItemLinkOneUrlMax = 2048;
+
+export const reorderQueueResponsePostsItemLinkOneTitleMax = 300;
+
+export const reorderQueueResponsePostsItemLinkOneDescriptionMax = 1000;
+
+export const reorderQueueResponsePostsItemLinkOneImageUrlMax = 2048;
+
+
+
+export const ReorderQueueResponse = zod.object({
+  "posts": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "content": zod.string(),
+  "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
+  "scheduledAt": zod.coerce.date().nullable(),
+  "publishedAt": zod.coerce.date().nullable(),
+  "targets": zod.array(zod.object({
+  "connectedAccountId": zod.string().uuid(),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "accountName": zod.string(),
+  "avatarUrl": zod.string().nullable(),
+  "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
+  "errorMessage": zod.string().nullable(),
+  "postUrl": zod.string().nullable().describe('Link to the live post on the network, once published.'),
+  "firstCommentStatus": zod.union([zod.literal('published'),zod.literal('failed'),zod.literal('unsupported'),zod.literal(null)]).nullable(),
+  "firstCommentError": zod.string().nullable()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "media": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "mimeType": zod.string(),
+  "fileName": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "width": zod.number().int().nullable(),
+  "height": zod.number().int().nullable(),
+  "durationMs": zod.number().int().nullable(),
+  "url": zod.string().describe('Signed-in members of the workspace can GET this to view the file.')
+})),
+  "platformContent": zod.object({
+  "facebook": zod.string().optional(),
+  "instagram": zod.string().optional(),
+  "linkedin": zod.string().optional(),
+  "youtube": zod.string().optional()
+}).describe('Per-network text overrides; a missing key means the base content is used.'),
+  "firstComment": zod.string().nullable(),
+  "link": zod.union([zod.object({
+  "url": zod.string().max(reorderQueueResponsePostsItemLinkOneUrlMax),
+  "title": zod.string().max(reorderQueueResponsePostsItemLinkOneTitleMax).nullish(),
+  "description": zod.string().max(reorderQueueResponsePostsItemLinkOneDescriptionMax).nullish(),
+  "imageUrl": zod.string().max(reorderQueueResponsePostsItemLinkOneImageUrlMax).nullish()
+}).describe('A link attached to a post as a preview card; a snapshot of what the composer showed.'),zod.null()]),
+  "recurrenceId": zod.string().uuid().nullable(),
+  "tags": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "postCount": zod.number().int().optional()
+})),
+  "customValues": zod.record(zod.string(), zod.string()).describe('Custom field values keyed by field ID.')
+}))
+})
+
+
+/**
+ * @summary Recurring posts in the workspace
+ */
+export const ListRecurrencesResponse = zod.object({
+  "recurrences": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "frequency": zod.enum(['daily', 'weekly', 'monthly']),
+  "interval": zod.number().int(),
+  "weekdays": zod.array(zod.number().int()),
+  "dayOfMonth": zod.number().int().nullable(),
+  "time": zod.string(),
+  "timezone": zod.string(),
+  "startDate": zod.string(),
+  "endDate": zod.string().nullable(),
+  "maxOccurrences": zod.number().int().nullable(),
+  "occurrencesCreated": zod.number().int(),
+  "nextRunAt": zod.coerce.date().nullable(),
+  "paused": zod.boolean(),
+  "finished": zod.boolean(),
+  "content": zod.string(),
+  "firstComment": zod.string().nullable(),
+  "platformContent": zod.object({
+  "facebook": zod.string().optional(),
+  "instagram": zod.string().optional(),
+  "linkedin": zod.string().optional(),
+  "youtube": zod.string().optional()
+}).describe('Per-network text overrides; a missing key means the base content is used.'),
+  "connectedAccountIds": zod.array(zod.string().uuid()),
+  "mediaIds": zod.array(zod.string().uuid()),
+  "tagIds": zod.array(zod.string().uuid()),
+  "upcoming": zod.array(zod.coerce.date()),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Create a recurring post
+ */
+export const createRecurrenceBodyIntervalMax = 52;
+
+export const createRecurrenceBodyWeekdaysItemMin = 0;
+export const createRecurrenceBodyWeekdaysItemMax = 6;
+
+export const createRecurrenceBodyDayOfMonthMax = 31;
+
+
+
+export const CreateRecurrenceBody = zod.object({
+  "frequency": zod.enum(['daily', 'weekly', 'monthly']).optional(),
+  "interval": zod.number().int().min(1).max(createRecurrenceBodyIntervalMax).optional(),
+  "weekdays": zod.array(zod.number().int().min(createRecurrenceBodyWeekdaysItemMin).max(createRecurrenceBodyWeekdaysItemMax)).optional(),
+  "dayOfMonth": zod.number().int().min(1).max(createRecurrenceBodyDayOfMonthMax).nullish(),
+  "time": zod.string().optional(),
+  "timezone": zod.string().optional(),
+  "startDate": zod.string().optional(),
+  "endDate": zod.string().nullish(),
+  "maxOccurrences": zod.number().int().nullish(),
+  "paused": zod.boolean().optional(),
+  "content": zod.string().optional(),
+  "firstComment": zod.string().nullish(),
+  "platformContent": zod.object({
+  "facebook": zod.string().optional(),
+  "instagram": zod.string().optional(),
+  "linkedin": zod.string().optional(),
+  "youtube": zod.string().optional()
+}).optional().describe('Per-network text overrides; a missing key means the base content is used.'),
+  "connectedAccountIds": zod.array(zod.string().uuid()).optional(),
+  "mediaIds": zod.array(zod.string().uuid()).optional(),
+  "tagIds": zod.array(zod.string().uuid()).optional()
+})
+
+export const CreateRecurrenceResponse = zod.object({
+  "id": zod.string().uuid(),
+  "frequency": zod.enum(['daily', 'weekly', 'monthly']),
+  "interval": zod.number().int(),
+  "weekdays": zod.array(zod.number().int()),
+  "dayOfMonth": zod.number().int().nullable(),
+  "time": zod.string(),
+  "timezone": zod.string(),
+  "startDate": zod.string(),
+  "endDate": zod.string().nullable(),
+  "maxOccurrences": zod.number().int().nullable(),
+  "occurrencesCreated": zod.number().int(),
+  "nextRunAt": zod.coerce.date().nullable(),
+  "paused": zod.boolean(),
+  "finished": zod.boolean(),
+  "content": zod.string(),
+  "firstComment": zod.string().nullable(),
+  "platformContent": zod.object({
+  "facebook": zod.string().optional(),
+  "instagram": zod.string().optional(),
+  "linkedin": zod.string().optional(),
+  "youtube": zod.string().optional()
+}).describe('Per-network text overrides; a missing key means the base content is used.'),
+  "connectedAccountIds": zod.array(zod.string().uuid()),
+  "mediaIds": zod.array(zod.string().uuid()),
+  "tagIds": zod.array(zod.string().uuid()),
+  "upcoming": zod.array(zod.coerce.date()),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary The next dates a rule would post on
+ */
+export const previewRecurrenceBodyIntervalMax = 52;
+
+export const previewRecurrenceBodyWeekdaysItemMin = 0;
+export const previewRecurrenceBodyWeekdaysItemMax = 6;
+
+export const previewRecurrenceBodyDayOfMonthMax = 31;
+
+
+
+export const PreviewRecurrenceBody = zod.object({
+  "frequency": zod.enum(['daily', 'weekly', 'monthly']).optional(),
+  "interval": zod.number().int().min(1).max(previewRecurrenceBodyIntervalMax).optional(),
+  "weekdays": zod.array(zod.number().int().min(previewRecurrenceBodyWeekdaysItemMin).max(previewRecurrenceBodyWeekdaysItemMax)).optional(),
+  "dayOfMonth": zod.number().int().min(1).max(previewRecurrenceBodyDayOfMonthMax).nullish(),
+  "time": zod.string().optional(),
+  "timezone": zod.string().optional(),
+  "startDate": zod.string().optional(),
+  "endDate": zod.string().nullish(),
+  "maxOccurrences": zod.number().int().nullish(),
+  "paused": zod.boolean().optional(),
+  "content": zod.string().optional(),
+  "firstComment": zod.string().nullish(),
+  "platformContent": zod.object({
+  "facebook": zod.string().optional(),
+  "instagram": zod.string().optional(),
+  "linkedin": zod.string().optional(),
+  "youtube": zod.string().optional()
+}).optional().describe('Per-network text overrides; a missing key means the base content is used.'),
+  "connectedAccountIds": zod.array(zod.string().uuid()).optional(),
+  "mediaIds": zod.array(zod.string().uuid()).optional(),
+  "tagIds": zod.array(zod.string().uuid()).optional()
+})
+
+export const PreviewRecurrenceResponse = zod.object({
+  "dates": zod.array(zod.coerce.date())
+})
+
+
+/**
+ * @summary A recurring post with its occurrences
+ */
+export const GetRecurrenceParams = zod.object({
+  "recurrenceId": zod.coerce.string().uuid()
+})
+
+export const getRecurrenceResponseTwoPostsItemLinkOneUrlMax = 2048;
+
+export const getRecurrenceResponseTwoPostsItemLinkOneTitleMax = 300;
+
+export const getRecurrenceResponseTwoPostsItemLinkOneDescriptionMax = 1000;
+
+export const getRecurrenceResponseTwoPostsItemLinkOneImageUrlMax = 2048;
+
+
+
+export const GetRecurrenceResponse = zod.object({
+  "id": zod.string().uuid(),
+  "frequency": zod.enum(['daily', 'weekly', 'monthly']),
+  "interval": zod.number().int(),
+  "weekdays": zod.array(zod.number().int()),
+  "dayOfMonth": zod.number().int().nullable(),
+  "time": zod.string(),
+  "timezone": zod.string(),
+  "startDate": zod.string(),
+  "endDate": zod.string().nullable(),
+  "maxOccurrences": zod.number().int().nullable(),
+  "occurrencesCreated": zod.number().int(),
+  "nextRunAt": zod.coerce.date().nullable(),
+  "paused": zod.boolean(),
+  "finished": zod.boolean(),
+  "content": zod.string(),
+  "firstComment": zod.string().nullable(),
+  "platformContent": zod.object({
+  "facebook": zod.string().optional(),
+  "instagram": zod.string().optional(),
+  "linkedin": zod.string().optional(),
+  "youtube": zod.string().optional()
+}).describe('Per-network text overrides; a missing key means the base content is used.'),
+  "connectedAccountIds": zod.array(zod.string().uuid()),
+  "mediaIds": zod.array(zod.string().uuid()),
+  "tagIds": zod.array(zod.string().uuid()),
+  "upcoming": zod.array(zod.coerce.date()),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}).and(zod.object({
+  "posts": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "content": zod.string(),
+  "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
+  "scheduledAt": zod.coerce.date().nullable(),
+  "publishedAt": zod.coerce.date().nullable(),
+  "targets": zod.array(zod.object({
+  "connectedAccountId": zod.string().uuid(),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "accountName": zod.string(),
+  "avatarUrl": zod.string().nullable(),
+  "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
+  "errorMessage": zod.string().nullable(),
+  "postUrl": zod.string().nullable().describe('Link to the live post on the network, once published.'),
+  "firstCommentStatus": zod.union([zod.literal('published'),zod.literal('failed'),zod.literal('unsupported'),zod.literal(null)]).nullable(),
+  "firstCommentError": zod.string().nullable()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "media": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "mimeType": zod.string(),
+  "fileName": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "width": zod.number().int().nullable(),
+  "height": zod.number().int().nullable(),
+  "durationMs": zod.number().int().nullable(),
+  "url": zod.string().describe('Signed-in members of the workspace can GET this to view the file.')
+})),
+  "platformContent": zod.object({
+  "facebook": zod.string().optional(),
+  "instagram": zod.string().optional(),
+  "linkedin": zod.string().optional(),
+  "youtube": zod.string().optional()
+}).describe('Per-network text overrides; a missing key means the base content is used.'),
+  "firstComment": zod.string().nullable(),
+  "link": zod.union([zod.object({
+  "url": zod.string().max(getRecurrenceResponseTwoPostsItemLinkOneUrlMax),
+  "title": zod.string().max(getRecurrenceResponseTwoPostsItemLinkOneTitleMax).nullish(),
+  "description": zod.string().max(getRecurrenceResponseTwoPostsItemLinkOneDescriptionMax).nullish(),
+  "imageUrl": zod.string().max(getRecurrenceResponseTwoPostsItemLinkOneImageUrlMax).nullish()
+}).describe('A link attached to a post as a preview card; a snapshot of what the composer showed.'),zod.null()]),
+  "recurrenceId": zod.string().uuid().nullable(),
+  "tags": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "postCount": zod.number().int().optional()
+})),
+  "customValues": zod.record(zod.string(), zod.string()).describe('Custom field values keyed by field ID.')
+}))
+}))
+
+
+/**
+ * @summary Update, pause or resume a recurring post
+ */
+export const UpdateRecurrenceParams = zod.object({
+  "recurrenceId": zod.coerce.string().uuid()
+})
+
+export const updateRecurrenceBodyIntervalMax = 52;
+
+export const updateRecurrenceBodyWeekdaysItemMin = 0;
+export const updateRecurrenceBodyWeekdaysItemMax = 6;
+
+export const updateRecurrenceBodyDayOfMonthMax = 31;
+
+
+
+export const UpdateRecurrenceBody = zod.object({
+  "frequency": zod.enum(['daily', 'weekly', 'monthly']).optional(),
+  "interval": zod.number().int().min(1).max(updateRecurrenceBodyIntervalMax).optional(),
+  "weekdays": zod.array(zod.number().int().min(updateRecurrenceBodyWeekdaysItemMin).max(updateRecurrenceBodyWeekdaysItemMax)).optional(),
+  "dayOfMonth": zod.number().int().min(1).max(updateRecurrenceBodyDayOfMonthMax).nullish(),
+  "time": zod.string().optional(),
+  "timezone": zod.string().optional(),
+  "startDate": zod.string().optional(),
+  "endDate": zod.string().nullish(),
+  "maxOccurrences": zod.number().int().nullish(),
+  "paused": zod.boolean().optional(),
+  "content": zod.string().optional(),
+  "firstComment": zod.string().nullish(),
+  "platformContent": zod.object({
+  "facebook": zod.string().optional(),
+  "instagram": zod.string().optional(),
+  "linkedin": zod.string().optional(),
+  "youtube": zod.string().optional()
+}).optional().describe('Per-network text overrides; a missing key means the base content is used.'),
+  "connectedAccountIds": zod.array(zod.string().uuid()).optional(),
+  "mediaIds": zod.array(zod.string().uuid()).optional(),
+  "tagIds": zod.array(zod.string().uuid()).optional()
+})
+
+export const UpdateRecurrenceResponse = zod.object({
+  "id": zod.string().uuid(),
+  "frequency": zod.enum(['daily', 'weekly', 'monthly']),
+  "interval": zod.number().int(),
+  "weekdays": zod.array(zod.number().int()),
+  "dayOfMonth": zod.number().int().nullable(),
+  "time": zod.string(),
+  "timezone": zod.string(),
+  "startDate": zod.string(),
+  "endDate": zod.string().nullable(),
+  "maxOccurrences": zod.number().int().nullable(),
+  "occurrencesCreated": zod.number().int(),
+  "nextRunAt": zod.coerce.date().nullable(),
+  "paused": zod.boolean(),
+  "finished": zod.boolean(),
+  "content": zod.string(),
+  "firstComment": zod.string().nullable(),
+  "platformContent": zod.object({
+  "facebook": zod.string().optional(),
+  "instagram": zod.string().optional(),
+  "linkedin": zod.string().optional(),
+  "youtube": zod.string().optional()
+}).describe('Per-network text overrides; a missing key means the base content is used.'),
+  "connectedAccountIds": zod.array(zod.string().uuid()),
+  "mediaIds": zod.array(zod.string().uuid()),
+  "tagIds": zod.array(zod.string().uuid()),
+  "upcoming": zod.array(zod.coerce.date()),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Stop a recurring post and remove its unsent occurrences
+ */
+export const DeleteRecurrenceParams = zod.object({
+  "recurrenceId": zod.coerce.string().uuid()
+})
+
+export const DeleteRecurrenceResponse = zod.void()
+
+
+/**
+ * @summary Members, invitations, roles and recent activity of the current workspace
+ */
+export const GetTeamResponse = zod.object({
+  "workspace": zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string()
+}),
+  "me": zod.object({
+  "userId": zod.string().uuid(),
+  "role": zod.enum(['owner', 'admin', 'editor', 'approver', 'viewer']),
+  "canManage": zod.boolean(),
+  "grantableRoles": zod.array(zod.enum(['owner', 'admin', 'editor', 'approver', 'viewer']))
+}),
+  "members": zod.array(zod.object({
+  "userId": zod.string().uuid(),
+  "email": zod.string(),
+  "displayName": zod.string().nullable(),
+  "role": zod.enum(['owner', 'admin', 'editor', 'approver', 'viewer']),
+  "joinedAt": zod.coerce.date()
+})),
+  "invitations": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "email": zod.string(),
+  "role": zod.string(),
+  "invitedBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date(),
+  "expired": zod.boolean()
+})),
+  "roles": zod.array(zod.object({
+  "role": zod.enum(['owner', 'admin', 'editor', 'approver', 'viewer']),
+  "label": zod.string(),
+  "description": zod.string(),
+  "permissions": zod.array(zod.string())
+})),
+  "permissions": zod.array(zod.string()),
+  "mailConfigured": zod.boolean(),
+  "activity": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "action": zod.string(),
+  "target": zod.string().nullable(),
+  "actor": zod.string(),
+  "detail": zod.record(zod.string(), zod.unknown()),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Invite someone by email
+ */
+export const CreateInvitationBody = zod.object({
+  "email": zod.string(),
+  "role": zod.enum(['owner', 'admin', 'editor', 'approver', 'viewer'])
+})
+
+export const CreateInvitationResponse = zod.object({
+  "id": zod.string().uuid(),
+  "email": zod.string(),
+  "role": zod.string(),
+  "expiresAt": zod.coerce.date().optional(),
+  "inviteUrl": zod.string().nullable(),
+  "emailSent": zod.boolean()
+})
+
+
+/**
+ * @summary Cancel a pending invitation
+ */
+export const RevokeInvitationParams = zod.object({
+  "invitationId": zod.coerce.string()
+})
+
+export const RevokeInvitationResponse = zod.void()
+
+
+/**
+ * @summary Send a pending invitation again with a fresh link
+ */
+export const ResendInvitationParams = zod.object({
+  "invitationId": zod.coerce.string()
+})
+
+export const ResendInvitationResponse = zod.object({
+  "id": zod.string().uuid(),
+  "email": zod.string(),
+  "role": zod.string(),
+  "expiresAt": zod.coerce.date().optional(),
+  "inviteUrl": zod.string().nullable(),
+  "emailSent": zod.boolean()
+})
+
+
+/**
+ * @summary Change a member's role
+ */
+export const UpdateMemberRoleParams = zod.object({
+  "userId": zod.coerce.string()
+})
+
+export const UpdateMemberRoleBody = zod.object({
+  "role": zod.enum(['owner', 'admin', 'editor', 'approver', 'viewer'])
+})
+
+export const UpdateMemberRoleResponse = zod.object({
+  "members": zod.array(zod.object({
+  "userId": zod.string().uuid(),
+  "email": zod.string(),
+  "displayName": zod.string().nullable(),
+  "role": zod.enum(['owner', 'admin', 'editor', 'approver', 'viewer']),
+  "joinedAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Remove a member, or leave the workspace
+ */
+export const RemoveMemberParams = zod.object({
+  "userId": zod.coerce.string()
+})
+
+export const RemoveMemberResponse = zod.void()
+
+
+/**
+ * @summary What an invitation is for (public, needs the token)
+ */
+export const GetInvitationParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetInvitationResponse = zod.object({
+  "workspaceName": zod.string(),
+  "role": zod.string(),
+  "roleLabel": zod.string(),
+  "email": zod.string(),
+  "invitedBy": zod.string().nullable(),
+  "hasAccount": zod.boolean(),
+  "expiresAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Accept an invitation as the signed-in user
+ */
+export const AcceptInvitationParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const AcceptInvitationResponse = zod.object({
+  "workspaceId": zod.string().uuid(),
+  "role": zod.string()
+})
+
+
+/**
+ * @summary Workspaces the signed-in user belongs to
+ */
+export const ListWorkspacesResponse = zod.object({
+  "workspaces": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "role": zod.enum(['owner', 'admin', 'editor', 'approver', 'viewer']),
+  "current": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Work in another of the user's workspaces
+ */
+export const SwitchWorkspaceParams = zod.object({
+  "workspaceId": zod.coerce.string()
+})
+
+export const SwitchWorkspaceResponse = zod.void()
+
+
+/**
+ * @summary Numbers reported by the connected networks
+ */
+export const GetAnalyticsQueryParams = zod.object({
+  "range": zod.enum(['today', '7d', '30d', '90d', 'custom']).optional(),
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional(),
+  "tz": zod.coerce.string().optional(),
+  "platform": zod.coerce.string().optional(),
+  "accountId": zod.coerce.string().optional()
+})
+
+export const GetAnalyticsResponse = zod.object({
+  "range": zod.object({
+  "key": zod.string(),
+  "from": zod.coerce.date(),
+  "to": zod.coerce.date(),
+  "previousFrom": zod.coerce.date(),
+  "previousTo": zod.coerce.date(),
+  "timezone": zod.string()
+}),
+  "lastCollectedAt": zod.coerce.date().nullable(),
+  "accounts": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "displayName": zod.string(),
+  "status": zod.string(),
+  "followers": zod.number().int().nullable(),
+  "mediaCount": zod.number().int().nullable(),
+  "viewsTotal": zod.number().nullable(),
+  "collectedAt": zod.coerce.date().nullable(),
+  "support": zod.record(zod.string(), zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string().nullable()
+}))
+})),
+  "kpis": zod.object({
+  "followers": zod.object({
+  "value": zod.number().nullable(),
+  "previous": zod.number().nullable(),
+  "change": zod.number().nullable(),
+  "available": zod.boolean(),
+  "reason": zod.string().nullable()
+}),
+  "posts": zod.object({
+  "value": zod.number().nullable(),
+  "previous": zod.number().nullable(),
+  "change": zod.number().nullable(),
+  "available": zod.boolean(),
+  "reason": zod.string().nullable()
+}),
+  "likes": zod.object({
+  "value": zod.number().nullable(),
+  "previous": zod.number().nullable(),
+  "change": zod.number().nullable(),
+  "available": zod.boolean(),
+  "reason": zod.string().nullable()
+}),
+  "comments": zod.object({
+  "value": zod.number().nullable(),
+  "previous": zod.number().nullable(),
+  "change": zod.number().nullable(),
+  "available": zod.boolean(),
+  "reason": zod.string().nullable()
+}),
+  "shares": zod.object({
+  "value": zod.number().nullable(),
+  "previous": zod.number().nullable(),
+  "change": zod.number().nullable(),
+  "available": zod.boolean(),
+  "reason": zod.string().nullable()
+}),
+  "saves": zod.object({
+  "value": zod.number().nullable(),
+  "previous": zod.number().nullable(),
+  "change": zod.number().nullable(),
+  "available": zod.boolean(),
+  "reason": zod.string().nullable()
+}),
+  "views": zod.object({
+  "value": zod.number().nullable(),
+  "previous": zod.number().nullable(),
+  "change": zod.number().nullable(),
+  "available": zod.boolean(),
+  "reason": zod.string().nullable()
+}),
+  "impressions": zod.object({
+  "value": zod.number().nullable(),
+  "previous": zod.number().nullable(),
+  "change": zod.number().nullable(),
+  "available": zod.boolean(),
+  "reason": zod.string().nullable()
+}),
+  "reach": zod.object({
+  "value": zod.number().nullable(),
+  "previous": zod.number().nullable(),
+  "change": zod.number().nullable(),
+  "available": zod.boolean(),
+  "reason": zod.string().nullable()
+}),
+  "engagement": zod.object({
+  "value": zod.number().nullable(),
+  "previous": zod.number().nullable(),
+  "change": zod.number().nullable(),
+  "available": zod.boolean(),
+  "reason": zod.string().nullable()
+}).and(zod.object({
+  "rate": zod.number().nullable()
+}))
+}),
+  "series": zod.object({
+  "followers": zod.array(zod.object({
+  "date": zod.string(),
+  "value": zod.number()
+})),
+  "activity": zod.array(zod.object({
+  "date": zod.string(),
+  "posts": zod.number().int(),
+  "likes": zod.number().int(),
+  "comments": zod.number().int(),
+  "shares": zod.number().int()
+}))
+}),
+  "platforms": zod.array(zod.object({
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "accounts": zod.number().int(),
+  "followers": zod.number().int().nullable(),
+  "posts": zod.number().int(),
+  "likes": zod.number().int().nullable(),
+  "comments": zod.number().int().nullable(),
+  "shares": zod.number().int().nullable(),
+  "saves": zod.number().int().nullable(),
+  "views": zod.number().nullable(),
+  "impressions": zod.number().nullable(),
+  "reach": zod.number().nullable(),
+  "engagement": zod.number().int().nullable()
+})),
+  "topPosts": zod.array(zod.object({
+  "postId": zod.string().uuid(),
+  "content": zod.string(),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "accountName": zod.string(),
+  "publishedAt": zod.coerce.date(),
+  "postUrl": zod.string().nullable(),
+  "likes": zod.number().int().nullable(),
+  "comments": zod.number().int().nullable(),
+  "shares": zod.number().int().nullable(),
+  "views": zod.number().nullable(),
+  "impressions": zod.number().nullable(),
+  "reach": zod.number().nullable(),
+  "saves": zod.number().int().nullable(),
+  "engagement": zod.number().int().nullable(),
+  "capturedAt": zod.coerce.date().nullable()
+}))
+})
+
+
+/**
+ * @summary Read the networks now
+ */
+export const RefreshAnalyticsBody = zod.object({
+  "accountId": zod.string().uuid().optional()
+})
+
+export const RefreshAnalyticsResponse = zod.object({
+  "results": zod.array(zod.object({
+  "accountId": zod.string().uuid(),
+  "ok": zod.boolean(),
+  "skipped": zod.boolean(),
+  "postsRead": zod.number().int(),
+  "error": zod.string().nullable(),
+  "notes": zod.array(zod.object({
+  "code": zod.string(),
+  "message": zod.string()
+}))
+}))
+})
+
+
+/**
+ * @summary Approval queue (approvers/admins) or own requests (editors)
+ */
+export const ListApprovalsQueryParams = zod.object({
+  "status": zod.enum(['pending', 'approved', 'rejected', 'changes_requested', 'withdrawn']).optional()
+})
+
+export const ListApprovalsResponse = zod.object({
+  "approvals": zod.array(zod.object({
+  "id": zod.string(),
+  "postId": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'changes_requested', 'withdrawn']),
+  "requestedBy": zod.string().nullable(),
+  "requestedByName": zod.string().nullable(),
+  "requestedAt": zod.coerce.date(),
+  "decidedBy": zod.string().nullable(),
+  "decidedByName": zod.string().nullable(),
+  "decidedAt": zod.coerce.date().nullable(),
+  "note": zod.string().nullable(),
+  "post": zod.union([zod.object({
+  "id": zod.string(),
+  "content": zod.string(),
+  "status": zod.string(),
+  "scheduledAt": zod.coerce.date().nullable()
+}),zod.null()])
+})),
+  "scope": zod.enum(['queue', 'own'])
+})
+
+
+/**
+ * @summary Whether approvals are required in this workspace
+ */
+export const GetApprovalSettingsResponse = zod.object({
+  "required": zod.boolean(),
+  "updatedBy": zod.string().nullable(),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary Turn required approvals on or off (owner/admin)
+ */
+export const UpdateApprovalSettingsBody = zod.object({
+  "required": zod.boolean()
+})
+
+export const UpdateApprovalSettingsResponse = zod.object({
+  "required": zod.boolean(),
+  "updatedBy": zod.string().nullable(),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary One approval with its comments
+ */
+export const GetApprovalParams = zod.object({
+  "approvalId": zod.coerce.string()
+})
+
+export const GetApprovalResponse = zod.object({
+  "id": zod.string(),
+  "postId": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'changes_requested', 'withdrawn']),
+  "requestedBy": zod.string().nullable(),
+  "requestedByName": zod.string().nullable(),
+  "requestedAt": zod.coerce.date(),
+  "decidedBy": zod.string().nullable(),
+  "decidedByName": zod.string().nullable(),
+  "decidedAt": zod.coerce.date().nullable(),
+  "note": zod.string().nullable(),
+  "post": zod.union([zod.object({
+  "id": zod.string(),
+  "content": zod.string(),
+  "status": zod.string(),
+  "scheduledAt": zod.coerce.date().nullable()
+}),zod.null()])
+}).and(zod.object({
+  "comments": zod.array(zod.object({
+  "id": zod.string(),
+  "userId": zod.string().nullable(),
+  "author": zod.string(),
+  "body": zod.string(),
+  "createdAt": zod.coerce.date()
+}))
+}))
+
+
+/**
+ * @summary Ask for approval of a draft or scheduled post
+ */
+export const RequestApprovalParams = zod.object({
+  "postId": zod.coerce.string()
+})
+
+export const RequestApprovalBody = zod.object({
+  "note": zod.string().nullish()
+})
+
+export const RequestApprovalResponse = zod.object({
+  "id": zod.string(),
+  "postId": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'changes_requested', 'withdrawn']),
+  "requestedBy": zod.string().nullable(),
+  "requestedByName": zod.string().nullable(),
+  "requestedAt": zod.coerce.date(),
+  "decidedBy": zod.string().nullable(),
+  "decidedByName": zod.string().nullable(),
+  "decidedAt": zod.coerce.date().nullable(),
+  "note": zod.string().nullable(),
+  "post": zod.union([zod.object({
+  "id": zod.string(),
+  "content": zod.string(),
+  "status": zod.string(),
+  "scheduledAt": zod.coerce.date().nullable()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Approve a post
+ */
+export const ApproveApprovalParams = zod.object({
+  "approvalId": zod.coerce.string()
+})
+
+export const ApproveApprovalBody = zod.object({
+  "note": zod.string().nullish()
+})
+
+export const ApproveApprovalResponse = zod.object({
+  "id": zod.string(),
+  "postId": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'changes_requested', 'withdrawn']),
+  "requestedBy": zod.string().nullable(),
+  "requestedByName": zod.string().nullable(),
+  "requestedAt": zod.coerce.date(),
+  "decidedBy": zod.string().nullable(),
+  "decidedByName": zod.string().nullable(),
+  "decidedAt": zod.coerce.date().nullable(),
+  "note": zod.string().nullable(),
+  "post": zod.union([zod.object({
+  "id": zod.string(),
+  "content": zod.string(),
+  "status": zod.string(),
+  "scheduledAt": zod.coerce.date().nullable()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Reject a post (note required)
+ */
+export const RejectApprovalParams = zod.object({
+  "approvalId": zod.coerce.string()
+})
+
+export const RejectApprovalBody = zod.object({
+  "note": zod.string().nullish()
+})
+
+export const RejectApprovalResponse = zod.object({
+  "id": zod.string(),
+  "postId": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'changes_requested', 'withdrawn']),
+  "requestedBy": zod.string().nullable(),
+  "requestedByName": zod.string().nullable(),
+  "requestedAt": zod.coerce.date(),
+  "decidedBy": zod.string().nullable(),
+  "decidedByName": zod.string().nullable(),
+  "decidedAt": zod.coerce.date().nullable(),
+  "note": zod.string().nullable(),
+  "post": zod.union([zod.object({
+  "id": zod.string(),
+  "content": zod.string(),
+  "status": zod.string(),
+  "scheduledAt": zod.coerce.date().nullable()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Ask for changes (note required)
+ */
+export const RequestApprovalChangesParams = zod.object({
+  "approvalId": zod.coerce.string()
+})
+
+export const RequestApprovalChangesBody = zod.object({
+  "note": zod.string().nullish()
+})
+
+export const RequestApprovalChangesResponse = zod.object({
+  "id": zod.string(),
+  "postId": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'changes_requested', 'withdrawn']),
+  "requestedBy": zod.string().nullable(),
+  "requestedByName": zod.string().nullable(),
+  "requestedAt": zod.coerce.date(),
+  "decidedBy": zod.string().nullable(),
+  "decidedByName": zod.string().nullable(),
+  "decidedAt": zod.coerce.date().nullable(),
+  "note": zod.string().nullable(),
+  "post": zod.union([zod.object({
+  "id": zod.string(),
+  "content": zod.string(),
+  "status": zod.string(),
+  "scheduledAt": zod.coerce.date().nullable()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Withdraw your request
+ */
+export const WithdrawApprovalParams = zod.object({
+  "approvalId": zod.coerce.string()
+})
+
+export const WithdrawApprovalBody = zod.object({
+  "note": zod.string().nullish()
+})
+
+export const WithdrawApprovalResponse = zod.object({
+  "id": zod.string(),
+  "postId": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'changes_requested', 'withdrawn']),
+  "requestedBy": zod.string().nullable(),
+  "requestedByName": zod.string().nullable(),
+  "requestedAt": zod.coerce.date(),
+  "decidedBy": zod.string().nullable(),
+  "decidedByName": zod.string().nullable(),
+  "decidedAt": zod.coerce.date().nullable(),
+  "note": zod.string().nullable(),
+  "post": zod.union([zod.object({
+  "id": zod.string(),
+  "content": zod.string(),
+  "status": zod.string(),
+  "scheduledAt": zod.coerce.date().nullable()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Comment on an approval
+ */
+export const AddApprovalCommentParams = zod.object({
+  "approvalId": zod.coerce.string()
+})
+
+export const AddApprovalCommentBody = zod.object({
+  "body": zod.string()
+})
+
+export const AddApprovalCommentResponse = zod.object({
+  "id": zod.string(),
+  "userId": zod.string().nullable(),
+  "body": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Comments, direct message conversations and mentions (one row per conversation, its latest message from the other person)
+ */
+export const listInboxQueryLimitMax = 100;
+
+
+
+export const ListInboxQueryParams = zod.object({
+  "kind": zod.enum(['comment', 'message', 'mention']).optional(),
+  "status": zod.enum(['open', 'resolved']).optional(),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']).optional(),
+  "accountId": zod.coerce.string().uuid().optional(),
+  "assigned": zod.enum(['me']).optional(),
+  "unread": zod.coerce.boolean().optional(),
+  "limit": zod.coerce.number().int().min(1).max(listInboxQueryLimitMax).optional(),
+  "cursor": zod.coerce.string().optional()
+})
+
+export const ListInboxResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "accountId": zod.string().uuid(),
+  "accountName": zod.string(),
+  "accountAvatar": zod.string().nullable(),
+  "platform": zod.string(),
+  "postId": zod.string().uuid().nullable(),
+  "postTargetId": zod.string().uuid().nullable(),
+  "externalId": zod.string(),
+  "parentExternalId": zod.string().nullable(),
+  "authorName": zod.string(),
+  "authorAvatar": zod.string().nullable(),
+  "body": zod.string(),
+  "createdAtNetwork": zod.coerce.date(),
+  "status": zod.enum(['open', 'resolved']),
+  "read": zod.boolean(),
+  "readAt": zod.coerce.date().nullable(),
+  "assignedToUserId": zod.string().uuid().nullable(),
+  "assignedToName": zod.string().nullable(),
+  "replied": zod.boolean(),
+  "kind": zod.enum(['comment', 'message', 'mention']),
+  "threadId": zod.string().nullable(),
+  "permalink": zod.string().nullable(),
+  "canReply": zod.boolean(),
+  "replyWindowEndsAt": zod.coerce.date().nullable(),
+  "replyBlockedReason": zod.string().nullable(),
+  "replies": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "userId": zod.string().uuid().nullable(),
+  "body": zod.string(),
+  "status": zod.enum(['sent', 'failed']),
+  "error": zod.string().nullable(),
+  "externalId": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+}))
+})),
+  "nextCursor": zod.string().nullable()
+})
+
+
+/**
+ * @summary Counts, and per account whether comments can be read
+ */
+export const GetInboxSummaryResponse = zod.object({
+  "open": zod.number().int(),
+  "resolved": zod.number().int(),
+  "unread": zod.number().int(),
+  "assignedToMe": zod.number().int(),
+  "kinds": zod.object({
+  "comment": zod.object({
+  "open": zod.number().int(),
+  "unread": zod.number().int()
+}),
+  "message": zod.object({
+  "open": zod.number().int(),
+  "unread": zod.number().int()
+}),
+  "mention": zod.object({
+  "open": zod.number().int(),
+  "unread": zod.number().int()
+})
+}),
+  "accounts": zod.array(zod.object({
+  "accountId": zod.string().uuid(),
+  "platform": zod.string(),
+  "displayName": zod.string(),
+  "avatarUrl": zod.string().nullable(),
+  "state": zod.enum(['available', 'permission_needed', 'unavailable', 'reconnect']),
+  "reason": zod.string().nullable(),
+  "lastSyncedAt": zod.coerce.date().nullable(),
+  "lastError": zod.string().nullable(),
+  "open": zod.number().int(),
+  "unread": zod.number().int(),
+  "messaging": zod.object({
+  "state": zod.enum(['available', 'permission_needed', 'unavailable', 'reconnect']),
+  "reason": zod.string().nullable(),
+  "replyWindowHours": zod.number().int().nullable(),
+  "lastSyncedAt": zod.coerce.date().nullable(),
+  "lastError": zod.string().nullable()
+}),
+  "mentions": zod.object({
+  "state": zod.enum(['available', 'permission_needed', 'unavailable', 'reconnect']),
+  "reason": zod.string().nullable(),
+  "canReply": zod.boolean(),
+  "replyNote": zod.string().nullable(),
+  "lastSyncedAt": zod.coerce.date().nullable(),
+  "lastError": zod.string().nullable()
+})
+}))
+})
+
+
+/**
+ * @summary One direct message conversation, oldest message first, with whether it can be answered now (Meta's 24-hour window)
+ */
+export const GetInboxThreadParams = zod.object({
+  "threadId": zod.coerce.string()
+})
+
+export const GetInboxThreadResponse = zod.object({
+  "threadId": zod.string(),
+  "accountId": zod.string().uuid(),
+  "accountName": zod.string(),
+  "accountAvatar": zod.string().nullable(),
+  "platform": zod.string(),
+  "participantName": zod.string().nullable(),
+  "itemId": zod.string().uuid().nullable(),
+  "status": zod.enum(['open', 'resolved']),
+  "canReply": zod.boolean(),
+  "replyWindowEndsAt": zod.coerce.date().nullable(),
+  "replyBlockedReason": zod.string().nullable(),
+  "messages": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "externalId": zod.string(),
+  "authorName": zod.string(),
+  "body": zod.string(),
+  "createdAtNetwork": zod.coerce.date(),
+  "fromPage": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Read the networks for new comments now
+ */
+export const RefreshInboxBody = zod.object({
+  "accountId": zod.string().uuid().optional()
+})
+
+export const RefreshInboxResponse = zod.object({
+  "results": zod.array(zod.object({
+  "accountId": zod.string().uuid(),
+  "state": zod.enum(['ok', 'permission_needed', 'unavailable', 'reconnect', 'error']),
+  "ok": zod.boolean(),
+  "postsRead": zod.number().int(),
+  "newItems": zod.number().int(),
+  "reason": zod.string().nullable(),
+  "newMessages": zod.number().int().optional(),
+  "newMentions": zod.number().int().optional(),
+  "messagesReason": zod.string().nullish(),
+  "mentionsReason": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary Mark read or unread, resolve or reopen, assign
+ */
+export const UpdateInboxItemParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const UpdateInboxItemBody = zod.object({
+  "read": zod.boolean().optional(),
+  "status": zod.enum(['open', 'resolved']).optional(),
+  "assignedToUserId": zod.string().uuid().nullish()
+})
+
+export const UpdateInboxItemResponse = zod.object({
+  "id": zod.string().uuid(),
+  "accountId": zod.string().uuid(),
+  "accountName": zod.string(),
+  "accountAvatar": zod.string().nullable(),
+  "platform": zod.string(),
+  "postId": zod.string().uuid().nullable(),
+  "postTargetId": zod.string().uuid().nullable(),
+  "externalId": zod.string(),
+  "parentExternalId": zod.string().nullable(),
+  "authorName": zod.string(),
+  "authorAvatar": zod.string().nullable(),
+  "body": zod.string(),
+  "createdAtNetwork": zod.coerce.date(),
+  "status": zod.enum(['open', 'resolved']),
+  "read": zod.boolean(),
+  "readAt": zod.coerce.date().nullable(),
+  "assignedToUserId": zod.string().uuid().nullable(),
+  "assignedToName": zod.string().nullable(),
+  "replied": zod.boolean(),
+  "kind": zod.enum(['comment', 'message', 'mention']),
+  "threadId": zod.string().nullable(),
+  "permalink": zod.string().nullable(),
+  "canReply": zod.boolean(),
+  "replyWindowEndsAt": zod.coerce.date().nullable(),
+  "replyBlockedReason": zod.string().nullable(),
+  "replies": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "userId": zod.string().uuid().nullable(),
+  "body": zod.string(),
+  "status": zod.enum(['sent', 'failed']),
+  "error": zod.string().nullable(),
+  "externalId": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Answer a comment on the network
+ */
+export const ReplyToInboxItemParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const ReplyToInboxItemBody = zod.object({
+  "body": zod.string()
+})
+
+export const ReplyToInboxItemResponse = zod.object({
+  "id": zod.string().uuid(),
+  "userId": zod.string().uuid().nullable(),
+  "body": zod.string(),
+  "status": zod.enum(['sent', 'failed']),
+  "error": zod.string().nullable(),
+  "externalId": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Whether AI Studio is available on this server
+ */
+export const GetAiStatusResponse = zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string().nullable(),
+  "model": zod.string().nullable(),
+  "dailyLimit": zod.number().int(),
+  "tasks": zod.array(zod.enum(['caption', 'rewrite', 'shorten', 'expand', 'hashtags', 'variations', 'repurpose', 'first_comment'])),
+  "maxVariations": zod.number().int(),
+  "platforms": zod.array(zod.object({
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'x']),
+  "characterLimit": zod.number().int(),
+  "suggestedLength": zod.number().int(),
+  "titleLimit": zod.number().int().nullable()
+}))
+})
+
+
+/**
+ * @summary Today's AI usage and the daily limit
+ */
+export const GetAiUsageResponse = zod.object({
+  "date": zod.string(),
+  "requests": zod.number().int(),
+  "inputTokens": zod.number().int(),
+  "outputTokens": zod.number().int(),
+  "limit": zod.number().int(),
+  "remaining": zod.number().int(),
+  "resetsAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Generate or transform post text
+ */
+export const generateAiContentBodyNMax = 5;
+
+
+
+export const GenerateAiContentBody = zod.object({
+  "task": zod.enum(['caption', 'rewrite', 'shorten', 'expand', 'hashtags', 'variations', 'repurpose', 'first_comment']),
+  "topic": zod.string().optional(),
+  "text": zod.string().optional(),
+  "instruction": zod.string().optional(),
+  "tone": zod.string().optional(),
+  "platforms": zod.array(zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'x'])).optional(),
+  "n": zod.number().int().min(1).max(generateAiContentBodyNMax).optional(),
+  "brandVoiceId": zod.string().nullish()
+})
+
+export const GenerateAiContentResponse = zod.object({
+  "task": zod.enum(['caption', 'rewrite', 'shorten', 'expand', 'hashtags', 'variations', 'repurpose', 'first_comment']),
+  "model": zod.string(),
+  "brandVoiceId": zod.string().nullable(),
+  "outputs": zod.array(zod.object({
+  "text": zod.string(),
+  "platform": zod.union([zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'x']),zod.null()]),
+  "length": zod.number().int(),
+  "limit": zod.number().int().nullable(),
+  "withinLimit": zod.boolean()
+})),
+  "usage": zod.object({
+  "inputTokens": zod.number().int(),
+  "outputTokens": zod.number().int()
+}),
+  "remainingToday": zod.number().int()
+})
+
+
+/**
+ * @summary List brand voices
+ */
+export const ListBrandVoicesResponse = zod.object({
+  "voices": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "toneNotes": zod.string(),
+  "doWords": zod.array(zod.string()),
+  "dontWords": zod.array(zod.string()),
+  "updatedBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Create a brand voice
+ */
+export const CreateBrandVoiceBody = zod.object({
+  "name": zod.string(),
+  "description": zod.string().optional(),
+  "toneNotes": zod.string().optional(),
+  "doWords": zod.array(zod.string()).optional(),
+  "dontWords": zod.array(zod.string()).optional()
+})
+
+export const CreateBrandVoiceResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "toneNotes": zod.string(),
+  "doWords": zod.array(zod.string()),
+  "dontWords": zod.array(zod.string()),
+  "updatedBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Replace a brand voice
+ */
+export const UpdateBrandVoiceParams = zod.object({
+  "voiceId": zod.coerce.string()
+})
+
+export const UpdateBrandVoiceBody = zod.object({
+  "name": zod.string(),
+  "description": zod.string().optional(),
+  "toneNotes": zod.string().optional(),
+  "doWords": zod.array(zod.string()).optional(),
+  "dontWords": zod.array(zod.string()).optional()
+})
+
+export const UpdateBrandVoiceResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "toneNotes": zod.string(),
+  "doWords": zod.array(zod.string()),
+  "dontWords": zod.array(zod.string()),
+  "updatedBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a brand voice
+ */
+export const DeleteBrandVoiceParams = zod.object({
+  "voiceId": zod.coerce.string()
+})
+
+export const DeleteBrandVoiceResponse = zod.void()
+
+
+/**
+ * @summary Search and browse the content library
+ */
+export const listLibraryItemsQueryQMax = 200;
+
+export const listLibraryItemsQueryLimitMax = 100;
+
+
+
+export const ListLibraryItemsQueryParams = zod.object({
+  "q": zod.coerce.string().max(listLibraryItemsQueryQMax).optional(),
+  "kind": zod.enum(['media', 'caption', 'template', 'snippet']).optional(),
+  "folder": zod.coerce.string().optional().describe('A folder id, or \'none\' for items outside any folder'),
+  "favorite": zod.coerce.boolean().optional(),
+  "label": zod.coerce.string().optional(),
+  "sort": zod.enum(['recent', 'used', 'name']).optional(),
+  "limit": zod.coerce.number().int().min(1).max(listLibraryItemsQueryLimitMax).optional(),
+  "cursor": zod.coerce.string().optional()
+})
+
+export const ListLibraryItemsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['media', 'caption', 'template', 'snippet']),
+  "title": zod.string(),
+  "body": zod.string().nullable(),
+  "mediaId": zod.string().nullable(),
+  "media": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "mimeType": zod.string(),
+  "fileName": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "width": zod.number().int().nullable(),
+  "height": zod.number().int().nullable(),
+  "durationMs": zod.number().int().nullable(),
+  "url": zod.string().describe('Signed-in members of the workspace can GET this to view the file.')
+}),zod.null()]),
+  "folderId": zod.string().nullable(),
+  "labels": zod.array(zod.string()),
+  "favorite": zod.boolean(),
+  "useCount": zod.number().int(),
+  "lastUsedAt": zod.coerce.date().nullable(),
+  "placeholders": zod.array(zod.string()),
+  "createdBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
+  "nextCursor": zod.string().nullable()
+})
+
+
+/**
+ * @summary Add an item to the library
+ */
+export const createLibraryItemBodyTitleMax = 200;
+
+export const createLibraryItemBodyBodyMax = 20000;
+
+export const createLibraryItemBodyLabelsItemMax = 40;
+
+export const createLibraryItemBodyLabelsMax = 20;
+
+
+
+export const CreateLibraryItemBody = zod.object({
+  "kind": zod.enum(['media', 'caption', 'template', 'snippet']),
+  "title": zod.string().min(1).max(createLibraryItemBodyTitleMax),
+  "body": zod.string().max(createLibraryItemBodyBodyMax).nullish(),
+  "mediaId": zod.string().nullish(),
+  "folderId": zod.string().nullish(),
+  "labels": zod.array(zod.string().max(createLibraryItemBodyLabelsItemMax)).max(createLibraryItemBodyLabelsMax).optional(),
+  "favorite": zod.boolean().optional()
+})
+
+export const CreateLibraryItemResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['media', 'caption', 'template', 'snippet']),
+  "title": zod.string(),
+  "body": zod.string().nullable(),
+  "mediaId": zod.string().nullable(),
+  "media": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "mimeType": zod.string(),
+  "fileName": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "width": zod.number().int().nullable(),
+  "height": zod.number().int().nullable(),
+  "durationMs": zod.number().int().nullable(),
+  "url": zod.string().describe('Signed-in members of the workspace can GET this to view the file.')
+}),zod.null()]),
+  "folderId": zod.string().nullable(),
+  "labels": zod.array(zod.string()),
+  "favorite": zod.boolean(),
+  "useCount": zod.number().int(),
+  "lastUsedAt": zod.coerce.date().nullable(),
+  "placeholders": zod.array(zod.string()),
+  "createdBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List library folders
+ */
+export const ListLibraryFoldersResponse = zod.object({
+  "folders": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "itemCount": zod.number().int(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Create a folder
+ */
+export const createLibraryFolderBodyNameMax = 80;
+
+
+
+export const CreateLibraryFolderBody = zod.object({
+  "name": zod.string().min(1).max(createLibraryFolderBodyNameMax)
+})
+
+export const CreateLibraryFolderResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "itemCount": zod.number().int(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Rename a folder
+ */
+export const RenameLibraryFolderParams = zod.object({
+  "folderId": zod.coerce.string()
+})
+
+export const renameLibraryFolderBodyNameMax = 80;
+
+
+
+export const RenameLibraryFolderBody = zod.object({
+  "name": zod.string().min(1).max(renameLibraryFolderBodyNameMax)
+})
+
+export const RenameLibraryFolderResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "itemCount": zod.number().int(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a folder; its items are kept and move to no folder
+ */
+export const DeleteLibraryFolderParams = zod.object({
+  "folderId": zod.coerce.string()
+})
+
+export const DeleteLibraryFolderResponse = zod.void()
+
+
+/**
+ * @summary Save an existing upload to the library (returns the existing item if already saved)
+ */
+export const SaveMediaToLibraryParams = zod.object({
+  "mediaId": zod.coerce.string()
+})
+
+export const saveMediaToLibraryBodyTitleMax = 200;
+
+export const saveMediaToLibraryBodyLabelsItemMax = 40;
+
+
+
+export const SaveMediaToLibraryBody = zod.object({
+  "title": zod.string().min(1).max(saveMediaToLibraryBodyTitleMax).optional(),
+  "folderId": zod.string().nullish(),
+  "labels": zod.array(zod.string().max(saveMediaToLibraryBodyLabelsItemMax)).optional(),
+  "favorite": zod.boolean().optional()
+})
+
+export const SaveMediaToLibraryResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['media', 'caption', 'template', 'snippet']),
+  "title": zod.string(),
+  "body": zod.string().nullable(),
+  "mediaId": zod.string().nullable(),
+  "media": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "mimeType": zod.string(),
+  "fileName": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "width": zod.number().int().nullable(),
+  "height": zod.number().int().nullable(),
+  "durationMs": zod.number().int().nullable(),
+  "url": zod.string().describe('Signed-in members of the workspace can GET this to view the file.')
+}),zod.null()]),
+  "folderId": zod.string().nullable(),
+  "labels": zod.array(zod.string()),
+  "favorite": zod.boolean(),
+  "useCount": zod.number().int(),
+  "lastUsedAt": zod.coerce.date().nullable(),
+  "placeholders": zod.array(zod.string()),
+  "createdBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Edit an item
+ */
+export const UpdateLibraryItemParams = zod.object({
+  "itemId": zod.coerce.string()
+})
+
+export const updateLibraryItemBodyTitleMax = 200;
+
+export const updateLibraryItemBodyBodyMax = 20000;
+
+export const updateLibraryItemBodyLabelsItemMax = 40;
+
+export const updateLibraryItemBodyLabelsMax = 20;
+
+
+
+export const UpdateLibraryItemBody = zod.object({
+  "title": zod.string().min(1).max(updateLibraryItemBodyTitleMax).optional(),
+  "body": zod.string().max(updateLibraryItemBodyBodyMax).nullish(),
+  "folderId": zod.string().nullish(),
+  "labels": zod.array(zod.string().max(updateLibraryItemBodyLabelsItemMax)).max(updateLibraryItemBodyLabelsMax).optional(),
+  "favorite": zod.boolean().optional()
+})
+
+export const UpdateLibraryItemResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['media', 'caption', 'template', 'snippet']),
+  "title": zod.string(),
+  "body": zod.string().nullable(),
+  "mediaId": zod.string().nullable(),
+  "media": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "mimeType": zod.string(),
+  "fileName": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "width": zod.number().int().nullable(),
+  "height": zod.number().int().nullable(),
+  "durationMs": zod.number().int().nullable(),
+  "url": zod.string().describe('Signed-in members of the workspace can GET this to view the file.')
+}),zod.null()]),
+  "folderId": zod.string().nullable(),
+  "labels": zod.array(zod.string()),
+  "favorite": zod.boolean(),
+  "useCount": zod.number().int(),
+  "lastUsedAt": zod.coerce.date().nullable(),
+  "placeholders": zod.array(zod.string()),
+  "createdBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Remove an item from the library (never deletes the underlying upload)
+ */
+export const DeleteLibraryItemParams = zod.object({
+  "itemId": zod.coerce.string()
+})
+
+export const DeleteLibraryItemResponse = zod.void()
+
+
+/**
+ * @summary Count a use and return the item for insertion in the composer
+ */
+export const UseLibraryItemParams = zod.object({
+  "itemId": zod.coerce.string()
+})
+
+export const UseLibraryItemResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['media', 'caption', 'template', 'snippet']),
+  "title": zod.string(),
+  "body": zod.string().nullable(),
+  "mediaId": zod.string().nullable(),
+  "media": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "mimeType": zod.string(),
+  "fileName": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "width": zod.number().int().nullable(),
+  "height": zod.number().int().nullable(),
+  "durationMs": zod.number().int().nullable(),
+  "url": zod.string().describe('Signed-in members of the workspace can GET this to view the file.')
+}),zod.null()]),
+  "folderId": zod.string().nullable(),
+  "labels": zod.array(zod.string()),
+  "favorite": zod.boolean(),
+  "useCount": zod.number().int(),
+  "lastUsedAt": zod.coerce.date().nullable(),
+  "placeholders": zod.array(zod.string()),
+  "createdBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Fill a template's placeholders; missing values are rejected, never invented
+ */
+export const RenderLibraryTemplateParams = zod.object({
+  "itemId": zod.coerce.string()
+})
+
+export const renderLibraryTemplateBodyVariablesMaxOne = 2000;
+
+
+
+export const RenderLibraryTemplateBody = zod.object({
+  "variables": zod.record(zod.string(), zod.string().max(renderLibraryTemplateBodyVariablesMaxOne)).optional()
+})
+
+export const RenderLibraryTemplateResponse = zod.object({
+  "text": zod.string(),
+  "placeholders": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Analytics report as a PDF (same data as GET /analytics)
+ */
+export const GetAnalyticsReportPdfQueryParams = zod.object({
+  "range": zod.enum(['today', '7d', '30d', '90d', 'custom']).optional(),
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional(),
+  "tz": zod.coerce.string().optional(),
+  "platform": zod.coerce.string().optional(),
+  "accountId": zod.coerce.string().optional()
+})
+
+export const GetAnalyticsReportPdfResponse = zod.unknown()
+
+
+/**
+ * @summary Scheduled email reports (reports:read)
+ */
+export const ListReportSchedulesResponse = zod.object({
+  "schedules": zod.array(zod.object({
+  "id": zod.string(),
+  "workspaceId": zod.string(),
+  "createdBy": zod.string().nullable(),
+  "name": zod.string(),
+  "frequency": zod.enum(['weekly', 'monthly']),
+  "weekday": zod.number().int().nullable().describe('0 (Sunday) to 6; weekly only'),
+  "dayOfMonth": zod.number().int().nullable().describe('1 to 28; monthly only'),
+  "hour": zod.number().int(),
+  "timezone": zod.string(),
+  "rangeKey": zod.enum(['7d', '30d', '90d']),
+  "platform": zod.string().nullable(),
+  "accountId": zod.string().nullable(),
+  "recipients": zod.array(zod.string()),
+  "enabled": zod.boolean(),
+  "lastRunAt": zod.coerce.date().nullable(),
+  "lastStatus": zod.string().nullable().describe('sent or failed'),
+  "lastError": zod.string().nullable(),
+  "nextRunAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Create a scheduled report (reports:manage)
+ */
+export const createReportScheduleBodyNameMax = 100;
+
+export const createReportScheduleBodyWeekdayMin = 0;
+export const createReportScheduleBodyWeekdayMax = 6;
+
+export const createReportScheduleBodyDayOfMonthMax = 28;
+
+export const createReportScheduleBodyHourMin = 0;
+export const createReportScheduleBodyHourMax = 23;
+
+export const createReportScheduleBodyRecipientsMax = 10;
+
+
+
+export const CreateReportScheduleBody = zod.object({
+  "name": zod.string().max(createReportScheduleBodyNameMax),
+  "frequency": zod.enum(['weekly', 'monthly']),
+  "weekday": zod.number().int().min(createReportScheduleBodyWeekdayMin).max(createReportScheduleBodyWeekdayMax).optional().describe('Required when weekly'),
+  "dayOfMonth": zod.number().int().min(1).max(createReportScheduleBodyDayOfMonthMax).optional().describe('Required when monthly'),
+  "hour": zod.number().int().min(createReportScheduleBodyHourMin).max(createReportScheduleBodyHourMax),
+  "timezone": zod.string().optional().describe('IANA zone, default UTC'),
+  "rangeKey": zod.enum(['7d', '30d', '90d']).optional(),
+  "platform": zod.string().nullish(),
+  "accountId": zod.string().nullish(),
+  "recipients": zod.array(zod.string()).max(createReportScheduleBodyRecipientsMax),
+  "enabled": zod.boolean().optional()
+})
+
+export const CreateReportScheduleResponse = zod.object({
+  "id": zod.string(),
+  "workspaceId": zod.string(),
+  "createdBy": zod.string().nullable(),
+  "name": zod.string(),
+  "frequency": zod.enum(['weekly', 'monthly']),
+  "weekday": zod.number().int().nullable().describe('0 (Sunday) to 6; weekly only'),
+  "dayOfMonth": zod.number().int().nullable().describe('1 to 28; monthly only'),
+  "hour": zod.number().int(),
+  "timezone": zod.string(),
+  "rangeKey": zod.enum(['7d', '30d', '90d']),
+  "platform": zod.string().nullable(),
+  "accountId": zod.string().nullable(),
+  "recipients": zod.array(zod.string()),
+  "enabled": zod.boolean(),
+  "lastRunAt": zod.coerce.date().nullable(),
+  "lastStatus": zod.string().nullable().describe('sent or failed'),
+  "lastError": zod.string().nullable(),
+  "nextRunAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Change a scheduled report (reports:manage)
+ */
+export const UpdateReportScheduleParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const updateReportScheduleBodyNameMax = 100;
+
+export const updateReportScheduleBodyWeekdayMin = 0;
+export const updateReportScheduleBodyWeekdayMax = 6;
+
+export const updateReportScheduleBodyDayOfMonthMax = 28;
+
+export const updateReportScheduleBodyHourMin = 0;
+export const updateReportScheduleBodyHourMax = 23;
+
+export const updateReportScheduleBodyRecipientsMax = 10;
+
+
+
+export const UpdateReportScheduleBody = zod.object({
+  "name": zod.string().max(updateReportScheduleBodyNameMax).optional(),
+  "frequency": zod.enum(['weekly', 'monthly']).optional(),
+  "weekday": zod.number().int().min(updateReportScheduleBodyWeekdayMin).max(updateReportScheduleBodyWeekdayMax).optional(),
+  "dayOfMonth": zod.number().int().min(1).max(updateReportScheduleBodyDayOfMonthMax).optional(),
+  "hour": zod.number().int().min(updateReportScheduleBodyHourMin).max(updateReportScheduleBodyHourMax).optional(),
+  "timezone": zod.string().optional(),
+  "rangeKey": zod.enum(['7d', '30d', '90d']).optional(),
+  "platform": zod.string().nullish(),
+  "accountId": zod.string().nullish(),
+  "recipients": zod.array(zod.string()).max(updateReportScheduleBodyRecipientsMax).optional(),
+  "enabled": zod.boolean().optional()
+})
+
+export const UpdateReportScheduleResponse = zod.object({
+  "id": zod.string(),
+  "workspaceId": zod.string(),
+  "createdBy": zod.string().nullable(),
+  "name": zod.string(),
+  "frequency": zod.enum(['weekly', 'monthly']),
+  "weekday": zod.number().int().nullable().describe('0 (Sunday) to 6; weekly only'),
+  "dayOfMonth": zod.number().int().nullable().describe('1 to 28; monthly only'),
+  "hour": zod.number().int(),
+  "timezone": zod.string(),
+  "rangeKey": zod.enum(['7d', '30d', '90d']),
+  "platform": zod.string().nullable(),
+  "accountId": zod.string().nullable(),
+  "recipients": zod.array(zod.string()),
+  "enabled": zod.boolean(),
+  "lastRunAt": zod.coerce.date().nullable(),
+  "lastStatus": zod.string().nullable().describe('sent or failed'),
+  "lastError": zod.string().nullable(),
+  "nextRunAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a scheduled report (reports:manage)
+ */
+export const DeleteReportScheduleParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteReportScheduleResponse = zod.void()
+
+
+/**
+ * @summary Send the report now (reports:manage, rate limited); the run shows success or the failure reason
+ */
+export const SendReportScheduleNowParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SendReportScheduleNowResponse = zod.object({
+  "id": zod.string(),
+  "scheduleId": zod.string(),
+  "ranAt": zod.coerce.date(),
+  "status": zod.enum(['sent', 'failed']),
+  "error": zod.string().nullable(),
+  "recipientCount": zod.number().int()
+})
+
+
+/**
+ * @summary Latest 50 runs of a schedule (reports:read)
+ */
+export const ListReportScheduleRunsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ListReportScheduleRunsResponse = zod.object({
+  "runs": zod.array(zod.object({
+  "id": zod.string(),
+  "scheduleId": zod.string(),
+  "ranAt": zod.coerce.date(),
+  "status": zod.enum(['sent', 'failed']),
+  "error": zod.string().nullable(),
+  "recipientCount": zod.number().int()
+}))
 })
 
 

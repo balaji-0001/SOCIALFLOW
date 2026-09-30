@@ -47,3 +47,15 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Secrets (local only; Replit uses Secrets)
+.env
+.env.*
+!.env.example
+
+# Local Dev
+.env
+.postgres_data/
+
+# uploaded media (local dev storage; see docs/media.md)
+.data/

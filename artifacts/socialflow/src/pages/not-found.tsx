@@ -1,23 +1,19 @@
-import { Card, CardContent } from '@/components/ui/card';
-import { AlertCircle } from 'lucide-react';
+import { useEffect } from 'react';
+import { Compass } from 'lucide-react';
+import '@/app/app.css';
 
 export default function NotFound() {
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md mx-4">
-        <CardContent className="pt-6">
-          <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">
-              404 Page Not Found
-            </h1>
-          </div>
-
-          <p className="mt-4 text-sm text-gray-600">
-            Did you forget to add the page to the router?
-          </p>
-        </CardContent>
-      </Card>
+  useEffect(() => { document.title = 'Page not found · Socialflow'; }, []);
+  return <main className="sfa-notfound">
+    <div className="sfa-emptystate">
+      <span className="sfa-emptystate__icon" aria-hidden="true"><Compass size={22} /></span>
+      <span className="sfa-eyebrow">Error 404</span>
+      <h1 className="sfa-notfound__title">Page not found</h1>
+      <p>The page you’re looking for doesn’t exist or may have moved.</p>
+      <div className="sfa-emptystate__actions">
+        <a className="sfa-btn sfa-btn--primary sfa-btn--md" href="/dashboard">Go to dashboard</a>
+        <a className="sfa-btn sfa-btn--secondary sfa-btn--md" href="/">Back to site</a>
+      </div>
     </div>
-  );
+  </main>;
 }

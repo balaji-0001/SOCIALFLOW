@@ -10,13 +10,17 @@ code and encrypted tokens.
 | Integration | Current status | Account type |
 |---|---|---|
 | Facebook Login | **Implemented** | Facebook Pages |
-| Instagram Login | **Not implemented** | No Instagram accounts can be connected yet |
-| Instagram through Facebook Login | **Not implemented** | No Instagram adapter exists yet |
+| Instagram Login | **Implemented** | Instagram Business / Creator accounts |
+| Instagram through Facebook Login | **Not implemented** | Not built; Instagram Login is used instead (see below) |
 
-The existing Meta adapter is `artifacts/api-server/src/lib/oauth/providers/facebook.ts`.
-It uses Facebook Login and the Facebook Graph API to list Facebook Pages. The
-Instagram entry in the provider registry is a placeholder with
-`implemented: false`; its start route deliberately returns `not_configured`.
+The Facebook adapter is `artifacts/api-server/src/lib/oauth/providers/facebook.ts`,
+using Facebook Login and the Facebook Graph API to list Facebook Pages. The
+Instagram adapter is `artifacts/api-server/src/lib/oauth/providers/instagram.ts`,
+using the Instagram API with Instagram Login — a separate product from
+Facebook Login, with its own app ID/secret and its own token endpoints on
+`api.instagram.com` / `graph.instagram.com`. It authenticates a single
+Instagram professional account directly; no linked Facebook Page is required
+or used.
 
 Do not copy an Instagram account ID or an access token into an app ID or app
 secret field. Socialflow only accepts Meta app credentials in the secrets
@@ -31,16 +35,18 @@ The routes are implemented in
 |---|---|
 | Start Facebook OAuth | `GET /api/connections/facebook/start` |
 | Facebook callback | `GET /api/connections/facebook/callback` |
-| Start an Instagram flow in the future | `GET /api/connections/instagram/start` |
-| Instagram callback path reserved by the shared router | `GET /api/connections/instagram/callback` |
+| Start Instagram OAuth | `GET /api/connections/instagram/start` |
+| Instagram callback | `GET /api/connections/instagram/callback` |
 
-The Instagram paths are not currently usable because the Instagram adapter is
-not implemented.
+Both paths are usable now that the Instagram adapter is implemented. The two
+platforms use independent app credentials and independent redirect URI lists
+in the Meta dashboard, even though both are configured from the same Meta app.
 
-For Facebook, the full redirect URI is:
+For Facebook and Instagram, the full redirect URIs are:
 
 ```text
 <redirect-base>/api/connections/facebook/callback
+<redirect-base>/api/connections/instagram/callback
 ```
 
 The redirect base is selected in this order:
@@ -71,8 +77,9 @@ The current server also exposes the computed URL without secrets:
 GET /api/connections/providers
 ```
 
-Read the `callbackUrl` for the `facebook` provider and copy that exact value
-into Meta's redirect URL configuration.
+Read the `callbackUrl` for the `facebook` and `instagram` providers and copy
+each exact value into the matching redirect URL configuration — they are
+registered in different places in the Meta dashboard (see below).
 
 ## Replit Secret names
 
@@ -85,6 +92,17 @@ Secrets. Never put these values in frontend code, `docs/`, or logs.
 |---|---|---|
 | `FACEBOOK_APP_ID` | Meta Developer Dashboard → App settings → Basic → App ID | Yes |
 | `FACEBOOK_APP_SECRET` | Meta Developer Dashboard → App settings → Basic → App Secret | Yes |
+
+### Required for the implemented Instagram adapter
+
+| Replit Secret | Copy from Meta | Required |
+|---|---|---|
+| `INSTAGRAM_APP_ID` | Meta Developer Dashboard → Instagram product → API setup with Instagram login → Instagram app ID | Yes |
+| `INSTAGRAM_APP_SECRET` | Same page → Instagram app secret | Yes |
+
+These are **not** the same values as `FACEBOOK_APP_ID`/`FACEBOOK_APP_SECRET`,
+even though both live inside the same Meta app. Do not reuse one pair for the
+other; the adapter will fail token exchange if you do.
 
 ### Optional Facebook adapter settings
 
@@ -191,11 +209,10 @@ Before public users can authorize the app:
 Meta may change review and access requirements. Check the current status shown
 in the Meta dashboard before submitting an app review request.
 
-## Instagram Professional accounts: current limitation
+## Instagram Professional accounts: implemented via Instagram Login
 
-The current code does **not** implement Instagram Login or Instagram
-Professional account discovery. The provider registry currently lists the
-following placeholder values only:
+The Instagram adapter (`artifacts/api-server/src/lib/oauth/providers/instagram.ts`)
+implements the **Instagram API with Instagram Login** product:
 
 ```text
 INSTAGRAM_APP_ID
@@ -204,27 +221,30 @@ instagram_business_basic
 instagram_business_content_publish
 ```
 
-Those names are not enough to make Instagram work today. There is no
-Instagram adapter that exchanges the code, calls the Instagram API, verifies
-the account, or stores an Instagram account through the shared connection
-architecture. Do not add Instagram credentials and assume that the flow is
-working.
-
-When Instagram support is implemented, the intended callback path reserved by
-the shared router will be:
+The callback path is:
 
 ```text
 <redirect-base>/api/connections/instagram/callback
 ```
 
-The exact Meta product and permissions must be selected with the adapter
-implementation. Instagram Login and Instagram API with Facebook Login have
-different products, scopes, token behavior, and account prerequisites. This
-guide intentionally does not claim either path is implemented.
+registered separately from Facebook's redirect URIs, under the Instagram
+product's own *Business login settings*.
+
+Only Business and Creator (professional) accounts can complete the flow; a
+personal account is rejected after the callback with a message telling the
+user to switch account type in the Instagram app. One Instagram Login
+authenticates exactly one account — the account being logged into — so there
+is no multi-Page-style discovery step the way there is for Facebook.
+
+The alternative path, **Instagram API with Facebook Login** (an Instagram
+account linked to a Facebook Page, authorized through the Facebook Login
+redirect list), is not implemented. Instagram Login and Facebook Login are
+different products with different scopes, token behavior, and account
+prerequisites; this guide does not claim the Facebook Login path works.
 
 ## Security architecture being verified
 
-The existing Facebook flow uses the shared OAuth architecture:
+The Facebook and Instagram flows both use the shared OAuth architecture:
 
 1. The start route creates a random state value, stores only its SHA-256 hash,
    gives it a ten-minute expiry, and binds it to the signed browser session
@@ -233,27 +253,32 @@ The existing Facebook flow uses the shared OAuth architecture:
    single-use. A replay, expired state, or different browser session is
    rejected.
 3. The server exchanges the code and upgrades the user token without returning
-   tokens to the browser.
-4. Facebook Page candidates are held in an encrypted pending payload for
-   fifteen minutes. The API response contains token-free summaries.
+   tokens to the browser (long-lived user token for Facebook, long-lived
+   access token for Instagram).
+4. Candidates (Facebook Pages, or the single Instagram professional account)
+   are held in an encrypted pending payload for fifteen minutes. The API
+   response contains token-free summaries.
 5. Selected Page tokens are stored as AES-256-GCM ciphertext. The additional
    authenticated data binds each ciphertext to its workspace, platform,
    account, and token type.
 6. Connected account APIs never return access or refresh tokens.
 7. Account ownership is checked against the current workspace for listing,
    verification, reconnect, and disconnect.
-8. Graph requests use `appsecret_proof`; application secrets and token values
-   are not logged.
+8. Facebook Graph requests use `appsecret_proof`; application secrets and
+   token values are not logged for either platform.
 
 ## Development test procedure
 
 This is the real-provider acceptance test. Do not use a Facebook or Instagram
 password in Socialflow, and do not paste a token into Replit Secrets.
 
-1. In Replit Secrets, set `TOKEN_ENCRYPTION_KEY`, `FACEBOOK_APP_ID`, and
-   `FACEBOOK_APP_SECRET`. Keep `SESSION_SECRET` and `DATABASE_URL` configured.
+1. In Replit Secrets, set `TOKEN_ENCRYPTION_KEY`, `FACEBOOK_APP_ID`,
+   `FACEBOOK_APP_SECRET`, `INSTAGRAM_APP_ID`, and `INSTAGRAM_APP_SECRET`.
+   Keep `SESSION_SECRET` and `DATABASE_URL` configured.
 2. Set `OAUTH_REDIRECT_BASE_URL` to the public development origin if the
-   fallback domain is not the one registered in Meta.
+   fallback domain is not the one registered in Meta. Instagram Login
+   requires HTTPS even in Development mode — `http://localhost` is rejected,
+   unlike Facebook Login.
 3. Restart the API Server workflow.
 4. Open:
 
@@ -261,17 +286,24 @@ password in Socialflow, and do not paste a token into Replit Secrets.
    https://<development-domain>/api/connections/providers
    ```
 
-5. Confirm the Facebook provider reports `implemented: true`,
-   `configured: true`, and the expected `callbackUrl`. The response must
-   contain no app secret or access token.
-6. Add that exact callback URL to Meta before starting OAuth.
-7. Open `/workspace`, choose **Facebook Pages → Connect account**, complete
-   the Meta consent dialog, and select a Page in Socialflow.
-8. Confirm the selected Page appears as connected. Use **Check** to call
-   Meta's token verification path.
-9. Test cancel, a missing required permission, reconnect, and disconnect.
-   Disconnect removes the local encrypted token row; it does not revoke the
-   Meta app for the whole Facebook user.
+5. Confirm the Facebook and Instagram providers both report
+   `implemented: true`, `configured: true`, and the expected `callbackUrl`.
+   The response must contain no app secret or access token.
+6. Add each exact callback URL to its matching Meta redirect URI list before
+   starting OAuth — Facebook's under Facebook Login for Business, Instagram's
+   under the Instagram product's Business login settings.
+7. Open `/workspace`. For Facebook, choose **Facebook Pages → Connect
+   account**, complete the Meta consent dialog, and select a Page. For
+   Instagram, choose **Instagram → Connect account** and sign in with an
+   Instagram Business or Creator account — it connects automatically with no
+   picker step.
+8. Confirm the connected account appears in the workspace. Use **Check** to
+   re-verify against the provider.
+9. Test cancel, a missing required permission, reconnect, and disconnect for
+   both platforms. For Instagram, also test connecting a personal account and
+   confirm it is rejected with a clear message. Disconnect removes the local
+   encrypted token row; it does not revoke the Meta app for the whole
+   Facebook or Instagram user.
 
 ## Production test procedure
 
@@ -282,11 +314,13 @@ password in Socialflow, and do not paste a token into Replit Secrets.
 
    ```text
    https://<production-domain>/api/connections/facebook/callback
+   https://<production-domain>/api/connections/instagram/callback
    ```
 
 3. Confirm the production deployment has the same named secrets:
    `SESSION_SECRET`, `TOKEN_ENCRYPTION_KEY`, `FACEBOOK_APP_ID`,
-   `FACEBOOK_APP_SECRET`, and, if used, `FACEBOOK_LOGIN_CONFIG_ID`.
+   `FACEBOOK_APP_SECRET`, `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, and, if
+   used, `FACEBOOK_LOGIN_CONFIG_ID`.
 4. Open the production `/api/connections/providers` endpoint and compare its
    `callbackUrl` to the URL registered in Meta.
 5. With a real Meta app-role tester, run one complete connection, verify, and
@@ -298,11 +332,15 @@ password in Socialflow, and do not paste a token into Replit Secrets.
 ## Current verification status
 
 The code and tests cover the state binding, token encryption, workspace
-ownership, Facebook adapter behavior, and route handling. A real Meta OAuth
-callback has **not** been verified in this environment because the Meta
-credentials are currently not configured. The Instagram callback cannot be
-verified because its adapter is not implemented.
+ownership, Facebook and Instagram adapter behavior (against faked provider
+HTTP), and route handling, including the full connect → pick → list → verify
+→ reconnect → disconnect flow against a real Postgres database. Both
+providers report `configured: true` with real app credentials in the local
+development environment.
 
-Do not mark Meta setup complete until the real-provider development procedure
-has completed successfully and the callback URL returned by
-`/api/connections/providers` matches the URL registered in Meta.
+A real, browser-driven Meta OAuth consent screen has **not** been clicked
+through in this environment — that step requires a human in a browser and
+cannot be automated here. Do not mark Meta setup complete until the manual
+development test procedure above has been run by hand for both Facebook and
+Instagram, and the callback URL returned by `/api/connections/providers`
+matches the URL registered in Meta for each platform.

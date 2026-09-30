@@ -10,8 +10,12 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: User authentication
   - name: social
     description: Social account connections
+  - name: posts
+    description: Scheduled and draft posts
 paths:
   /healthz:
     get:
@@ -26,6 +30,86 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/signup:
+    post:
+      operationId: authSignup
+      tags: [auth]
+      summary: Create an account and workspace, and sign in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupRequest"
+      responses:
+        "201":
+          description: Account created and session started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignupResponse"
+        "400":
+          description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: An account with this email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/login:
+    post:
+      operationId: authLogin
+      tags: [auth]
+      summary: Sign in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Session started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Incorrect email or password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/logout:
+    post:
+      operationId: authLogout
+      tags: [auth]
+      summary: End the current session
+      responses:
+        "204":
+          description: Signed out
+  /auth/me:
+    get:
+      operationId: authMe
+      tags: [auth]
+      summary: The signed-in user and their workspace
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /connections/providers:
     get:
       operationId: listConnectionProviders
@@ -171,8 +255,2612 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /link-preview:
+    get:
+      operationId: getLinkPreview
+      tags: [posts]
+      summary: Fetch the title, description and image of a web page, for the composer's link card
+      parameters:
+        - name: url
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 2048
+      responses:
+        "200":
+          description: The page's preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkPreview"
+        "400":
+          description: Not a link that can be previewed (invalid_url)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: The page has nothing to show (no_preview)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: The page couldn't be fetched (fetch_failed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /posts:
+    get:
+      operationId: listPosts
+      tags: [posts]
+      summary: List posts in the workspace, optionally within a date range or status
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PostStatus"
+        - name: tag
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Posts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostList"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createPost
+      tags: [posts]
+      summary: Create a draft or scheduled post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePostRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "400":
+          description: Invalid post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /posts/{postId}/publish:
+    parameters:
+      - name: postId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: publishPostNow
+      tags: [posts]
+      summary: Publish a post immediately, or retry a failed one
+      description: Runs synchronously. Per-account results are on the returned targets; a failed publish still returns 200.
+      responses:
+        "200":
+          description: The post after the publish attempt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "400":
+          description: The post can't be published right now
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /posts/{postId}:
+    parameters:
+      - name: postId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getPost
+      tags: [posts]
+      summary: Get one post
+      responses:
+        "200":
+          description: Post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updatePost
+      tags: [posts]
+      summary: Edit, reschedule, or convert a draft or scheduled post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePostRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "400":
+          description: Invalid post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deletePost
+      tags: [posts]
+      summary: Delete a post
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tags:
+    get:
+      operationId: listTags
+      tags: [organize]
+      summary: List tags
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagList"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createTag
+      tags: [organize]
+      summary: Create a tag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TagInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tag"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /tags/{tagId}:
+    parameters:
+      - name: tagId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      operationId: updateTag
+      tags: [organize]
+      summary: Update a tag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TagInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tag"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteTag
+      tags: [organize]
+      summary: Delete a tag
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /custom-fields:
+    get:
+      operationId: listCustomFields
+      tags: [organize]
+      summary: List custom fields
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomFieldList"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createCustomField
+      tags: [organize]
+      summary: Create a custom field
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomFieldInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomField"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /custom-fields/{fieldId}:
+    parameters:
+      - name: fieldId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      operationId: updateCustomField
+      tags: [organize]
+      summary: Update a custom field
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomFieldInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomField"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteCustomField
+      tags: [organize]
+      summary: Delete a custom field
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /mention-groups:
+    get:
+      operationId: listMentionGroups
+      tags: [organize]
+      summary: List mention groups
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MentionGroupList"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createMentionGroup
+      tags: [organize]
+      summary: Create a mention group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MentionGroupInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MentionGroup"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /mention-groups/{groupId}:
+    parameters:
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      operationId: updateMentionGroup
+      tags: [organize]
+      summary: Update a mention group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MentionGroupInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MentionGroup"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteMentionGroup
+      tags: [organize]
+      summary: Delete a mention group
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /queues:
+    get:
+      operationId: listQueues
+      tags: [queues]
+      summary: Every connected account's posting queue
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueList"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /queues/{accountId}:
+    parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getQueue
+      tags: [queues]
+      summary: One account's queue with its next free slots
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Queue"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateQueue
+      tags: [queues]
+      summary: Replace an account's posting schedule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueueInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Queue"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /queues/{accountId}/posts:
+    parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listQueuedPosts
+      tags: [queues]
+      summary: Posts waiting in an account's queue, soonest first
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostList"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /queues/{accountId}/reorder:
+    parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: reorderQueue
+      tags: [queues]
+      summary: Reorder the posts in an account's queue (they keep the same set of times)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderQueueRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostList"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /recurrences:
+    get:
+      operationId: listRecurrences
+      tags: [recurrences]
+      summary: Recurring posts in the workspace
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecurrenceList"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createRecurrence
+      tags: [recurrences]
+      summary: Create a recurring post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecurrenceInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recurrence"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /recurrences/preview:
+    post:
+      operationId: previewRecurrence
+      tags: [recurrences]
+      summary: The next dates a rule would post on
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecurrenceInput"
+      responses:
+        "200":
+          description: Dates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dates:
+                    type: array
+                    items:
+                      type: string
+                      format: date-time
+                required: [dates]
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /recurrences/{recurrenceId}:
+    parameters:
+      - name: recurrenceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getRecurrence
+      tags: [recurrences]
+      summary: A recurring post with its occurrences
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecurrenceDetail"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateRecurrence
+      tags: [recurrences]
+      summary: Update, pause or resume a recurring post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecurrenceInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recurrence"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteRecurrence
+      tags: [recurrences]
+      summary: Stop a recurring post and remove its unsent occurrences
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /team:
+    get:
+      operationId: getTeam
+      tags: [team]
+      summary: Members, invitations, roles and recent activity of the current workspace
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /team/invitations:
+    post:
+      operationId: createInvitation
+      tags: [team]
+      summary: Invite someone by email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvitationInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvitationCreated"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Already a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /team/invitations/{invitationId}:
+    parameters:
+      - name: invitationId
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      operationId: revokeInvitation
+      tags: [team]
+      summary: Cancel a pending invitation
+      responses:
+        "204":
+          description: Revoked
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /team/invitations/{invitationId}/resend:
+    parameters:
+      - name: invitationId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: resendInvitation
+      tags: [team]
+      summary: Send a pending invitation again with a fresh link
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvitationCreated"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /team/members/{userId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      operationId: updateMemberRole
+      tags: [team]
+      summary: Change a member's role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberRoleInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberList"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: removeMember
+      tags: [team]
+      summary: Remove a member, or leave the workspace
+      responses:
+        "204":
+          description: Removed
+        "400":
+          description: Not allowed for this member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /invitations/{token}:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getInvitation
+      tags: [team]
+      summary: What an invitation is for (public, needs the token)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvitationInfo"
+        "404":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: Expired or used
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /invitations/{token}/accept:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: acceptInvitation
+      tags: [team]
+      summary: Accept an invitation as the signed-in user
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvitationAccepted"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Wrong account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: Expired or used
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /workspaces:
+    get:
+      operationId: listWorkspaces
+      tags: [team]
+      summary: Workspaces the signed-in user belongs to
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceList"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /workspaces/{workspaceId}/switch:
+    parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: switchWorkspace
+      tags: [team]
+      summary: Work in another of the user's workspaces
+      responses:
+        "204":
+          description: Switched
+        "404":
+          description: Not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /analytics:
+    get:
+      operationId: getAnalytics
+      tags: [analytics]
+      summary: Numbers reported by the connected networks
+      parameters:
+        - { name: range, in: query, required: false, schema: { type: string, enum: [today, 7d, 30d, 90d, custom] } }
+        - { name: from, in: query, required: false, schema: { type: string } }
+        - { name: to, in: query, required: false, schema: { type: string } }
+        - { name: tz, in: query, required: false, schema: { type: string } }
+        - { name: platform, in: query, required: false, schema: { type: string } }
+        - { name: accountId, in: query, required: false, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Analytics"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /analytics/refresh:
+    post:
+      operationId: refreshAnalytics
+      tags: [analytics]
+      summary: Read the networks now
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyticsRefreshRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsRefresh"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many refreshes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /approvals:
+    get:
+      operationId: listApprovals
+      tags: [approvals]
+      summary: Approval queue (approvers/admins) or own requests (editors)
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ApprovalStatus"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalList"
+        "400":
+          description: Invalid status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /approvals/settings:
+    get:
+      operationId: getApprovalSettings
+      tags: [approvals]
+      summary: Whether approvals are required in this workspace
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalSettings"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateApprovalSettings
+      tags: [approvals]
+      summary: Turn required approvals on or off (owner/admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalSettingsInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalSettings"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /approvals/{approvalId}:
+    parameters:
+      - name: approvalId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getApproval
+      tags: [approvals]
+      summary: One approval with its comments
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalDetail"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /posts/{postId}/approval:
+    parameters:
+      - name: postId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: requestApproval
+      tags: [approvals]
+      summary: Ask for approval of a draft or scheduled post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalRequestInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Post not approvable or already pending/approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /approvals/{approvalId}/approve:
+    parameters:
+      - name: approvalId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: approveApproval
+      tags: [approvals]
+      summary: Approve a post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalDecisionInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Not in a state that allows this
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /approvals/{approvalId}/reject:
+    parameters:
+      - name: approvalId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: rejectApproval
+      tags: [approvals]
+      summary: Reject a post (note required)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalDecisionInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Not in a state that allows this
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /approvals/{approvalId}/request-changes:
+    parameters:
+      - name: approvalId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: requestApprovalChanges
+      tags: [approvals]
+      summary: Ask for changes (note required)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalDecisionInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Not in a state that allows this
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /approvals/{approvalId}/withdraw:
+    parameters:
+      - name: approvalId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: withdrawApproval
+      tags: [approvals]
+      summary: Withdraw your request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalWithdrawInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Not in a state that allows this
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /approvals/{approvalId}/comments:
+    parameters:
+      - name: approvalId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: addApprovalComment
+      tags: [approvals]
+      summary: Comment on an approval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalCommentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalComment"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /inbox:
+    get:
+      operationId: listInbox
+      tags: [inbox]
+      summary: Comments, direct message conversations and mentions (one row per conversation, its latest message from the other person)
+      parameters:
+        - { name: kind, in: query, required: false, schema: { type: string, enum: [comment, message, mention] } }
+        - { name: status, in: query, required: false, schema: { type: string, enum: [open, resolved] } }
+        - { name: platform, in: query, required: false, schema: { type: string, enum: [facebook, instagram, linkedin, youtube] } }
+        - { name: accountId, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: assigned, in: query, required: false, schema: { type: string, enum: [me] } }
+        - { name: unread, in: query, required: false, schema: { type: boolean } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: cursor, in: query, required: false, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxPage"
+        "400":
+          description: Invalid filter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /inbox/summary:
+    get:
+      operationId: getInboxSummary
+      tags: [inbox]
+      summary: Counts, and per account whether comments can be read
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxSummary"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /inbox/threads/{threadId}:
+    get:
+      operationId: getInboxThread
+      tags: [inbox]
+      summary: One direct message conversation, oldest message first, with whether it can be answered now (Meta's 24-hour window)
+      parameters:
+        - { name: threadId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxThread"
+        "400":
+          description: Invalid filter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /inbox/refresh:
+    post:
+      operationId: refreshInbox
+      tags: [inbox]
+      summary: Read the networks for new comments now
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InboxRefreshRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxRefresh"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many refreshes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /inbox/{id}:
+    patch:
+      operationId: updateInboxItem
+      tags: [inbox]
+      summary: Mark read or unread, resolve or reopen, assign
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InboxItemUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxItem"
+        "400":
+          description: Invalid change
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /inbox/{id}/reply:
+    post:
+      operationId: replyToInboxItem
+      tags: [inbox]
+      summary: Answer a comment on the network
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InboxReplyRequest"
+      responses:
+        "201":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxReply"
+        "400":
+          description: Empty or too long
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: The item can't be answered now (error is permission_needed, unavailable, reconnect or window_closed for a message outside Meta's 24-hour window; message says why and nothing was sent)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: The network refused the reply (recorded as failed on the comment)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /ai/status:
+    get:
+      operationId: getAiStatus
+      tags: [ai]
+      summary: Whether AI Studio is available on this server
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiStatus"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /ai/usage:
+    get:
+      operationId: getAiUsage
+      tags: [ai]
+      summary: Today's AI usage and the daily limit
+      responses:
+        "200":
+          description: Usage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiUsageToday"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /ai/generate:
+    post:
+      operationId: generateAiContent
+      tags: [ai]
+      summary: Generate or transform post text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiGenerateInput"
+      responses:
+        "200":
+          description: Generated text
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiGenerateResult"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Brand voice not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Daily limit or rate limit reached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: The AI provider failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: AI not configured (code ai_not_configured) or provider busy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "504":
+          description: The AI provider timed out or was unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /ai/brand-voices:
+    get:
+      operationId: listBrandVoices
+      tags: [ai]
+      summary: List brand voices
+      responses:
+        "200":
+          description: Voices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrandVoiceList"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createBrandVoice
+      tags: [ai]
+      summary: Create a brand voice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrandVoiceInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrandVoice"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /ai/brand-voices/{voiceId}:
+    parameters:
+      - name: voiceId
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      operationId: updateBrandVoice
+      tags: [ai]
+      summary: Replace a brand voice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrandVoiceInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrandVoice"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteBrandVoice
+      tags: [ai]
+      summary: Delete a brand voice
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /library:
+    get:
+      operationId: listLibraryItems
+      tags: [library]
+      summary: Search and browse the content library
+      parameters:
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 200 } }
+        - { name: kind, in: query, required: false, schema: { $ref: "#/components/schemas/LibraryKind" } }
+        - { name: folder, in: query, required: false, description: "A folder id, or 'none' for items outside any folder", schema: { type: string } }
+        - { name: favorite, in: query, required: false, schema: { type: boolean } }
+        - { name: label, in: query, required: false, schema: { type: string } }
+        - { name: sort, in: query, required: false, schema: { type: string, enum: [recent, used, name] } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: cursor, in: query, required: false, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryItemPage"
+        "400":
+          description: Invalid filter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createLibraryItem
+      tags: [library]
+      summary: Add an item to the library
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LibraryItemCreateInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryItem"
+        "400":
+          description: Invalid item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Role can't edit the library
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Referenced media or folder not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /library/folders:
+    get:
+      operationId: listLibraryFolders
+      tags: [library]
+      summary: List library folders
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryFolderList"
+    post:
+      operationId: createLibraryFolder
+      tags: [library]
+      summary: Create a folder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LibraryFolderInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryFolder"
+        "400":
+          description: Invalid name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: A folder with that name exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /library/folders/{folderId}:
+    patch:
+      operationId: renameLibraryFolder
+      tags: [library]
+      summary: Rename a folder
+      parameters:
+        - { name: folderId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LibraryFolderInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryFolder"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: A folder with that name exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteLibraryFolder
+      tags: [library]
+      summary: Delete a folder; its items are kept and move to no folder
+      parameters:
+        - { name: folderId, in: path, required: true, schema: { type: string } }
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /library/from-media/{mediaId}:
+    post:
+      operationId: saveMediaToLibrary
+      tags: [library]
+      summary: Save an existing upload to the library (returns the existing item if already saved)
+      parameters:
+        - { name: mediaId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LibraryFromMediaInput"
+      responses:
+        "200":
+          description: Already in the library
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryItem"
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryItem"
+        "404":
+          description: Upload not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /library/{itemId}:
+    patch:
+      operationId: updateLibraryItem
+      tags: [library]
+      summary: Edit an item
+      parameters:
+        - { name: itemId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LibraryItemUpdateInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryItem"
+        "400":
+          description: Invalid change
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteLibraryItem
+      tags: [library]
+      summary: Remove an item from the library (never deletes the underlying upload)
+      parameters:
+        - { name: itemId, in: path, required: true, schema: { type: string } }
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /library/{itemId}/use:
+    post:
+      operationId: useLibraryItem
+      tags: [library]
+      summary: Count a use and return the item for insertion in the composer
+      parameters:
+        - { name: itemId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryItem"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /library/{itemId}/render:
+    post:
+      operationId: renderLibraryTemplate
+      tags: [library]
+      summary: Fill a template's placeholders; missing values are rejected, never invented
+      parameters:
+        - { name: itemId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LibraryRenderInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryRenderResult"
+        "400":
+          description: Not a template, or variables missing (error is missing_variables and `missing` lists them)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryRenderError"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /analytics/report.pdf:
+    get:
+      operationId: getAnalyticsReportPdf
+      tags: [reports]
+      summary: Analytics report as a PDF (same data as GET /analytics)
+      parameters:
+        - { name: range, in: query, required: false, schema: { type: string, enum: [today, 7d, 30d, 90d, custom] } }
+        - { name: from, in: query, required: false, schema: { type: string } }
+        - { name: to, in: query, required: false, schema: { type: string } }
+        - { name: tz, in: query, required: false, schema: { type: string } }
+        - { name: platform, in: query, required: false, schema: { type: string } }
+        - { name: accountId, in: query, required: false, schema: { type: string } }
+      responses:
+        "200":
+          description: PDF attachment named socialflow-analytics-FROM_to_TO.pdf
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /reports/schedules:
+    get:
+      operationId: listReportSchedules
+      tags: [reports]
+      summary: Scheduled email reports (reports:read)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportScheduleList"
+    post:
+      operationId: createReportSchedule
+      tags: [reports]
+      summary: Create a scheduled report (reports:manage)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportScheduleCreateInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportSchedule"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /reports/schedules/{id}:
+    patch:
+      operationId: updateReportSchedule
+      tags: [reports]
+      summary: Change a scheduled report (reports:manage)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportScheduleUpdateInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportSchedule"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteReportSchedule
+      tags: [reports]
+      summary: Delete a scheduled report (reports:manage)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /reports/schedules/{id}/send-now:
+    post:
+      operationId: sendReportScheduleNow
+      tags: [reports]
+      summary: Send the report now (reports:manage, rate limited); the run shows success or the failure reason
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The run that was recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportRun"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /reports/schedules/{id}/runs:
+    get:
+      operationId: listReportScheduleRuns
+      tags: [reports]
+      summary: Latest 50 runs of a schedule (reports:read)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportRunList"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
+    LinkPreview:
+      type: object
+      properties:
+        url: { type: string, description: The final address after redirects. }
+        title: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        imageUrl: { type: ["string", "null"], description: Absolute http(s) address of the page's preferred image (the first of imageUrls). }
+        imageUrls:
+          type: array
+          description: Every image the page offers for previews, best first, so another can be chosen.
+          items: { type: string }
+        siteName: { type: ["string", "null"] }
+        fetchedAt: { type: string, format: date-time }
+      required: [url, title, description, imageUrl, imageUrls, siteName, fetchedAt]
+    PostLink:
+      type: object
+      description: A link attached to a post as a preview card; a snapshot of what the composer showed.
+      properties:
+        url: { type: string, maxLength: 2048 }
+        title: { type: ["string", "null"], maxLength: 300 }
+        description: { type: ["string", "null"], maxLength: 1000 }
+        imageUrl: { type: ["string", "null"], maxLength: 2048 }
+      required: [url]
     HealthStatus:
       type: object
       properties:
@@ -180,6 +2868,282 @@ components:
           type: string
       required:
         - status
+    PostStatus:
+      type: string
+      enum: [draft, scheduled, publishing, published, failed]
+    PostTarget:
+      type: object
+      properties:
+        connectedAccountId:
+          type: string
+          format: uuid
+        platform:
+          $ref: "#/components/schemas/Platform"
+        accountName:
+          type: string
+        avatarUrl:
+          type: ["string", "null"]
+        status:
+          $ref: "#/components/schemas/PostStatus"
+        errorMessage:
+          type: ["string", "null"]
+        postUrl:
+          type: ["string", "null"]
+          description: Link to the live post on the network, once published.
+        firstCommentStatus:
+          type: ["string", "null"]
+          enum: [published, failed, unsupported, null]
+        firstCommentError:
+          type: ["string", "null"]
+      required: [connectedAccountId, platform, accountName, avatarUrl, status, errorMessage, postUrl, firstCommentStatus, firstCommentError]
+    Post:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        status:
+          $ref: "#/components/schemas/PostStatus"
+        scheduledAt:
+          type: ["string", "null"]
+          format: date-time
+        publishedAt:
+          type: ["string", "null"]
+          format: date-time
+        targets:
+          type: array
+          items:
+            $ref: "#/components/schemas/PostTarget"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        media:
+          type: array
+          items:
+            $ref: "#/components/schemas/Media"
+        platformContent:
+          $ref: "#/components/schemas/PlatformContent"
+        firstComment:
+          type: ["string", "null"]
+        link:
+          oneOf:
+            - $ref: "#/components/schemas/PostLink"
+            - type: "null"
+        recurrenceId:
+          type: ["string", "null"]
+          format: uuid
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tag"
+        customValues:
+          type: object
+          additionalProperties: { type: string }
+          description: Custom field values keyed by field ID.
+      required: [id, content, status, scheduledAt, publishedAt, targets, media, platformContent, firstComment, link, recurrenceId, tags, customValues, createdAt, updatedAt]
+    Media:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [image, video]
+        mimeType:
+          type: string
+        fileName:
+          type: string
+        sizeBytes:
+          type: integer
+        width:
+          type: ["integer", "null"]
+        height:
+          type: ["integer", "null"]
+        durationMs:
+          type: ["integer", "null"]
+        url:
+          type: string
+          description: Signed-in members of the workspace can GET this to view the file.
+      required: [id, kind, mimeType, fileName, sizeBytes, width, height, durationMs, url]
+    PostList:
+      type: object
+      properties:
+        posts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Post"
+      required: [posts]
+    CreatePostRequest:
+      type: object
+      properties:
+        content:
+          type: string
+        connectedAccountIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        scheduledAt:
+          type: ["string", "null"]
+          format: date-time
+          description: When set, the post is scheduled for this time; otherwise it is saved as a draft.
+        mediaIds:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            format: uuid
+          description: Uploaded media to attach, in display order.
+        platformContent:
+          $ref: "#/components/schemas/PlatformContent"
+        firstComment:
+          type: ["string", "null"]
+          maxLength: 2000
+        link:
+          oneOf:
+            - $ref: "#/components/schemas/PostLink"
+            - type: "null"
+          description: A link to show as a preview card on Facebook and LinkedIn. null removes it; omit to leave it unchanged.
+        tagIds:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            format: uuid
+        customValues:
+          type: object
+          additionalProperties: { type: string }
+        queue:
+          type: boolean
+          description: Schedule into the next free slot of the selected accounts' posting queues.
+      required: [content, connectedAccountIds]
+    UpdatePostRequest:
+      type: object
+      properties:
+        content:
+          type: string
+        connectedAccountIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        scheduledAt:
+          type: ["string", "null"]
+          format: date-time
+          description: A time schedules the post; null moves it back to a draft.
+        mediaIds:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            format: uuid
+          description: Replaces the attached media, in display order. Omit to leave media unchanged.
+        platformContent:
+          $ref: "#/components/schemas/PlatformContent"
+        firstComment:
+          type: ["string", "null"]
+          maxLength: 2000
+        link:
+          oneOf:
+            - $ref: "#/components/schemas/PostLink"
+            - type: "null"
+          description: A link to show as a preview card on Facebook and LinkedIn. null removes it; omit to leave it unchanged.
+        tagIds:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            format: uuid
+        customValues:
+          type: object
+          additionalProperties: { type: string }
+        queue:
+          type: boolean
+          description: Schedule into the next free slot of the selected accounts' posting queues.
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        displayName:
+          type: ["string", "null"]
+      required: [id, email, displayName]
+    AuthWorkspace:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required: [id, name]
+    SignupRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+          minLength: 8
+          maxLength: 256
+        displayName:
+          type: string
+      required: [email, password]
+    SignupResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/AuthUser"
+        workspace:
+          $ref: "#/components/schemas/AuthWorkspace"
+      required: [user, workspace]
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required: [email, password]
+    LoginResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/AuthUser"
+      required: [user]
+    MeResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/AuthUser"
+        workspaceId:
+          type: string
+          format: uuid
+        workspace:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+          required: [id, name]
+        role:
+          $ref: "#/components/schemas/WorkspaceRole"
+        permissions:
+          type: array
+          items: { type: string }
+        workspaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceSummary"
+      required: [user, workspaceId, workspace, role, permissions, workspaces]
     Platform:
       type: string
       enum: [facebook, instagram, linkedin, youtube]
@@ -253,6 +3217,10 @@ components:
         missingScopes:
           type: array
           items: { type: string }
+        firstComment:
+          type: string
+          enum: [supported, needs_permission, unsupported]
+          description: Whether a first comment can be posted with this account.
         tokenExpiresAt:
           type: ["string", "null"]
           format: date-time
@@ -265,7 +3233,7 @@ components:
         updatedAt:
           type: string
           format: date-time
-      required: [id, platform, accountType, externalAccountId, displayName, username, avatarUrl, status, statusDetail, scopes, missingScopes, tokenExpiresAt, lastVerifiedAt, connectedAt, updatedAt]
+      required: [id, platform, accountType, externalAccountId, displayName, username, avatarUrl, status, statusDetail, scopes, missingScopes, firstComment, tokenExpiresAt, lastVerifiedAt, connectedAt, updatedAt]
     ConnectedAccountList:
       type: object
       properties:
@@ -320,3 +3288,1209 @@ components:
           maxItems: 100
           items: { type: string, minLength: 1 }
       required: [externalAccountIds]
+    PlatformContent:
+      type: object
+      description: Per-network text overrides; a missing key means the base content is used.
+      properties:
+        facebook: { type: string }
+        instagram: { type: string }
+        linkedin: { type: string }
+        youtube: { type: string }
+    Tag:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        color: { type: string }
+        postCount: { type: integer }
+      required: [id, name, color]
+    TagList:
+      type: object
+      properties:
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tag"
+      required: [tags]
+    TagInput:
+      type: object
+      properties:
+        name: { type: string, maxLength: 60 }
+        color: { type: string, pattern: "^#[0-9a-fA-F]{6}$" }
+    CustomField:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        key: { type: string }
+        label: { type: string }
+        type:
+          type: string
+          enum: [text, number, date, select, url]
+        options:
+          type: array
+          items: { type: string }
+        required: { type: boolean }
+        position: { type: integer }
+      required: [id, key, label, type, options, required, position]
+    CustomFieldList:
+      type: object
+      properties:
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomField"
+      required: [fields]
+    CustomFieldInput:
+      type: object
+      properties:
+        label: { type: string, maxLength: 80 }
+        type:
+          type: string
+          enum: [text, number, date, select, url]
+        options:
+          type: array
+          items: { type: string }
+        required: { type: boolean }
+        position: { type: integer }
+    MentionGroup:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        handles:
+          type: array
+          items: { type: string }
+      required: [id, name, handles]
+    MentionGroupList:
+      type: object
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/MentionGroup"
+      required: [groups]
+    MentionGroupInput:
+      type: object
+      properties:
+        name: { type: string, maxLength: 60 }
+        handles:
+          type: array
+          items: { type: string }
+    QueueSlot:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        weekday: { type: integer, minimum: 0, maximum: 6 }
+        time: { type: string, description: "HH:MM in the queue's time zone" }
+      required: [id, weekday, time]
+    Queue:
+      type: object
+      properties:
+        connectedAccountId: { type: string, format: uuid }
+        timezone: { type: string }
+        paused: { type: boolean }
+        slots:
+          type: array
+          items:
+            $ref: "#/components/schemas/QueueSlot"
+        nextSlots:
+          type: array
+          items: { type: string, format: date-time }
+      required: [connectedAccountId, timezone, paused, slots]
+    QueueList:
+      type: object
+      properties:
+        queues:
+          type: array
+          items:
+            $ref: "#/components/schemas/Queue"
+      required: [queues]
+    QueueInput:
+      type: object
+      properties:
+        timezone: { type: string }
+        paused: { type: boolean }
+        slots:
+          type: array
+          maxItems: 70
+          items:
+            type: object
+            properties:
+              weekday: { type: integer, minimum: 0, maximum: 6 }
+              time: { type: string }
+            required: [weekday, time]
+      required: [timezone, slots]
+    Recurrence:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        frequency:
+          type: string
+          enum: [daily, weekly, monthly]
+        interval: { type: integer }
+        weekdays:
+          type: array
+          items: { type: integer }
+        dayOfMonth: { type: ["integer", "null"] }
+        time: { type: string }
+        timezone: { type: string }
+        startDate: { type: string }
+        endDate: { type: ["string", "null"] }
+        maxOccurrences: { type: ["integer", "null"] }
+        occurrencesCreated: { type: integer }
+        nextRunAt: { type: ["string", "null"], format: date-time }
+        paused: { type: boolean }
+        finished: { type: boolean }
+        content: { type: string }
+        firstComment: { type: ["string", "null"] }
+        platformContent:
+          $ref: "#/components/schemas/PlatformContent"
+        connectedAccountIds:
+          type: array
+          items: { type: string, format: uuid }
+        mediaIds:
+          type: array
+          items: { type: string, format: uuid }
+        tagIds:
+          type: array
+          items: { type: string, format: uuid }
+        upcoming:
+          type: array
+          items: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, frequency, interval, weekdays, dayOfMonth, time, timezone, startDate, endDate, maxOccurrences, occurrencesCreated, nextRunAt, paused, finished, content, firstComment, platformContent, connectedAccountIds, mediaIds, tagIds, upcoming, createdAt, updatedAt]
+    RecurrenceDetail:
+      allOf:
+        - $ref: "#/components/schemas/Recurrence"
+        - type: object
+          properties:
+            posts:
+              type: array
+              items:
+                $ref: "#/components/schemas/Post"
+          required: [posts]
+    RecurrenceList:
+      type: object
+      properties:
+        recurrences:
+          type: array
+          items:
+            $ref: "#/components/schemas/Recurrence"
+      required: [recurrences]
+    RecurrenceInput:
+      type: object
+      properties:
+        frequency:
+          type: string
+          enum: [daily, weekly, monthly]
+        interval: { type: integer, minimum: 1, maximum: 52 }
+        weekdays:
+          type: array
+          items: { type: integer, minimum: 0, maximum: 6 }
+        dayOfMonth: { type: ["integer", "null"], minimum: 1, maximum: 31 }
+        time: { type: string }
+        timezone: { type: string }
+        startDate: { type: string }
+        endDate: { type: ["string", "null"] }
+        maxOccurrences: { type: ["integer", "null"] }
+        paused: { type: boolean }
+        content: { type: string }
+        firstComment: { type: ["string", "null"] }
+        platformContent:
+          $ref: "#/components/schemas/PlatformContent"
+        connectedAccountIds:
+          type: array
+          items: { type: string, format: uuid }
+        mediaIds:
+          type: array
+          items: { type: string, format: uuid }
+        tagIds:
+          type: array
+          items: { type: string, format: uuid }
+    ReorderQueueRequest:
+      type: object
+      properties:
+        postIds:
+          type: array
+          items: { type: string, format: uuid }
+      required: [postIds]
+    WorkspaceRole:
+      type: string
+      enum: [owner, admin, editor, approver, viewer]
+    WorkspaceSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        role:
+          $ref: "#/components/schemas/WorkspaceRole"
+        current: { type: boolean }
+      required: [id, name, role, current]
+    WorkspaceList:
+      type: object
+      properties:
+        workspaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceSummary"
+      required: [workspaces]
+    Member:
+      type: object
+      properties:
+        userId: { type: string, format: uuid }
+        email: { type: string }
+        displayName: { type: ["string", "null"] }
+        role:
+          $ref: "#/components/schemas/WorkspaceRole"
+        joinedAt: { type: string, format: date-time }
+      required: [userId, email, displayName, role, joinedAt]
+    MemberList:
+      type: object
+      properties:
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/Member"
+      required: [members]
+    PendingInvitation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        role: { type: string }
+        invitedBy: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        expired: { type: boolean }
+      required: [id, email, role, invitedBy, createdAt, expiresAt, expired]
+    RoleInfo:
+      type: object
+      properties:
+        role:
+          $ref: "#/components/schemas/WorkspaceRole"
+        label: { type: string }
+        description: { type: string }
+        permissions:
+          type: array
+          items: { type: string }
+      required: [role, label, description, permissions]
+    ActivityEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        action: { type: string }
+        target: { type: ["string", "null"] }
+        actor: { type: string }
+        detail:
+          type: object
+          additionalProperties: true
+        createdAt: { type: string, format: date-time }
+      required: [id, action, target, actor, detail, createdAt]
+    Team:
+      type: object
+      properties:
+        workspace:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+          required: [id, name]
+        me:
+          type: object
+          properties:
+            userId: { type: string, format: uuid }
+            role:
+              $ref: "#/components/schemas/WorkspaceRole"
+            canManage: { type: boolean }
+            grantableRoles:
+              type: array
+              items:
+                $ref: "#/components/schemas/WorkspaceRole"
+          required: [userId, role, canManage, grantableRoles]
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/Member"
+        invitations:
+          type: array
+          items:
+            $ref: "#/components/schemas/PendingInvitation"
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoleInfo"
+        permissions:
+          type: array
+          items: { type: string }
+        mailConfigured: { type: boolean }
+        activity:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityEntry"
+      required: [workspace, me, members, invitations, roles, permissions, mailConfigured, activity]
+    InvitationInput:
+      type: object
+      properties:
+        email: { type: string }
+        role:
+          $ref: "#/components/schemas/WorkspaceRole"
+      required: [email, role]
+    InvitationCreated:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        role: { type: string }
+        expiresAt: { type: string, format: date-time }
+        inviteUrl: { type: ["string", "null"] }
+        emailSent: { type: boolean }
+      required: [id, email, role, inviteUrl, emailSent]
+    MemberRoleInput:
+      type: object
+      properties:
+        role:
+          $ref: "#/components/schemas/WorkspaceRole"
+      required: [role]
+    InvitationInfo:
+      type: object
+      properties:
+        workspaceName: { type: string }
+        role: { type: string }
+        roleLabel: { type: string }
+        email: { type: string }
+        invitedBy: { type: ["string", "null"] }
+        hasAccount: { type: boolean }
+        expiresAt: { type: string, format: date-time }
+      required: [workspaceName, role, roleLabel, email, invitedBy, hasAccount, expiresAt]
+    InvitationAccepted:
+      type: object
+      properties:
+        workspaceId: { type: string, format: uuid }
+        role: { type: string }
+      required: [workspaceId, role]
+    MetricSupport:
+      type: object
+      properties:
+        available: { type: boolean }
+        reason: { type: ["string", "null"] }
+      required: [available, reason]
+    Kpi:
+      type: object
+      properties:
+        value: { type: ["number", "null"] }
+        previous: { type: ["number", "null"] }
+        change: { type: ["number", "null"] }
+        available: { type: boolean }
+        reason: { type: ["string", "null"] }
+      required: [value, previous, change, available, reason]
+    EngagementKpi:
+      allOf:
+        - $ref: "#/components/schemas/Kpi"
+        - type: object
+          properties:
+            rate: { type: ["number", "null"] }
+          required: [rate]
+    AnalyticsAccount:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        platform:
+          $ref: "#/components/schemas/Platform"
+        displayName: { type: string }
+        status: { type: string }
+        followers: { type: ["integer", "null"] }
+        mediaCount: { type: ["integer", "null"] }
+        viewsTotal: { type: ["number", "null"] }
+        collectedAt: { type: ["string", "null"], format: date-time }
+        support:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/MetricSupport"
+      required: [id, platform, displayName, status, followers, mediaCount, viewsTotal, collectedAt, support]
+    AnalyticsPost:
+      type: object
+      properties:
+        postId: { type: string, format: uuid }
+        content: { type: string }
+        platform:
+          $ref: "#/components/schemas/Platform"
+        accountName: { type: string }
+        publishedAt: { type: string, format: date-time }
+        postUrl: { type: ["string", "null"] }
+        likes: { type: ["integer", "null"] }
+        comments: { type: ["integer", "null"] }
+        shares: { type: ["integer", "null"] }
+        views: { type: ["number", "null"] }
+        impressions: { type: ["number", "null"] }
+        reach: { type: ["number", "null"] }
+        saves: { type: ["integer", "null"] }
+        engagement: { type: ["integer", "null"] }
+        capturedAt: { type: ["string", "null"], format: date-time }
+      required: [postId, content, platform, accountName, publishedAt, postUrl, likes, comments, shares, views, impressions, reach, saves, engagement, capturedAt]
+    PlatformSummary:
+      type: object
+      properties:
+        platform:
+          $ref: "#/components/schemas/Platform"
+        accounts: { type: integer }
+        followers: { type: ["integer", "null"] }
+        posts: { type: integer }
+        likes: { type: ["integer", "null"] }
+        comments: { type: ["integer", "null"] }
+        shares: { type: ["integer", "null"] }
+        saves: { type: ["integer", "null"] }
+        views: { type: ["number", "null"] }
+        impressions: { type: ["number", "null"] }
+        reach: { type: ["number", "null"] }
+        engagement: { type: ["integer", "null"] }
+      required: [platform, accounts, followers, posts, likes, comments, shares, saves, views, impressions, reach, engagement]
+    Analytics:
+      type: object
+      properties:
+        range:
+          type: object
+          properties:
+            key: { type: string }
+            from: { type: string, format: date-time }
+            to: { type: string, format: date-time }
+            previousFrom: { type: string, format: date-time }
+            previousTo: { type: string, format: date-time }
+            timezone: { type: string }
+          required: [key, from, to, previousFrom, previousTo, timezone]
+        lastCollectedAt: { type: ["string", "null"], format: date-time }
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalyticsAccount"
+        kpis:
+          type: object
+          properties:
+            followers:
+              $ref: "#/components/schemas/Kpi"
+            posts:
+              $ref: "#/components/schemas/Kpi"
+            likes:
+              $ref: "#/components/schemas/Kpi"
+            comments:
+              $ref: "#/components/schemas/Kpi"
+            shares:
+              $ref: "#/components/schemas/Kpi"
+            saves:
+              $ref: "#/components/schemas/Kpi"
+            views:
+              $ref: "#/components/schemas/Kpi"
+            impressions:
+              $ref: "#/components/schemas/Kpi"
+            reach:
+              $ref: "#/components/schemas/Kpi"
+            engagement:
+              $ref: "#/components/schemas/EngagementKpi"
+          required: [followers, posts, likes, comments, shares, saves, views, impressions, reach, engagement]
+        series:
+          type: object
+          properties:
+            followers:
+              type: array
+              items:
+                type: object
+                properties:
+                  date: { type: string }
+                  value: { type: number }
+                required: [date, value]
+            activity:
+              type: array
+              items:
+                type: object
+                properties:
+                  date: { type: string }
+                  posts: { type: integer }
+                  likes: { type: integer }
+                  comments: { type: integer }
+                  shares: { type: integer }
+                required: [date, posts, likes, comments, shares]
+          required: [followers, activity]
+        platforms:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlatformSummary"
+        topPosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalyticsPost"
+      required: [range, lastCollectedAt, accounts, kpis, series, platforms, topPosts]
+    AnalyticsRefresh:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              accountId: { type: string, format: uuid }
+              ok: { type: boolean }
+              skipped: { type: boolean }
+              postsRead: { type: integer }
+              error: { type: ["string", "null"] }
+              notes:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    code: { type: string }
+                    message: { type: string }
+                  required: [code, message]
+            required: [accountId, ok, skipped, postsRead, error, notes]
+      required: [results]
+    AnalyticsRefreshRequest:
+      type: object
+      properties:
+        accountId: { type: string, format: uuid }
+    ApprovalStatus:
+      type: string
+      enum: [pending, approved, rejected, changes_requested, withdrawn]
+    ApprovalPostSummary:
+      type: object
+      properties:
+        id: { type: string }
+        content: { type: string }
+        status: { type: string }
+        scheduledAt: { type: ["string", "null"], format: date-time }
+      required: [id, content, status, scheduledAt]
+    Approval:
+      type: object
+      properties:
+        id: { type: string }
+        postId: { type: string }
+        status:
+          $ref: "#/components/schemas/ApprovalStatus"
+        requestedBy: { type: ["string", "null"] }
+        requestedByName: { type: ["string", "null"] }
+        requestedAt: { type: string, format: date-time }
+        decidedBy: { type: ["string", "null"] }
+        decidedByName: { type: ["string", "null"] }
+        decidedAt: { type: ["string", "null"], format: date-time }
+        note: { type: ["string", "null"] }
+        post:
+          oneOf:
+            - $ref: "#/components/schemas/ApprovalPostSummary"
+            - type: "null"
+      required: [id, postId, status, requestedBy, requestedByName, requestedAt, decidedBy, decidedByName, decidedAt, note, post]
+    ApprovalList:
+      type: object
+      properties:
+        approvals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Approval"
+        scope: { type: string, enum: [queue, own] }
+      required: [approvals, scope]
+    ApprovalComment:
+      type: object
+      properties:
+        id: { type: string }
+        userId: { type: ["string", "null"] }
+        body: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, userId, body, createdAt]
+    ApprovalDetailComment:
+      type: object
+      properties:
+        id: { type: string }
+        userId: { type: ["string", "null"] }
+        author: { type: string }
+        body: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, userId, author, body, createdAt]
+    ApprovalDetail:
+      allOf:
+        - $ref: "#/components/schemas/Approval"
+        - type: object
+          properties:
+            comments:
+              type: array
+              items:
+                $ref: "#/components/schemas/ApprovalDetailComment"
+          required: [comments]
+    ApprovalSettings:
+      type: object
+      properties:
+        required: { type: boolean }
+        updatedBy: { type: ["string", "null"] }
+        updatedAt: { type: ["string", "null"], format: date-time }
+      required: [required, updatedBy, updatedAt]
+    ApprovalSettingsInput:
+      type: object
+      properties:
+        required: { type: boolean }
+      required: [required]
+    ApprovalRequestInput:
+      type: object
+      properties:
+        note: { type: ["string", "null"] }
+    ApprovalDecisionInput:
+      type: object
+      properties:
+        note: { type: ["string", "null"] }
+    ApprovalWithdrawInput:
+      type: object
+      properties:
+        note: { type: ["string", "null"] }
+    ApprovalCommentInput:
+      type: object
+      properties:
+        body: { type: string }
+      required: [body]
+    InboxReply:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: ["string", "null"], format: uuid }
+        body: { type: string }
+        status: { type: string, enum: [sent, failed] }
+        error: { type: ["string", "null"] }
+        externalId: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+      required: [id, userId, body, status, error, externalId, createdAt]
+    InboxItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        accountId: { type: string, format: uuid }
+        accountName: { type: string }
+        accountAvatar: { type: ["string", "null"] }
+        platform: { type: string }
+        postId: { type: ["string", "null"], format: uuid }
+        postTargetId: { type: ["string", "null"], format: uuid }
+        externalId: { type: string }
+        parentExternalId: { type: ["string", "null"] }
+        authorName: { type: string }
+        authorAvatar: { type: ["string", "null"] }
+        body: { type: string }
+        createdAtNetwork: { type: string, format: date-time }
+        status: { type: string, enum: [open, resolved] }
+        read: { type: boolean }
+        readAt: { type: ["string", "null"], format: date-time }
+        assignedToUserId: { type: ["string", "null"], format: uuid }
+        assignedToName: { type: ["string", "null"] }
+        replied: { type: boolean }
+        kind: { type: string, enum: [comment, message, mention] }
+        threadId: { type: ["string", "null"] }
+        permalink: { type: ["string", "null"] }
+        canReply: { type: boolean }
+        replyWindowEndsAt: { type: ["string", "null"], format: date-time }
+        replyBlockedReason: { type: ["string", "null"] }
+        replies:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxReply"
+      required: [kind, threadId, permalink, canReply, replyWindowEndsAt, replyBlockedReason, id, accountId, accountName, accountAvatar, platform, postId, postTargetId, externalId, parentExternalId, authorName, authorAvatar, body, createdAtNetwork, status, read, readAt, assignedToUserId, assignedToName, replied, replies]
+    InboxPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxItem"
+        nextCursor: { type: ["string", "null"] }
+      required: [items, nextCursor]
+    InboxAccountState:
+      type: object
+      properties:
+        accountId: { type: string, format: uuid }
+        platform: { type: string }
+        displayName: { type: string }
+        avatarUrl: { type: ["string", "null"] }
+        state: { type: string, enum: [available, permission_needed, unavailable, reconnect] }
+        reason: { type: ["string", "null"] }
+        lastSyncedAt: { type: ["string", "null"], format: date-time }
+        lastError: { type: ["string", "null"] }
+        open: { type: integer }
+        unread: { type: integer }
+        messaging:
+          $ref: "#/components/schemas/InboxMessagingState"
+        mentions:
+          $ref: "#/components/schemas/InboxMentionsState"
+      required: [accountId, platform, displayName, avatarUrl, state, reason, lastSyncedAt, lastError, open, unread, messaging, mentions]
+    InboxMessagingState:
+      type: object
+      properties:
+        state: { type: string, enum: [available, permission_needed, unavailable, reconnect] }
+        reason: { type: ["string", "null"] }
+        replyWindowHours: { type: ["integer", "null"] }
+        lastSyncedAt: { type: ["string", "null"], format: date-time }
+        lastError: { type: ["string", "null"] }
+      required: [state, reason, replyWindowHours, lastSyncedAt, lastError]
+    InboxMentionsState:
+      type: object
+      properties:
+        state: { type: string, enum: [available, permission_needed, unavailable, reconnect] }
+        reason: { type: ["string", "null"] }
+        canReply: { type: boolean }
+        replyNote: { type: ["string", "null"] }
+        lastSyncedAt: { type: ["string", "null"], format: date-time }
+        lastError: { type: ["string", "null"] }
+      required: [state, reason, canReply, replyNote, lastSyncedAt, lastError]
+    InboxKindCount:
+      type: object
+      properties:
+        open: { type: integer }
+        unread: { type: integer }
+      required: [open, unread]
+    InboxKindCounts:
+      type: object
+      properties:
+        comment:
+          $ref: "#/components/schemas/InboxKindCount"
+        message:
+          $ref: "#/components/schemas/InboxKindCount"
+        mention:
+          $ref: "#/components/schemas/InboxKindCount"
+      required: [comment, message, mention]
+    InboxSummary:
+      type: object
+      properties:
+        open: { type: integer }
+        resolved: { type: integer }
+        unread: { type: integer }
+        assignedToMe: { type: integer }
+        kinds:
+          $ref: "#/components/schemas/InboxKindCounts"
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxAccountState"
+      required: [open, resolved, unread, assignedToMe, kinds, accounts]
+    InboxThreadMessage:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        externalId: { type: string }
+        authorName: { type: string }
+        body: { type: string }
+        createdAtNetwork: { type: string, format: date-time }
+        fromPage: { type: boolean }
+      required: [id, externalId, authorName, body, createdAtNetwork, fromPage]
+    InboxThread:
+      type: object
+      properties:
+        threadId: { type: string }
+        accountId: { type: string, format: uuid }
+        accountName: { type: string }
+        accountAvatar: { type: ["string", "null"] }
+        platform: { type: string }
+        participantName: { type: ["string", "null"] }
+        itemId: { type: ["string", "null"], format: uuid }
+        status: { type: string, enum: [open, resolved] }
+        canReply: { type: boolean }
+        replyWindowEndsAt: { type: ["string", "null"], format: date-time }
+        replyBlockedReason: { type: ["string", "null"] }
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxThreadMessage"
+      required: [threadId, accountId, accountName, accountAvatar, platform, participantName, itemId, status, canReply, replyWindowEndsAt, replyBlockedReason, messages]
+    InboxRefreshRequest:
+      type: object
+      properties:
+        accountId: { type: string, format: uuid }
+    InboxRefreshResult:
+      type: object
+      properties:
+        accountId: { type: string, format: uuid }
+        state: { type: string, enum: [ok, permission_needed, unavailable, reconnect, error] }
+        ok: { type: boolean }
+        postsRead: { type: integer }
+        newItems: { type: integer }
+        reason: { type: ["string", "null"] }
+        newMessages: { type: integer }
+        newMentions: { type: integer }
+        messagesReason: { type: ["string", "null"] }
+        mentionsReason: { type: ["string", "null"] }
+      required: [accountId, state, ok, postsRead, newItems, reason]
+    InboxRefresh:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxRefreshResult"
+      required: [results]
+    InboxItemUpdate:
+      type: object
+      properties:
+        read: { type: boolean }
+        status: { type: string, enum: [open, resolved] }
+        assignedToUserId: { type: ["string", "null"], format: uuid }
+    InboxReplyRequest:
+      type: object
+      properties:
+        body: { type: string }
+      required: [body]
+    AiTask:
+      type: string
+      enum: [caption, rewrite, shorten, expand, hashtags, variations, repurpose, first_comment]
+    AiPlatform:
+      type: string
+      enum: [facebook, instagram, linkedin, youtube, x]
+    AiPlatformLimit:
+      type: object
+      properties:
+        platform:
+          $ref: "#/components/schemas/AiPlatform"
+        characterLimit:
+          type: integer
+        suggestedLength:
+          type: integer
+        titleLimit:
+          type: ["integer", "null"]
+      required: [platform, characterLimit, suggestedLength, titleLimit]
+    AiStatus:
+      type: object
+      properties:
+        available:
+          type: boolean
+        reason:
+          type: ["string", "null"]
+        model:
+          type: ["string", "null"]
+        dailyLimit:
+          type: integer
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/AiTask"
+        maxVariations:
+          type: integer
+        platforms:
+          type: array
+          items:
+            $ref: "#/components/schemas/AiPlatformLimit"
+      required: [available, reason, model, dailyLimit, tasks, maxVariations, platforms]
+    AiUsageToday:
+      type: object
+      properties:
+        date:
+          type: string
+        requests:
+          type: integer
+        inputTokens:
+          type: integer
+        outputTokens:
+          type: integer
+        limit:
+          type: integer
+        remaining:
+          type: integer
+        resetsAt:
+          type: string
+          format: date-time
+      required: [date, requests, inputTokens, outputTokens, limit, remaining, resetsAt]
+    AiGenerateInput:
+      type: object
+      properties:
+        task:
+          $ref: "#/components/schemas/AiTask"
+        topic:
+          type: string
+        text:
+          type: string
+        instruction:
+          type: string
+        tone:
+          type: string
+        platforms:
+          type: array
+          items:
+            $ref: "#/components/schemas/AiPlatform"
+        n:
+          type: integer
+          minimum: 1
+          maximum: 5
+        brandVoiceId:
+          type: ["string", "null"]
+      required: [task]
+    AiOutput:
+      type: object
+      properties:
+        text:
+          type: string
+        platform:
+          oneOf:
+            - $ref: "#/components/schemas/AiPlatform"
+            - type: "null"
+        length:
+          type: integer
+        limit:
+          type: ["integer", "null"]
+        withinLimit:
+          type: boolean
+      required: [text, platform, length, limit, withinLimit]
+    AiTokenUsage:
+      type: object
+      properties:
+        inputTokens:
+          type: integer
+        outputTokens:
+          type: integer
+      required: [inputTokens, outputTokens]
+    AiGenerateResult:
+      type: object
+      properties:
+        task:
+          $ref: "#/components/schemas/AiTask"
+        model:
+          type: string
+        brandVoiceId:
+          type: ["string", "null"]
+        outputs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AiOutput"
+        usage:
+          $ref: "#/components/schemas/AiTokenUsage"
+        remainingToday:
+          type: integer
+      required: [task, model, brandVoiceId, outputs, usage, remainingToday]
+    BrandVoiceInput:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        toneNotes:
+          type: string
+        doWords:
+          type: array
+          items:
+            type: string
+        dontWords:
+          type: array
+          items:
+            type: string
+      required: [name]
+    BrandVoice:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        toneNotes:
+          type: string
+        doWords:
+          type: array
+          items:
+            type: string
+        dontWords:
+          type: array
+          items:
+            type: string
+        updatedBy:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, description, toneNotes, doWords, dontWords, updatedBy, createdAt, updatedAt]
+    BrandVoiceList:
+      type: object
+      properties:
+        voices:
+          type: array
+          items:
+            $ref: "#/components/schemas/BrandVoice"
+      required: [voices]
+    LibraryKind:
+      type: string
+      enum: [media, caption, template, snippet]
+    LibraryItem:
+      type: object
+      properties:
+        id: { type: string }
+        kind: { $ref: "#/components/schemas/LibraryKind" }
+        title: { type: string }
+        body: { type: ["string", "null"] }
+        mediaId: { type: ["string", "null"] }
+        media:
+          oneOf:
+            - $ref: "#/components/schemas/Media"
+            - type: "null"
+        folderId: { type: ["string", "null"] }
+        labels:
+          type: array
+          items: { type: string }
+        favorite: { type: boolean }
+        useCount: { type: integer }
+        lastUsedAt: { type: ["string", "null"], format: date-time }
+        placeholders:
+          type: array
+          items: { type: string }
+        createdBy: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, kind, title, body, mediaId, media, folderId, labels, favorite, useCount, lastUsedAt, placeholders, createdBy, createdAt, updatedAt]
+    LibraryItemPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LibraryItem"
+        nextCursor: { type: ["string", "null"] }
+      required: [items, nextCursor]
+    LibraryItemCreateInput:
+      type: object
+      properties:
+        kind: { $ref: "#/components/schemas/LibraryKind" }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        body: { type: ["string", "null"], maxLength: 20000 }
+        mediaId: { type: ["string", "null"] }
+        folderId: { type: ["string", "null"] }
+        labels:
+          type: array
+          items: { type: string, maxLength: 40 }
+          maxItems: 20
+        favorite: { type: boolean }
+      required: [kind, title]
+    LibraryItemUpdateInput:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        body: { type: ["string", "null"], maxLength: 20000 }
+        folderId: { type: ["string", "null"] }
+        labels:
+          type: array
+          items: { type: string, maxLength: 40 }
+          maxItems: 20
+        favorite: { type: boolean }
+    LibraryFromMediaInput:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        folderId: { type: ["string", "null"] }
+        labels:
+          type: array
+          items: { type: string, maxLength: 40 }
+        favorite: { type: boolean }
+    LibraryFolder:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        itemCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+      required: [id, name, itemCount, createdAt]
+    LibraryFolderList:
+      type: object
+      properties:
+        folders:
+          type: array
+          items:
+            $ref: "#/components/schemas/LibraryFolder"
+      required: [folders]
+    LibraryFolderInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+      required: [name]
+    LibraryRenderInput:
+      type: object
+      properties:
+        variables:
+          type: object
+          additionalProperties: { type: string, maxLength: 2000 }
+    LibraryRenderResult:
+      type: object
+      properties:
+        text: { type: string }
+        placeholders:
+          type: array
+          items: { type: string }
+      required: [text, placeholders]
+    LibraryRenderError:
+      type: object
+      properties:
+        error: { type: string }
+        message: { type: string }
+        missing:
+          type: array
+          items: { type: string }
+      required: [error, message]
+    ReportSchedule:
+      type: object
+      required: [id, workspaceId, createdBy, name, frequency, weekday, dayOfMonth, hour, timezone, rangeKey, platform, accountId, recipients, enabled, lastRunAt, lastStatus, lastError, nextRunAt, createdAt]
+      properties:
+        id: { type: string }
+        workspaceId: { type: string }
+        createdBy: { type: ["string", "null"] }
+        name: { type: string }
+        frequency: { type: string, enum: [weekly, monthly] }
+        weekday: { type: ["integer", "null"], description: "0 (Sunday) to 6; weekly only" }
+        dayOfMonth: { type: ["integer", "null"], description: "1 to 28; monthly only" }
+        hour: { type: integer }
+        timezone: { type: string }
+        rangeKey: { type: string, enum: [7d, 30d, 90d] }
+        platform: { type: ["string", "null"] }
+        accountId: { type: ["string", "null"] }
+        recipients: { type: array, items: { type: string } }
+        enabled: { type: boolean }
+        lastRunAt: { type: ["string", "null"], format: date-time }
+        lastStatus: { type: ["string", "null"], description: "sent or failed" }
+        lastError: { type: ["string", "null"] }
+        nextRunAt: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+    ReportScheduleList:
+      type: object
+      required: [schedules]
+      properties:
+        schedules: { type: array, items: { $ref: "#/components/schemas/ReportSchedule" } }
+    ReportScheduleCreateInput:
+      type: object
+      required: [name, frequency, hour, recipients]
+      properties:
+        name: { type: string, maxLength: 100 }
+        frequency: { type: string, enum: [weekly, monthly] }
+        weekday: { type: integer, minimum: 0, maximum: 6, description: "Required when weekly" }
+        dayOfMonth: { type: integer, minimum: 1, maximum: 28, description: "Required when monthly" }
+        hour: { type: integer, minimum: 0, maximum: 23 }
+        timezone: { type: string, description: "IANA zone, default UTC" }
+        rangeKey: { type: string, enum: [7d, 30d, 90d] }
+        platform: { type: ["string", "null"] }
+        accountId: { type: ["string", "null"] }
+        recipients: { type: array, maxItems: 10, items: { type: string } }
+        enabled: { type: boolean }
+    ReportScheduleUpdateInput:
+      type: object
+      properties:
+        name: { type: string, maxLength: 100 }
+        frequency: { type: string, enum: [weekly, monthly] }
+        weekday: { type: integer, minimum: 0, maximum: 6 }
+        dayOfMonth: { type: integer, minimum: 1, maximum: 28 }
+        hour: { type: integer, minimum: 0, maximum: 23 }
+        timezone: { type: string }
+        rangeKey: { type: string, enum: [7d, 30d, 90d] }
+        platform: { type: ["string", "null"] }
+        accountId: { type: ["string", "null"] }
+        recipients: { type: array, maxItems: 10, items: { type: string } }
+        enabled: { type: boolean }
+    ReportRun:
+      type: object
+      required: [id, scheduleId, ranAt, status, error, recipientCount]
+      properties:
+        id: { type: string }
+        scheduleId: { type: string }
+        ranAt: { type: string, format: date-time }
+        status: { type: string, enum: [sent, failed] }
+        error: { type: ["string", "null"] }
+        recipientCount: { type: integer }
+    ReportRunList:
+      type: object
+      required: [runs]
+      properties:
+        runs: { type: array, items: { $ref: "#/components/schemas/ReportRun" } }

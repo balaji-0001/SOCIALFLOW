@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ConnectedAccountFirstComment } from './connectedAccountFirstComment';
 import type { ConnectionStatus } from './connectionStatus';
 import type { Platform } from './platform';
 
@@ -23,6 +24,8 @@ export interface ConnectedAccount {
   statusDetail: string | null;
   scopes: string[];
   missingScopes: string[];
+  /** Whether a first comment can be posted with this account. */
+  firstComment: ConnectedAccountFirstComment;
   /** @nullable */
   tokenExpiresAt: Date | null;
   /** @nullable */

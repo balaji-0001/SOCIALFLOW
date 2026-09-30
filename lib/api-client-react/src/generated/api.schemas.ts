@@ -5,9 +5,74 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface LinkPreview {
+  /** The final address after redirects. */
+  url: string;
+  /** @nullable */
+  title: string | null;
+  /** @nullable */
+  description: string | null;
+  /**
+     * Absolute http(s) address of the page's preferred image (the first of imageUrls).
+     * @nullable
+     */
+  imageUrl: string | null;
+  /** Every image the page offers for previews, best first, so another can be chosen. */
+  imageUrls: string[];
+  /** @nullable */
+  siteName: string | null;
+  fetchedAt: string;
+}
+
+/**
+ * A link attached to a post as a preview card; a snapshot of what the composer showed.
+ */
+export interface PostLink {
+  /** @maxLength 2048 */
+  url: string;
+  /**
+     * @maxLength 300
+     * @nullable
+     */
+  title?: string | null;
+  /**
+     * @maxLength 1000
+     * @nullable
+     */
+  description?: string | null;
+  /**
+     * @maxLength 2048
+     * @nullable
+     */
+  imageUrl?: string | null;
+}
+
 export interface HealthStatus {
   status: string;
 }
+
+export type PostStatus = typeof PostStatus[keyof typeof PostStatus];
+
+
+export const PostStatus = {
+  draft: 'draft',
+  scheduled: 'scheduled',
+  publishing: 'publishing',
+  published: 'published',
+  failed: 'failed',
+} as const;
+
+/**
+ * @nullable
+ */
+export type PostTargetFirstCommentStatus = typeof PostTargetFirstCommentStatus[keyof typeof PostTargetFirstCommentStatus] | null;
+
+
+export const PostTargetFirstCommentStatus = {
+  published: 'published',
+  failed: 'failed',
+  unsupported: 'unsupported',
+} as const;
 
 export type Platform = typeof Platform[keyof typeof Platform];
 
@@ -18,6 +83,227 @@ export const Platform = {
   linkedin: 'linkedin',
   youtube: 'youtube',
 } as const;
+
+export interface PostTarget {
+  connectedAccountId: string;
+  platform: Platform;
+  accountName: string;
+  /** @nullable */
+  avatarUrl: string | null;
+  status: PostStatus;
+  /** @nullable */
+  errorMessage: string | null;
+  /**
+     * Link to the live post on the network, once published.
+     * @nullable
+     */
+  postUrl: string | null;
+  /** @nullable */
+  firstCommentStatus: PostTargetFirstCommentStatus;
+  /** @nullable */
+  firstCommentError: string | null;
+}
+
+/**
+ * Custom field values keyed by field ID.
+ */
+export type PostCustomValues = {[key: string]: string};
+
+export type MediaKind = typeof MediaKind[keyof typeof MediaKind];
+
+
+export const MediaKind = {
+  image: 'image',
+  video: 'video',
+} as const;
+
+export interface Media {
+  id: string;
+  kind: MediaKind;
+  mimeType: string;
+  fileName: string;
+  sizeBytes: number;
+  /** @nullable */
+  width: number | null;
+  /** @nullable */
+  height: number | null;
+  /** @nullable */
+  durationMs: number | null;
+  /** Signed-in members of the workspace can GET this to view the file. */
+  url: string;
+}
+
+/**
+ * Per-network text overrides; a missing key means the base content is used.
+ */
+export interface PlatformContent {
+  facebook?: string;
+  instagram?: string;
+  linkedin?: string;
+  youtube?: string;
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+  postCount?: number;
+}
+
+export interface Post {
+  id: string;
+  content: string;
+  status: PostStatus;
+  /** @nullable */
+  scheduledAt: string | null;
+  /** @nullable */
+  publishedAt: string | null;
+  targets: PostTarget[];
+  createdAt: string;
+  updatedAt: string;
+  media: Media[];
+  platformContent: PlatformContent;
+  /** @nullable */
+  firstComment: string | null;
+  link: PostLink | null;
+  /** @nullable */
+  recurrenceId: string | null;
+  tags: Tag[];
+  /** Custom field values keyed by field ID. */
+  customValues: PostCustomValues;
+}
+
+export interface PostList {
+  posts: Post[];
+}
+
+export type CreatePostRequestCustomValues = {[key: string]: string};
+
+export interface CreatePostRequest {
+  content: string;
+  connectedAccountIds: string[];
+  /**
+     * When set, the post is scheduled for this time; otherwise it is saved as a draft.
+     * @nullable
+     */
+  scheduledAt?: string | null;
+  /**
+     * Uploaded media to attach, in display order.
+     * @maxItems 50
+     */
+  mediaIds?: string[];
+  platformContent?: PlatformContent;
+  /**
+     * @maxLength 2000
+     * @nullable
+     */
+  firstComment?: string | null;
+  /** A link to show as a preview card on Facebook and LinkedIn. null removes it; omit to leave it unchanged. */
+  link?: PostLink | null;
+  /** @maxItems 50 */
+  tagIds?: string[];
+  customValues?: CreatePostRequestCustomValues;
+  /** Schedule into the next free slot of the selected accounts' posting queues. */
+  queue?: boolean;
+}
+
+export type UpdatePostRequestCustomValues = {[key: string]: string};
+
+export interface UpdatePostRequest {
+  content?: string;
+  connectedAccountIds?: string[];
+  /**
+     * A time schedules the post; null moves it back to a draft.
+     * @nullable
+     */
+  scheduledAt?: string | null;
+  /**
+     * Replaces the attached media, in display order. Omit to leave media unchanged.
+     * @maxItems 50
+     */
+  mediaIds?: string[];
+  platformContent?: PlatformContent;
+  /**
+     * @maxLength 2000
+     * @nullable
+     */
+  firstComment?: string | null;
+  /** A link to show as a preview card on Facebook and LinkedIn. null removes it; omit to leave it unchanged. */
+  link?: PostLink | null;
+  /** @maxItems 50 */
+  tagIds?: string[];
+  customValues?: UpdatePostRequestCustomValues;
+  /** Schedule into the next free slot of the selected accounts' posting queues. */
+  queue?: boolean;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  /** @nullable */
+  displayName: string | null;
+}
+
+export interface AuthWorkspace {
+  id: string;
+  name: string;
+}
+
+export interface SignupRequest {
+  email: string;
+  /**
+     * @minLength 8
+     * @maxLength 256
+     */
+  password: string;
+  displayName?: string;
+}
+
+export interface SignupResponse {
+  user: AuthUser;
+  workspace: AuthWorkspace;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  user: AuthUser;
+}
+
+export type MeResponseWorkspace = {
+  id: string;
+  name: string;
+};
+
+export type WorkspaceRole = typeof WorkspaceRole[keyof typeof WorkspaceRole];
+
+
+export const WorkspaceRole = {
+  owner: 'owner',
+  admin: 'admin',
+  editor: 'editor',
+  approver: 'approver',
+  viewer: 'viewer',
+} as const;
+
+export interface WorkspaceSummary {
+  id: string;
+  name: string;
+  role: WorkspaceRole;
+  current: boolean;
+}
+
+export interface MeResponse {
+  user: AuthUser;
+  workspaceId: string;
+  workspace: MeResponseWorkspace;
+  role: WorkspaceRole;
+  permissions: string[];
+  workspaces: WorkspaceSummary[];
+}
 
 export type ConnectionStatus = typeof ConnectionStatus[keyof typeof ConnectionStatus];
 
@@ -51,6 +337,18 @@ export interface ConnectionProviderList {
   providers: ConnectionProvider[];
 }
 
+/**
+ * Whether a first comment can be posted with this account.
+ */
+export type ConnectedAccountFirstComment = typeof ConnectedAccountFirstComment[keyof typeof ConnectedAccountFirstComment];
+
+
+export const ConnectedAccountFirstComment = {
+  supported: 'supported',
+  needs_permission: 'needs_permission',
+  unsupported: 'unsupported',
+} as const;
+
 export interface ConnectedAccount {
   id: string;
   platform: Platform;
@@ -66,6 +364,8 @@ export interface ConnectedAccount {
   statusDetail: string | null;
   scopes: string[];
   missingScopes: string[];
+  /** Whether a first comment can be posted with this account. */
+  firstComment: ConnectedAccountFirstComment;
   /** @nullable */
   tokenExpiresAt: string | null;
   /** @nullable */
@@ -106,4 +406,1432 @@ export interface PendingSelection {
      */
   externalAccountIds: string[];
 }
+
+export interface TagList {
+  tags: Tag[];
+}
+
+export interface TagInput {
+  /** @maxLength 60 */
+  name?: string;
+  /** @pattern ^#[0-9a-fA-F]{6}$ */
+  color?: string;
+}
+
+export type CustomFieldType = typeof CustomFieldType[keyof typeof CustomFieldType];
+
+
+export const CustomFieldType = {
+  text: 'text',
+  number: 'number',
+  date: 'date',
+  select: 'select',
+  url: 'url',
+} as const;
+
+export interface CustomField {
+  id: string;
+  key: string;
+  label: string;
+  type: CustomFieldType;
+  options: string[];
+  required: boolean;
+  position: number;
+}
+
+export interface CustomFieldList {
+  fields: CustomField[];
+}
+
+export type CustomFieldInputType = typeof CustomFieldInputType[keyof typeof CustomFieldInputType];
+
+
+export const CustomFieldInputType = {
+  text: 'text',
+  number: 'number',
+  date: 'date',
+  select: 'select',
+  url: 'url',
+} as const;
+
+export interface CustomFieldInput {
+  /** @maxLength 80 */
+  label?: string;
+  type?: CustomFieldInputType;
+  options?: string[];
+  required?: boolean;
+  position?: number;
+}
+
+export interface MentionGroup {
+  id: string;
+  name: string;
+  handles: string[];
+}
+
+export interface MentionGroupList {
+  groups: MentionGroup[];
+}
+
+export interface MentionGroupInput {
+  /** @maxLength 60 */
+  name?: string;
+  handles?: string[];
+}
+
+export interface QueueSlot {
+  id: string;
+  /**
+     * @minimum 0
+     * @maximum 6
+     */
+  weekday: number;
+  /** HH:MM in the queue's time zone */
+  time: string;
+}
+
+export interface Queue {
+  connectedAccountId: string;
+  timezone: string;
+  paused: boolean;
+  slots: QueueSlot[];
+  nextSlots?: string[];
+}
+
+export interface QueueList {
+  queues: Queue[];
+}
+
+export type QueueInputSlotsItem = {
+  /**
+     * @minimum 0
+     * @maximum 6
+     */
+  weekday: number;
+  time: string;
+};
+
+export interface QueueInput {
+  timezone: string;
+  paused?: boolean;
+  /** @maxItems 70 */
+  slots: QueueInputSlotsItem[];
+}
+
+export type RecurrenceFrequency = typeof RecurrenceFrequency[keyof typeof RecurrenceFrequency];
+
+
+export const RecurrenceFrequency = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+} as const;
+
+export interface Recurrence {
+  id: string;
+  frequency: RecurrenceFrequency;
+  interval: number;
+  weekdays: number[];
+  /** @nullable */
+  dayOfMonth: number | null;
+  time: string;
+  timezone: string;
+  startDate: string;
+  /** @nullable */
+  endDate: string | null;
+  /** @nullable */
+  maxOccurrences: number | null;
+  occurrencesCreated: number;
+  /** @nullable */
+  nextRunAt: string | null;
+  paused: boolean;
+  finished: boolean;
+  content: string;
+  /** @nullable */
+  firstComment: string | null;
+  platformContent: PlatformContent;
+  connectedAccountIds: string[];
+  mediaIds: string[];
+  tagIds: string[];
+  upcoming: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type RecurrenceDetail = Recurrence & {
+  posts: Post[];
+};
+
+export interface RecurrenceList {
+  recurrences: Recurrence[];
+}
+
+export type RecurrenceInputFrequency = typeof RecurrenceInputFrequency[keyof typeof RecurrenceInputFrequency];
+
+
+export const RecurrenceInputFrequency = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+} as const;
+
+export interface RecurrenceInput {
+  frequency?: RecurrenceInputFrequency;
+  /**
+     * @minimum 1
+     * @maximum 52
+     */
+  interval?: number;
+  /**
+     * @items.minimum 0
+     * @items.maximum 6
+     */
+  weekdays?: number[];
+  /**
+     * @minimum 1
+     * @maximum 31
+     * @nullable
+     */
+  dayOfMonth?: number | null;
+  time?: string;
+  timezone?: string;
+  startDate?: string;
+  /** @nullable */
+  endDate?: string | null;
+  /** @nullable */
+  maxOccurrences?: number | null;
+  paused?: boolean;
+  content?: string;
+  /** @nullable */
+  firstComment?: string | null;
+  platformContent?: PlatformContent;
+  connectedAccountIds?: string[];
+  mediaIds?: string[];
+  tagIds?: string[];
+}
+
+export interface ReorderQueueRequest {
+  postIds: string[];
+}
+
+export interface WorkspaceList {
+  workspaces: WorkspaceSummary[];
+}
+
+export interface Member {
+  userId: string;
+  email: string;
+  /** @nullable */
+  displayName: string | null;
+  role: WorkspaceRole;
+  joinedAt: string;
+}
+
+export interface MemberList {
+  members: Member[];
+}
+
+export interface PendingInvitation {
+  id: string;
+  email: string;
+  role: string;
+  /** @nullable */
+  invitedBy: string | null;
+  createdAt: string;
+  expiresAt: string;
+  expired: boolean;
+}
+
+export interface RoleInfo {
+  role: WorkspaceRole;
+  label: string;
+  description: string;
+  permissions: string[];
+}
+
+export type ActivityEntryDetail = { [key: string]: unknown };
+
+export interface ActivityEntry {
+  id: string;
+  action: string;
+  /** @nullable */
+  target: string | null;
+  actor: string;
+  detail: ActivityEntryDetail;
+  createdAt: string;
+}
+
+export type TeamWorkspace = {
+  id: string;
+  name: string;
+};
+
+export type TeamMe = {
+  userId: string;
+  role: WorkspaceRole;
+  canManage: boolean;
+  grantableRoles: WorkspaceRole[];
+};
+
+export interface Team {
+  workspace: TeamWorkspace;
+  me: TeamMe;
+  members: Member[];
+  invitations: PendingInvitation[];
+  roles: RoleInfo[];
+  permissions: string[];
+  mailConfigured: boolean;
+  activity: ActivityEntry[];
+}
+
+export interface InvitationInput {
+  email: string;
+  role: WorkspaceRole;
+}
+
+export interface InvitationCreated {
+  id: string;
+  email: string;
+  role: string;
+  expiresAt?: string;
+  /** @nullable */
+  inviteUrl: string | null;
+  emailSent: boolean;
+}
+
+export interface MemberRoleInput {
+  role: WorkspaceRole;
+}
+
+export interface InvitationInfo {
+  workspaceName: string;
+  role: string;
+  roleLabel: string;
+  email: string;
+  /** @nullable */
+  invitedBy: string | null;
+  hasAccount: boolean;
+  expiresAt: string;
+}
+
+export interface InvitationAccepted {
+  workspaceId: string;
+  role: string;
+}
+
+export interface MetricSupport {
+  available: boolean;
+  /** @nullable */
+  reason: string | null;
+}
+
+export interface Kpi {
+  /** @nullable */
+  value: number | null;
+  /** @nullable */
+  previous: number | null;
+  /** @nullable */
+  change: number | null;
+  available: boolean;
+  /** @nullable */
+  reason: string | null;
+}
+
+export type EngagementKpi = Kpi & ({
+  /** @nullable */
+  rate: number | null;
+});
+
+export type AnalyticsAccountSupport = {[key: string]: MetricSupport};
+
+export interface AnalyticsAccount {
+  id: string;
+  platform: Platform;
+  displayName: string;
+  status: string;
+  /** @nullable */
+  followers: number | null;
+  /** @nullable */
+  mediaCount: number | null;
+  /** @nullable */
+  viewsTotal: number | null;
+  /** @nullable */
+  collectedAt: string | null;
+  support: AnalyticsAccountSupport;
+}
+
+export interface AnalyticsPost {
+  postId: string;
+  content: string;
+  platform: Platform;
+  accountName: string;
+  publishedAt: string;
+  /** @nullable */
+  postUrl: string | null;
+  /** @nullable */
+  likes: number | null;
+  /** @nullable */
+  comments: number | null;
+  /** @nullable */
+  shares: number | null;
+  /** @nullable */
+  views: number | null;
+  /** @nullable */
+  impressions: number | null;
+  /** @nullable */
+  reach: number | null;
+  /** @nullable */
+  saves: number | null;
+  /** @nullable */
+  engagement: number | null;
+  /** @nullable */
+  capturedAt: string | null;
+}
+
+export interface PlatformSummary {
+  platform: Platform;
+  accounts: number;
+  /** @nullable */
+  followers: number | null;
+  posts: number;
+  /** @nullable */
+  likes: number | null;
+  /** @nullable */
+  comments: number | null;
+  /** @nullable */
+  shares: number | null;
+  /** @nullable */
+  saves: number | null;
+  /** @nullable */
+  views: number | null;
+  /** @nullable */
+  impressions: number | null;
+  /** @nullable */
+  reach: number | null;
+  /** @nullable */
+  engagement: number | null;
+}
+
+export type AnalyticsRange = {
+  key: string;
+  from: string;
+  to: string;
+  previousFrom: string;
+  previousTo: string;
+  timezone: string;
+};
+
+export type AnalyticsKpis = {
+  followers: Kpi;
+  posts: Kpi;
+  likes: Kpi;
+  comments: Kpi;
+  shares: Kpi;
+  saves: Kpi;
+  views: Kpi;
+  impressions: Kpi;
+  reach: Kpi;
+  engagement: EngagementKpi;
+};
+
+export type AnalyticsSeriesFollowersItem = {
+  date: string;
+  value: number;
+};
+
+export type AnalyticsSeriesActivityItem = {
+  date: string;
+  posts: number;
+  likes: number;
+  comments: number;
+  shares: number;
+};
+
+export type AnalyticsSeries = {
+  followers: AnalyticsSeriesFollowersItem[];
+  activity: AnalyticsSeriesActivityItem[];
+};
+
+export interface Analytics {
+  range: AnalyticsRange;
+  /** @nullable */
+  lastCollectedAt: string | null;
+  accounts: AnalyticsAccount[];
+  kpis: AnalyticsKpis;
+  series: AnalyticsSeries;
+  platforms: PlatformSummary[];
+  topPosts: AnalyticsPost[];
+}
+
+export type AnalyticsRefreshResultsItemNotesItem = {
+  code: string;
+  message: string;
+};
+
+export type AnalyticsRefreshResultsItem = {
+  accountId: string;
+  ok: boolean;
+  skipped: boolean;
+  postsRead: number;
+  /** @nullable */
+  error: string | null;
+  notes: AnalyticsRefreshResultsItemNotesItem[];
+};
+
+export interface AnalyticsRefresh {
+  results: AnalyticsRefreshResultsItem[];
+}
+
+export interface AnalyticsRefreshRequest {
+  accountId?: string;
+}
+
+export type ApprovalStatus = typeof ApprovalStatus[keyof typeof ApprovalStatus];
+
+
+export const ApprovalStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+  changes_requested: 'changes_requested',
+  withdrawn: 'withdrawn',
+} as const;
+
+export interface ApprovalPostSummary {
+  id: string;
+  content: string;
+  status: string;
+  /** @nullable */
+  scheduledAt: string | null;
+}
+
+export interface Approval {
+  id: string;
+  postId: string;
+  status: ApprovalStatus;
+  /** @nullable */
+  requestedBy: string | null;
+  /** @nullable */
+  requestedByName: string | null;
+  requestedAt: string;
+  /** @nullable */
+  decidedBy: string | null;
+  /** @nullable */
+  decidedByName: string | null;
+  /** @nullable */
+  decidedAt: string | null;
+  /** @nullable */
+  note: string | null;
+  post: ApprovalPostSummary | null;
+}
+
+export type ApprovalListScope = typeof ApprovalListScope[keyof typeof ApprovalListScope];
+
+
+export const ApprovalListScope = {
+  queue: 'queue',
+  own: 'own',
+} as const;
+
+export interface ApprovalList {
+  approvals: Approval[];
+  scope: ApprovalListScope;
+}
+
+export interface ApprovalComment {
+  id: string;
+  /** @nullable */
+  userId: string | null;
+  body: string;
+  createdAt: string;
+}
+
+export interface ApprovalDetailComment {
+  id: string;
+  /** @nullable */
+  userId: string | null;
+  author: string;
+  body: string;
+  createdAt: string;
+}
+
+export type ApprovalDetail = Approval & {
+  comments: ApprovalDetailComment[];
+};
+
+export interface ApprovalSettings {
+  required: boolean;
+  /** @nullable */
+  updatedBy: string | null;
+  /** @nullable */
+  updatedAt: string | null;
+}
+
+export interface ApprovalSettingsInput {
+  required: boolean;
+}
+
+export interface ApprovalRequestInput {
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface ApprovalDecisionInput {
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface ApprovalWithdrawInput {
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface ApprovalCommentInput {
+  body: string;
+}
+
+export type InboxReplyStatus = typeof InboxReplyStatus[keyof typeof InboxReplyStatus];
+
+
+export const InboxReplyStatus = {
+  sent: 'sent',
+  failed: 'failed',
+} as const;
+
+export interface InboxReply {
+  id: string;
+  /** @nullable */
+  userId: string | null;
+  body: string;
+  status: InboxReplyStatus;
+  /** @nullable */
+  error: string | null;
+  /** @nullable */
+  externalId: string | null;
+  createdAt: string;
+}
+
+export type InboxItemStatus = typeof InboxItemStatus[keyof typeof InboxItemStatus];
+
+
+export const InboxItemStatus = {
+  open: 'open',
+  resolved: 'resolved',
+} as const;
+
+export type InboxItemKind = typeof InboxItemKind[keyof typeof InboxItemKind];
+
+
+export const InboxItemKind = {
+  comment: 'comment',
+  message: 'message',
+  mention: 'mention',
+} as const;
+
+export interface InboxItem {
+  id: string;
+  accountId: string;
+  accountName: string;
+  /** @nullable */
+  accountAvatar: string | null;
+  platform: string;
+  /** @nullable */
+  postId: string | null;
+  /** @nullable */
+  postTargetId: string | null;
+  externalId: string;
+  /** @nullable */
+  parentExternalId: string | null;
+  authorName: string;
+  /** @nullable */
+  authorAvatar: string | null;
+  body: string;
+  createdAtNetwork: string;
+  status: InboxItemStatus;
+  read: boolean;
+  /** @nullable */
+  readAt: string | null;
+  /** @nullable */
+  assignedToUserId: string | null;
+  /** @nullable */
+  assignedToName: string | null;
+  replied: boolean;
+  kind: InboxItemKind;
+  /** @nullable */
+  threadId: string | null;
+  /** @nullable */
+  permalink: string | null;
+  canReply: boolean;
+  /** @nullable */
+  replyWindowEndsAt: string | null;
+  /** @nullable */
+  replyBlockedReason: string | null;
+  replies: InboxReply[];
+}
+
+export interface InboxPage {
+  items: InboxItem[];
+  /** @nullable */
+  nextCursor: string | null;
+}
+
+export type InboxAccountStateState = typeof InboxAccountStateState[keyof typeof InboxAccountStateState];
+
+
+export const InboxAccountStateState = {
+  available: 'available',
+  permission_needed: 'permission_needed',
+  unavailable: 'unavailable',
+  reconnect: 'reconnect',
+} as const;
+
+export type InboxMessagingStateState = typeof InboxMessagingStateState[keyof typeof InboxMessagingStateState];
+
+
+export const InboxMessagingStateState = {
+  available: 'available',
+  permission_needed: 'permission_needed',
+  unavailable: 'unavailable',
+  reconnect: 'reconnect',
+} as const;
+
+export interface InboxMessagingState {
+  state: InboxMessagingStateState;
+  /** @nullable */
+  reason: string | null;
+  /** @nullable */
+  replyWindowHours: number | null;
+  /** @nullable */
+  lastSyncedAt: string | null;
+  /** @nullable */
+  lastError: string | null;
+}
+
+export type InboxMentionsStateState = typeof InboxMentionsStateState[keyof typeof InboxMentionsStateState];
+
+
+export const InboxMentionsStateState = {
+  available: 'available',
+  permission_needed: 'permission_needed',
+  unavailable: 'unavailable',
+  reconnect: 'reconnect',
+} as const;
+
+export interface InboxMentionsState {
+  state: InboxMentionsStateState;
+  /** @nullable */
+  reason: string | null;
+  canReply: boolean;
+  /** @nullable */
+  replyNote: string | null;
+  /** @nullable */
+  lastSyncedAt: string | null;
+  /** @nullable */
+  lastError: string | null;
+}
+
+export interface InboxAccountState {
+  accountId: string;
+  platform: string;
+  displayName: string;
+  /** @nullable */
+  avatarUrl: string | null;
+  state: InboxAccountStateState;
+  /** @nullable */
+  reason: string | null;
+  /** @nullable */
+  lastSyncedAt: string | null;
+  /** @nullable */
+  lastError: string | null;
+  open: number;
+  unread: number;
+  messaging: InboxMessagingState;
+  mentions: InboxMentionsState;
+}
+
+export interface InboxKindCount {
+  open: number;
+  unread: number;
+}
+
+export interface InboxKindCounts {
+  comment: InboxKindCount;
+  message: InboxKindCount;
+  mention: InboxKindCount;
+}
+
+export interface InboxSummary {
+  open: number;
+  resolved: number;
+  unread: number;
+  assignedToMe: number;
+  kinds: InboxKindCounts;
+  accounts: InboxAccountState[];
+}
+
+export interface InboxThreadMessage {
+  id: string;
+  externalId: string;
+  authorName: string;
+  body: string;
+  createdAtNetwork: string;
+  fromPage: boolean;
+}
+
+export type InboxThreadStatus = typeof InboxThreadStatus[keyof typeof InboxThreadStatus];
+
+
+export const InboxThreadStatus = {
+  open: 'open',
+  resolved: 'resolved',
+} as const;
+
+export interface InboxThread {
+  threadId: string;
+  accountId: string;
+  accountName: string;
+  /** @nullable */
+  accountAvatar: string | null;
+  platform: string;
+  /** @nullable */
+  participantName: string | null;
+  /** @nullable */
+  itemId: string | null;
+  status: InboxThreadStatus;
+  canReply: boolean;
+  /** @nullable */
+  replyWindowEndsAt: string | null;
+  /** @nullable */
+  replyBlockedReason: string | null;
+  messages: InboxThreadMessage[];
+}
+
+export interface InboxRefreshRequest {
+  accountId?: string;
+}
+
+export type InboxRefreshResultState = typeof InboxRefreshResultState[keyof typeof InboxRefreshResultState];
+
+
+export const InboxRefreshResultState = {
+  ok: 'ok',
+  permission_needed: 'permission_needed',
+  unavailable: 'unavailable',
+  reconnect: 'reconnect',
+  error: 'error',
+} as const;
+
+export interface InboxRefreshResult {
+  accountId: string;
+  state: InboxRefreshResultState;
+  ok: boolean;
+  postsRead: number;
+  newItems: number;
+  /** @nullable */
+  reason: string | null;
+  newMessages?: number;
+  newMentions?: number;
+  /** @nullable */
+  messagesReason?: string | null;
+  /** @nullable */
+  mentionsReason?: string | null;
+}
+
+export interface InboxRefresh {
+  results: InboxRefreshResult[];
+}
+
+export type InboxItemUpdateStatus = typeof InboxItemUpdateStatus[keyof typeof InboxItemUpdateStatus];
+
+
+export const InboxItemUpdateStatus = {
+  open: 'open',
+  resolved: 'resolved',
+} as const;
+
+export interface InboxItemUpdate {
+  read?: boolean;
+  status?: InboxItemUpdateStatus;
+  /** @nullable */
+  assignedToUserId?: string | null;
+}
+
+export interface InboxReplyRequest {
+  body: string;
+}
+
+export type AiTask = typeof AiTask[keyof typeof AiTask];
+
+
+export const AiTask = {
+  caption: 'caption',
+  rewrite: 'rewrite',
+  shorten: 'shorten',
+  expand: 'expand',
+  hashtags: 'hashtags',
+  variations: 'variations',
+  repurpose: 'repurpose',
+  first_comment: 'first_comment',
+} as const;
+
+export type AiPlatform = typeof AiPlatform[keyof typeof AiPlatform];
+
+
+export const AiPlatform = {
+  facebook: 'facebook',
+  instagram: 'instagram',
+  linkedin: 'linkedin',
+  youtube: 'youtube',
+  x: 'x',
+} as const;
+
+export interface AiPlatformLimit {
+  platform: AiPlatform;
+  characterLimit: number;
+  suggestedLength: number;
+  /** @nullable */
+  titleLimit: number | null;
+}
+
+export interface AiStatus {
+  available: boolean;
+  /** @nullable */
+  reason: string | null;
+  /** @nullable */
+  model: string | null;
+  dailyLimit: number;
+  tasks: AiTask[];
+  maxVariations: number;
+  platforms: AiPlatformLimit[];
+}
+
+export interface AiUsageToday {
+  date: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  limit: number;
+  remaining: number;
+  resetsAt: string;
+}
+
+export interface AiGenerateInput {
+  task: AiTask;
+  topic?: string;
+  text?: string;
+  instruction?: string;
+  tone?: string;
+  platforms?: AiPlatform[];
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  n?: number;
+  /** @nullable */
+  brandVoiceId?: string | null;
+}
+
+export interface AiOutput {
+  text: string;
+  platform: AiPlatform | null;
+  length: number;
+  /** @nullable */
+  limit: number | null;
+  withinLimit: boolean;
+}
+
+export interface AiTokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+export interface AiGenerateResult {
+  task: AiTask;
+  model: string;
+  /** @nullable */
+  brandVoiceId: string | null;
+  outputs: AiOutput[];
+  usage: AiTokenUsage;
+  remainingToday: number;
+}
+
+export interface BrandVoiceInput {
+  name: string;
+  description?: string;
+  toneNotes?: string;
+  doWords?: string[];
+  dontWords?: string[];
+}
+
+export interface BrandVoice {
+  id: string;
+  name: string;
+  description: string;
+  toneNotes: string;
+  doWords: string[];
+  dontWords: string[];
+  /** @nullable */
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BrandVoiceList {
+  voices: BrandVoice[];
+}
+
+export type LibraryKind = typeof LibraryKind[keyof typeof LibraryKind];
+
+
+export const LibraryKind = {
+  media: 'media',
+  caption: 'caption',
+  template: 'template',
+  snippet: 'snippet',
+} as const;
+
+export interface LibraryItem {
+  id: string;
+  kind: LibraryKind;
+  title: string;
+  /** @nullable */
+  body: string | null;
+  /** @nullable */
+  mediaId: string | null;
+  media: Media | null;
+  /** @nullable */
+  folderId: string | null;
+  labels: string[];
+  favorite: boolean;
+  useCount: number;
+  /** @nullable */
+  lastUsedAt: string | null;
+  placeholders: string[];
+  /** @nullable */
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LibraryItemPage {
+  items: LibraryItem[];
+  /** @nullable */
+  nextCursor: string | null;
+}
+
+export interface LibraryItemCreateInput {
+  kind: LibraryKind;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  title: string;
+  /**
+     * @maxLength 20000
+     * @nullable
+     */
+  body?: string | null;
+  /** @nullable */
+  mediaId?: string | null;
+  /** @nullable */
+  folderId?: string | null;
+  /**
+     * @maxItems 20
+     * @items.maxLength 40
+     */
+  labels?: string[];
+  favorite?: boolean;
+}
+
+export interface LibraryItemUpdateInput {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  title?: string;
+  /**
+     * @maxLength 20000
+     * @nullable
+     */
+  body?: string | null;
+  /** @nullable */
+  folderId?: string | null;
+  /**
+     * @maxItems 20
+     * @items.maxLength 40
+     */
+  labels?: string[];
+  favorite?: boolean;
+}
+
+export interface LibraryFromMediaInput {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  title?: string;
+  /** @nullable */
+  folderId?: string | null;
+  /** @items.maxLength 40 */
+  labels?: string[];
+  favorite?: boolean;
+}
+
+export interface LibraryFolder {
+  id: string;
+  name: string;
+  itemCount: number;
+  createdAt: string;
+}
+
+export interface LibraryFolderList {
+  folders: LibraryFolder[];
+}
+
+export interface LibraryFolderInput {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  name: string;
+}
+
+export type LibraryRenderInputVariables = {[key: string]: string};
+
+export interface LibraryRenderInput {
+  variables?: LibraryRenderInputVariables;
+}
+
+export interface LibraryRenderResult {
+  text: string;
+  placeholders: string[];
+}
+
+export interface LibraryRenderError {
+  error: string;
+  message: string;
+  missing?: string[];
+}
+
+export type ReportScheduleFrequency = typeof ReportScheduleFrequency[keyof typeof ReportScheduleFrequency];
+
+
+export const ReportScheduleFrequency = {
+  weekly: 'weekly',
+  monthly: 'monthly',
+} as const;
+
+export type ReportScheduleRangeKey = typeof ReportScheduleRangeKey[keyof typeof ReportScheduleRangeKey];
+
+
+export const ReportScheduleRangeKey = {
+  '7d': '7d',
+  '30d': '30d',
+  '90d': '90d',
+} as const;
+
+export interface ReportSchedule {
+  id: string;
+  workspaceId: string;
+  /** @nullable */
+  createdBy: string | null;
+  name: string;
+  frequency: ReportScheduleFrequency;
+  /**
+     * 0 (Sunday) to 6; weekly only
+     * @nullable
+     */
+  weekday: number | null;
+  /**
+     * 1 to 28; monthly only
+     * @nullable
+     */
+  dayOfMonth: number | null;
+  hour: number;
+  timezone: string;
+  rangeKey: ReportScheduleRangeKey;
+  /** @nullable */
+  platform: string | null;
+  /** @nullable */
+  accountId: string | null;
+  recipients: string[];
+  enabled: boolean;
+  /** @nullable */
+  lastRunAt: string | null;
+  /**
+     * sent or failed
+     * @nullable
+     */
+  lastStatus: string | null;
+  /** @nullable */
+  lastError: string | null;
+  /** @nullable */
+  nextRunAt: string | null;
+  createdAt: string;
+}
+
+export interface ReportScheduleList {
+  schedules: ReportSchedule[];
+}
+
+export type ReportScheduleCreateInputFrequency = typeof ReportScheduleCreateInputFrequency[keyof typeof ReportScheduleCreateInputFrequency];
+
+
+export const ReportScheduleCreateInputFrequency = {
+  weekly: 'weekly',
+  monthly: 'monthly',
+} as const;
+
+export type ReportScheduleCreateInputRangeKey = typeof ReportScheduleCreateInputRangeKey[keyof typeof ReportScheduleCreateInputRangeKey];
+
+
+export const ReportScheduleCreateInputRangeKey = {
+  '7d': '7d',
+  '30d': '30d',
+  '90d': '90d',
+} as const;
+
+export interface ReportScheduleCreateInput {
+  /** @maxLength 100 */
+  name: string;
+  frequency: ReportScheduleCreateInputFrequency;
+  /**
+     * Required when weekly
+     * @minimum 0
+     * @maximum 6
+     */
+  weekday?: number;
+  /**
+     * Required when monthly
+     * @minimum 1
+     * @maximum 28
+     */
+  dayOfMonth?: number;
+  /**
+     * @minimum 0
+     * @maximum 23
+     */
+  hour: number;
+  /** IANA zone, default UTC */
+  timezone?: string;
+  rangeKey?: ReportScheduleCreateInputRangeKey;
+  /** @nullable */
+  platform?: string | null;
+  /** @nullable */
+  accountId?: string | null;
+  /** @maxItems 10 */
+  recipients: string[];
+  enabled?: boolean;
+}
+
+export type ReportScheduleUpdateInputFrequency = typeof ReportScheduleUpdateInputFrequency[keyof typeof ReportScheduleUpdateInputFrequency];
+
+
+export const ReportScheduleUpdateInputFrequency = {
+  weekly: 'weekly',
+  monthly: 'monthly',
+} as const;
+
+export type ReportScheduleUpdateInputRangeKey = typeof ReportScheduleUpdateInputRangeKey[keyof typeof ReportScheduleUpdateInputRangeKey];
+
+
+export const ReportScheduleUpdateInputRangeKey = {
+  '7d': '7d',
+  '30d': '30d',
+  '90d': '90d',
+} as const;
+
+export interface ReportScheduleUpdateInput {
+  /** @maxLength 100 */
+  name?: string;
+  frequency?: ReportScheduleUpdateInputFrequency;
+  /**
+     * @minimum 0
+     * @maximum 6
+     */
+  weekday?: number;
+  /**
+     * @minimum 1
+     * @maximum 28
+     */
+  dayOfMonth?: number;
+  /**
+     * @minimum 0
+     * @maximum 23
+     */
+  hour?: number;
+  timezone?: string;
+  rangeKey?: ReportScheduleUpdateInputRangeKey;
+  /** @nullable */
+  platform?: string | null;
+  /** @nullable */
+  accountId?: string | null;
+  /** @maxItems 10 */
+  recipients?: string[];
+  enabled?: boolean;
+}
+
+export type ReportRunStatus = typeof ReportRunStatus[keyof typeof ReportRunStatus];
+
+
+export const ReportRunStatus = {
+  sent: 'sent',
+  failed: 'failed',
+} as const;
+
+export interface ReportRun {
+  id: string;
+  scheduleId: string;
+  ranAt: string;
+  status: ReportRunStatus;
+  /** @nullable */
+  error: string | null;
+  recipientCount: number;
+}
+
+export interface ReportRunList {
+  runs: ReportRun[];
+}
+
+export type GetLinkPreviewParams = {
+/**
+ * @maxLength 2048
+ */
+url: string;
+};
+
+export type ListPostsParams = {
+from?: string;
+to?: string;
+status?: PostStatus;
+tag?: string;
+q?: string;
+};
+
+export type PreviewRecurrence200 = {
+  dates: string[];
+};
+
+export type GetAnalyticsParams = {
+range?: GetAnalyticsRange;
+from?: string;
+to?: string;
+tz?: string;
+platform?: string;
+accountId?: string;
+};
+
+export type GetAnalyticsRange = typeof GetAnalyticsRange[keyof typeof GetAnalyticsRange];
+
+
+export const GetAnalyticsRange = {
+  today: 'today',
+  '7d': '7d',
+  '30d': '30d',
+  '90d': '90d',
+  custom: 'custom',
+} as const;
+
+export type ListApprovalsParams = {
+status?: ApprovalStatus;
+};
+
+export type ListInboxParams = {
+kind?: ListInboxKind;
+status?: ListInboxStatus;
+platform?: ListInboxPlatform;
+accountId?: string;
+assigned?: ListInboxAssigned;
+unread?: boolean;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+cursor?: string;
+};
+
+export type ListInboxKind = typeof ListInboxKind[keyof typeof ListInboxKind];
+
+
+export const ListInboxKind = {
+  comment: 'comment',
+  message: 'message',
+  mention: 'mention',
+} as const;
+
+export type ListInboxStatus = typeof ListInboxStatus[keyof typeof ListInboxStatus];
+
+
+export const ListInboxStatus = {
+  open: 'open',
+  resolved: 'resolved',
+} as const;
+
+export type ListInboxPlatform = typeof ListInboxPlatform[keyof typeof ListInboxPlatform];
+
+
+export const ListInboxPlatform = {
+  facebook: 'facebook',
+  instagram: 'instagram',
+  linkedin: 'linkedin',
+  youtube: 'youtube',
+} as const;
+
+export type ListInboxAssigned = typeof ListInboxAssigned[keyof typeof ListInboxAssigned];
+
+
+export const ListInboxAssigned = {
+  me: 'me',
+} as const;
+
+export type ListLibraryItemsParams = {
+/**
+ * @maxLength 200
+ */
+q?: string;
+kind?: LibraryKind;
+/**
+ * A folder id, or 'none' for items outside any folder
+ */
+folder?: string;
+favorite?: boolean;
+label?: string;
+sort?: ListLibraryItemsSort;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+cursor?: string;
+};
+
+export type ListLibraryItemsSort = typeof ListLibraryItemsSort[keyof typeof ListLibraryItemsSort];
+
+
+export const ListLibraryItemsSort = {
+  recent: 'recent',
+  used: 'used',
+  name: 'name',
+} as const;
+
+export type GetAnalyticsReportPdfParams = {
+range?: GetAnalyticsReportPdfRange;
+from?: string;
+to?: string;
+tz?: string;
+platform?: string;
+accountId?: string;
+};
+
+export type GetAnalyticsReportPdfRange = typeof GetAnalyticsReportPdfRange[keyof typeof GetAnalyticsReportPdfRange];
+
+
+export const GetAnalyticsReportPdfRange = {
+  today: 'today',
+  '7d': '7d',
+  '30d': '30d',
+  '90d': '90d',
+  custom: 'custom',
+} as const;
 

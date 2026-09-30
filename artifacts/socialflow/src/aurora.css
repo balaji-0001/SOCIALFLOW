@@ -1,0 +1,193 @@
+/* =========================================================================
+   SocialFlow Aurora: the dark theme for the signed-in app and the sign-in pages.
+   Applied by setting data-theme="aurora" on <html> (see the router in App.tsx); the marketing page keeps the light
+   tokens from index.css. Everything here overrides tokens first and only adds component rules where a token
+   can't express the design (glass surfaces, thin borders, restrained glow).
+   ========================================================================= */
+
+html[data-theme='aurora'] {
+  color-scheme: dark;
+
+  /* Foundation: near-black with a faint blue cast; surfaces step up in lightness */
+  --background: 240 14% 4.5%;
+  --foreground: 240 20% 96%;
+  --surface: 240 12% 7.5%;
+  --surface-2: 240 11% 10%;
+  --surface-3: 240 10% 13.5%;
+  --border: 240 9% 15%;
+  --border-strong: 240 8% 24%;
+  --input: 240 9% 18%;
+  --ring: 252 95% 72%;
+  --card: 240 12% 7.5%;
+  --card-foreground: 240 20% 96%;
+  --card-border: 240 9% 15%;
+  --popover: 240 13% 9%;
+  --popover-foreground: 240 20% 96%;
+
+  /* Accent: indigo/violet for action, cyan only for interactive detail */
+  --primary: 251 86% 64%;
+  --primary-hover: 251 90% 70%;
+  --primary-soft: 251 45% 17%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 10% 13%;
+  --secondary-foreground: 240 12% 82%;
+  --muted: 240 10% 12%;
+  --muted-foreground: 240 7% 64%;
+  --accent: 190 88% 56%;
+  --accent-foreground: 240 14% 6%;
+
+  /* Semantics: lighter foregrounds, deep tinted backgrounds */
+  --destructive: 2 76% 62%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 152 55% 56%;
+  --success-soft: 152 38% 12%;
+  --warning: 38 92% 62%;
+  --warning-soft: 38 55% 13%;
+  --error: 2 82% 68%;
+  --error-soft: 2 50% 15%;
+  --info: 199 90% 64%;
+  --info-soft: 205 50% 14%;
+
+  /* Depth: softer, darker, with a hairline top light */
+  --shadow-xs: 0 1px 0 hsl(0 0% 100% / .03) inset, 0 1px 2px hsl(240 30% 2% / .5);
+  --shadow-sm: 0 1px 0 hsl(0 0% 100% / .04) inset, 0 2px 8px hsl(240 30% 2% / .45);
+  --shadow-md: 0 1px 0 hsl(0 0% 100% / .05) inset, 0 8px 24px hsl(240 30% 2% / .5);
+  --shadow-lg: 0 1px 0 hsl(0 0% 100% / .06) inset, 0 24px 60px hsl(240 30% 2% / .65), 0 2px 10px hsl(240 30% 2% / .4);
+  --glass: hsl(240 12% 9% / .62);
+  --glass-strong: hsl(240 12% 9% / .82);
+  --aurora-violet: 258 90% 66%;
+  --aurora-cyan: 190 90% 55%;
+  --aurora-glow: 0 0 0 1px hsl(var(--aurora-violet) / .35), 0 0 32px hsl(var(--aurora-violet) / .16);
+
+  /* Type: Geist for a sharper, more editorial feel; Inter remains the fallback */
+  --app-font-sans: 'Geist', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --app-font-display: var(--app-font-sans);
+  --app-font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --text-h1: 1.875rem;
+  --radius-md-app: 8px; --radius-lg-app: 12px; --radius-xl-app: 16px;
+}
+
+/* The aurora itself: two very soft light sources behind everything, fixed so content scrolls over them. */
+html[data-theme='aurora'] body {
+  background:
+    radial-gradient(900px 520px at 8% -8%, hsl(var(--aurora-violet) / .13), transparent 62%),
+    radial-gradient(760px 480px at 96% 0%, hsl(var(--aurora-cyan) / .07), transparent 60%),
+    hsl(var(--background));
+  background-attachment: fixed;
+}
+html[data-theme='aurora'] .sfa-app { background: transparent; }
+html[data-theme='aurora'] ::selection { background: hsl(var(--primary) / .35); }
+html[data-theme='aurora'] :focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+
+/* ---------- Surfaces: hairline borders, subtle glass ---------- */
+html[data-theme='aurora'] .sfa-card,
+html[data-theme='aurora'] .sfa-nextcard,
+html[data-theme='aurora'] .sfa-table,
+html[data-theme='aurora'] .sfa-cal,
+html[data-theme='aurora'] .sfa-conn,
+html[data-theme='aurora'] .sfa-channel {
+  background: linear-gradient(180deg, hsl(0 0% 100% / .025), hsl(0 0% 100% / 0)) , var(--glass);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+  border-color: hsl(0 0% 100% / .075);
+  box-shadow: var(--shadow-sm);
+}
+html[data-theme='aurora'] .sfa-composer,
+html[data-theme='aurora'] .sfa-dialog,
+html[data-theme='aurora'] .sfa-confirm,
+html[data-theme='aurora'] .sfa-popcard,
+html[data-theme='aurora'] .sfa-popover {
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  backdrop-filter: blur(24px) saturate(1.3);
+  border-color: hsl(0 0% 100% / .09);
+  box-shadow: var(--shadow-lg);
+}
+html[data-theme='aurora'] .sfa-overlay { background: hsl(240 30% 2% / .62); backdrop-filter: blur(4px); }
+
+/* ---------- Shell ---------- */
+html[data-theme='aurora'] .sfa-side { background: hsl(240 13% 6% / .72); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); border-right-color: hsl(0 0% 100% / .06); }
+html[data-theme='aurora'] .sfa-top { background: hsl(240 14% 5% / .6); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border-bottom-color: hsl(0 0% 100% / .06); }
+html[data-theme='aurora'] .sfa-nav__item.is-active { background: linear-gradient(90deg, hsl(var(--aurora-violet) / .2), hsl(var(--aurora-violet) / .06)); color: hsl(var(--foreground)); box-shadow: inset 0 0 0 1px hsl(var(--aurora-violet) / .28); }
+html[data-theme='aurora'] .sfa-nav__item.is-active svg { color: hsl(258 95% 78%); }
+html[data-theme='aurora'] .sfa-nav__item.is-active::before { background: linear-gradient(180deg, hsl(var(--aurora-violet)), hsl(var(--aurora-cyan))); box-shadow: 0 0 12px hsl(var(--aurora-violet) / .6); }
+
+/* ---------- Actions ---------- */
+html[data-theme='aurora'] .sfa-btn--primary { background: linear-gradient(180deg, hsl(255 90% 68%), hsl(251 84% 60%)); border-color: hsl(255 90% 74% / .35); box-shadow: 0 1px 0 hsl(0 0% 100% / .22) inset, 0 6px 20px hsl(var(--aurora-violet) / .28); }
+html[data-theme='aurora'] .sfa-btn--primary:hover:not(:disabled) { background: linear-gradient(180deg, hsl(255 92% 72%), hsl(251 86% 64%)); box-shadow: 0 1px 0 hsl(0 0% 100% / .25) inset, 0 8px 26px hsl(var(--aurora-violet) / .38); }
+html[data-theme='aurora'] .sfa-btn--secondary { background: hsl(0 0% 100% / .04); border-color: hsl(0 0% 100% / .1); box-shadow: none; }
+html[data-theme='aurora'] .sfa-btn--secondary:hover:not(:disabled) { background: hsl(0 0% 100% / .08); border-color: hsl(0 0% 100% / .18); }
+html[data-theme='aurora'] .sfa-btn--outline { border-color: hsl(var(--primary) / .45); color: hsl(258 95% 80%); }
+html[data-theme='aurora'] .sfa-btn--outline:hover:not(:disabled) { background: hsl(var(--primary) / .14); }
+html[data-theme='aurora'] .sfa-btn--destructive:hover:not(:disabled) { color: #fff; }
+html[data-theme='aurora'] .sfa-btn:focus-visible { box-shadow: 0 0 0 3px hsl(var(--ring) / .35); outline: none; }
+html[data-theme='aurora'] .sfa-linkbtn { color: hsl(258 95% 80%); }
+
+/* ---------- Fields ---------- */
+html[data-theme='aurora'] .sfa-input,
+html[data-theme='aurora'] .sfa-select,
+html[data-theme='aurora'] .sfa-editor,
+html[data-theme='aurora'] .sfa-schedule input,
+html[data-theme='aurora'] .sfa-search {
+  background: hsl(0 0% 100% / .035);
+  border-color: hsl(0 0% 100% / .09);
+  color: hsl(var(--foreground));
+}
+html[data-theme='aurora'] .sfa-input::placeholder,
+html[data-theme='aurora'] textarea::placeholder { color: hsl(240 6% 46%); }
+html[data-theme='aurora'] .sfa-input:focus,
+html[data-theme='aurora'] .sfa-select:focus,
+html[data-theme='aurora'] .sfa-editor:focus-within,
+html[data-theme='aurora'] .sfa-search:focus-within { border-color: hsl(var(--primary) / .7); box-shadow: 0 0 0 3px hsl(var(--primary) / .16); }
+html[data-theme='aurora'] .sfa-editor__bar { background: hsl(0 0% 100% / .03); border-top-color: hsl(0 0% 100% / .07); }
+html[data-theme='aurora'] input[type='date'],
+html[data-theme='aurora'] input[type='time'] { color-scheme: dark; }
+html[data-theme='aurora'] select option { background: hsl(240 13% 9%); color: hsl(var(--foreground)); }
+
+/* ---------- Status and labels ---------- */
+html[data-theme='aurora'] .sfa-eyebrow { color: hsl(var(--accent)); letter-spacing: .12em; }
+html[data-theme='aurora'] .sfa-pageheader h1 { font-weight: 600; letter-spacing: -.035em; }
+html[data-theme='aurora'] .sfa-count { background: hsl(0 0% 100% / .07); color: hsl(var(--secondary-foreground)); }
+html[data-theme='aurora'] .sfa-count--primary { background: hsl(var(--primary) / .25); color: hsl(258 95% 84%); }
+html[data-theme='aurora'] .sfa-tagchip { background: hsl(0 0% 100% / .06); color: hsl(var(--secondary-foreground)); }
+html[data-theme='aurora'] .sfa-tagchip--button { border-color: hsl(0 0% 100% / .1); }
+html[data-theme='aurora'] button.sfa-tagchip:hover { background: hsl(var(--primary) / .18); color: hsl(258 95% 84%); }
+html[data-theme='aurora'] .sfa-tagchip--button.is-on { background: hsl(var(--primary) / .2); border-color: hsl(var(--primary) / .55); color: hsl(258 95% 86%); }
+html[data-theme='aurora'] .sfa-tagchip--tag { background: color-mix(in srgb, var(--tag, #6366f1) 22%, transparent); color: color-mix(in srgb, var(--tag, #6366f1) 55%, white); }
+html[data-theme='aurora'] .sfa-tabs button.is-on,
+html[data-theme='aurora'] .sfa-seg button.is-on { color: hsl(258 95% 84%); }
+html[data-theme='aurora'] .sfa-note { background: hsl(var(--info) / .1); color: hsl(var(--info)); border: 1px solid hsl(var(--info) / .2); }
+html[data-theme='aurora'] .sfa-note--warn { background: hsl(var(--warning) / .1); color: hsl(var(--warning)); border-color: hsl(var(--warning) / .22); }
+
+/* ---------- Calendar and lists ---------- */
+html[data-theme='aurora'] .sfa-day { background: transparent; border-color: hsl(0 0% 100% / .06); }
+html[data-theme='aurora'] .sfa-day:hover { background: hsl(0 0% 100% / .025); }
+html[data-theme='aurora'] .sfa-table__row:hover { background: hsl(0 0% 100% / .03); }
+html[data-theme='aurora'] .sfa-table__head { color: hsl(var(--muted-foreground)); }
+html[data-theme='aurora'] .sfa-skel { background: hsl(0 0% 100% / .06); }
+html[data-theme='aurora'] .sfa-skel::after { background: linear-gradient(90deg, transparent, hsl(0 0% 100% / .07), transparent); }
+
+/* ---------- Toasts (Radix) ---------- */
+html[data-theme='aurora'] [role='status'][data-state],
+html[data-theme='aurora'] li[data-state='open'][data-swipe-direction] { background: var(--glass-strong); border-color: hsl(0 0% 100% / .1); color: hsl(var(--foreground)); backdrop-filter: blur(18px); }
+
+/* ---------- Motion: quick, restrained; respects reduced-motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme='aurora'] *, html[data-theme='aurora'] *::before, html[data-theme='aurora'] *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}
+
+/* ---------- Scrollbars ---------- */
+html[data-theme='aurora'] * { scrollbar-color: hsl(240 8% 24%) transparent; scrollbar-width: thin; }
+
+/* Sign-in brand panel: charcoal with violet and cyan light, not the light theme's blue */
+html[data-theme='aurora'] .sfa-auth__brand {
+  background:
+    radial-gradient(900px 500px at 15% 5%, hsl(var(--aurora-violet) / .34), transparent 62%),
+    radial-gradient(700px 420px at 92% 96%, hsl(var(--aurora-cyan) / .18), transparent 60%),
+    hsl(240 16% 7%);
+  border-left: 1px solid hsl(0 0% 100% / .06);
+}
+html[data-theme='aurora'] .sfa-auth__brand h2 em { color: hsl(258 95% 80%); }
+html[data-theme='aurora'] .sfa-auth__panel { background: transparent; }
+html[data-theme='aurora'] .sfa-auth__done { background: hsl(0 0% 100% / .04); border-color: hsl(0 0% 100% / .09); }
+html[data-theme='aurora'] .sfa-channel__top .sfa-mark { box-shadow: inset 0 0 0 1px hsl(0 0% 100% / .12); }
