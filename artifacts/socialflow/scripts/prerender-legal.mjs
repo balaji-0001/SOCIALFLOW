@@ -25,6 +25,7 @@ if (!template.includes('<div id="root"></div>')) throw new Error('index.html has
 const pages = [
   { route: 'privacy', Component: legal.PrivacyPage, title: 'Privacy Policy · SocialFlow', description: 'How SocialFlow handles your information.' },
   { route: 'terms', Component: legal.TermsPage, title: 'Terms of Service · SocialFlow', description: 'The terms for using SocialFlow.' },
+  { route: 'datadeletion', Component: legal.DataDeletionPage, title: 'Data deletion · SocialFlow', description: 'How to disconnect your accounts and delete your SocialFlow data.' },
   { route: 'data-deletion', Component: legal.DataDeletionPage, title: 'Data deletion · SocialFlow', description: 'How to disconnect your accounts and delete your SocialFlow data.' },
 ];
 for (const page of pages) {

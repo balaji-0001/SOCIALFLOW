@@ -743,6 +743,7 @@ function Router() {
     <Route path="/privacy" component={PrivacyPage} />
     <Route path="/terms" component={TermsPage} />
     <Route path="/data-deletion" component={DataDeletionPage} />
+    <Route path="/datadeletion" component={DataDeletionPage} />
     <Route path="/reset-password" component={ResetPassword} />
     <Route path="/dashboard">{() => <AppShell active="dashboard"><DashboardPage /></AppShell>}</Route>
     <Route path="/calendar">{() => <AppShell active="calendar"><CalendarPage /></AppShell>}</Route>
