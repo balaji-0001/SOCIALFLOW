@@ -8,7 +8,7 @@ import './legal.css';
  * change the text with it. The wording is a plain-language starting point, not legal advice.
  */
 
-export const CONTACT_EMAIL = 'lakshmipathibalaji44@gmail.com';
+export const CONTACT_EMAIL = 'balajibalu09@gmail.com';
 const UPDATED = '30 September 2026';
 
 function LegalShell({ title, intro, children, testid }: { title: string; intro: string; children: ReactNode; testid: string }) {
