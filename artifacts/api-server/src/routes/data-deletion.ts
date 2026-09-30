@@ -54,6 +54,11 @@ router.post("/data-deletion/meta", limiter, async (req, res): Promise<void> => {
   res.json({ url: `${base}/data-deletion?code=${code}`, confirmation_code: code });
 });
 
+// A plain GET describes the endpoint, so a dashboard that checks the address with a GET sees a live page, not a 404.
+router.get("/data-deletion/meta", limiter, (_req, res): void => {
+  res.json({ endpoint: "SocialFlow data deletion callback", method: "POST", accepts: "signed_request (Meta)", status: "ready" });
+});
+
 router.get("/data-deletion/status/:code", limiter, async (req, res): Promise<void> => {
   const code = String(req.params.code ?? "").toUpperCase();
   if (!/^[0-9A-F]{16}$/.test(code)) return jsonError(res, 404, "not_found", "No deletion request has that code.");

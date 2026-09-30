@@ -49,6 +49,17 @@ app.use(
     credentials: true,
   }),
 );
+// Records visits from Meta's crawlers (link previews, app review, callbacks) so "did Meta reach us, and what did we
+// answer?" can be read from the logs. Logs the crawler's name, address, path and our status only; no cookies or bodies.
+const META_CRAWLER = /facebookexternalhit|meta-externalagent|meta-externalfetcher|facebot|facebookcatalog/i;
+app.use((req, res, next) => {
+  const agent = req.get("user-agent") ?? "";
+  if (META_CRAWLER.test(agent)) {
+    res.on("finish", () => logger.info({ metaCrawler: agent.slice(0, 120), ip: req.ip, method: req.method, path: req.path, status: res.statusCode }, "Meta crawler request"));
+  }
+  next();
+});
+
 app.use(cookieParser(sessionSecret));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
