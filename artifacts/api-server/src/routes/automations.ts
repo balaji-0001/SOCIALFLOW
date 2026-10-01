@@ -6,10 +6,13 @@ import {
   automationsTable,
   connectedAccountsTable,
   db,
+  isPolledKind,
   postsTable,
+  wordpressConnectionsTable,
   type Automation,
   type AutomationConfig,
   type AutomationKind,
+  type PolledAutomationKind,
 } from "@workspace/db";
 import { requireAccess } from "../lib/access";
 import { recordAudit } from "../lib/audit";
@@ -24,10 +27,12 @@ import {
 } from "../lib/automations";
 import { FeedError, feedErrorStatus, fetchSource, normalizeSourceUrl } from "../lib/feeds";
 import { jsonError } from "../lib/http-errors";
+import { encodeConnectionKey, newKeyMaterial, publicApiBase } from "../lib/wordpress-plugin";
 import { rateLimit } from "../middlewares/rate-limit";
 
 /*
- * Automations: WordPress auto-share and RSS/Atom feeds (see lib/automations.ts for how runs work).
+ * Automations: WordPress auto-share and RSS/Atom feeds (see lib/automations.ts for how runs work), and the kind that
+ * is fed by the SocialFlow WordPress plugin instead of being polled (lib/wordpress-plugin.ts, routes/wordpress-plugin.ts).
  * automations:read (every role) lists and inspects; automations:manage (owner, admin, editor) changes them.
  */
 
@@ -48,8 +53,9 @@ async function validate(body: Record<string, unknown>, workspaceId: string, kind
   const name = has("name") ? (typeof body.name === "string" ? body.name.trim() : "") : existing?.name ?? "";
   if (name.length < 1 || name.length > MAX_NAME) return { error: `Name must be 1 to ${MAX_NAME} characters.` };
 
+  // A plugin automation has no address to enter: the plugin reports its site when it connects.
   let sourceUrl = existing?.sourceUrl ?? "";
-  if (has("sourceUrl") || !existing) {
+  if (isPolledKind(kind) && (has("sourceUrl") || !existing)) {
     if (typeof body.sourceUrl !== "string") return { error: kind === "wordpress" ? "Enter your WordPress site's address." : "Enter the feed's address." };
     try {
       sourceUrl = normalizeSourceUrl(kind, body.sourceUrl);
@@ -111,8 +117,11 @@ async function serialize(rows: Automation[]) {
     .select({ id: connectedAccountsTable.id, workspaceId: connectedAccountsTable.workspaceId, name: connectedAccountsTable.displayName, platform: connectedAccountsTable.platform, avatarUrl: connectedAccountsTable.avatarUrl, status: connectedAccountsTable.status })
     .from(connectedAccountsTable)
     .where(inArray(connectedAccountsTable.id, accountIds));
+  const pluginIds = rows.filter((row) => row.kind === "wordpress_plugin").map((row) => row.id);
+  const connections = pluginIds.length === 0 ? [] : await db.select().from(wordpressConnectionsTable).where(inArray(wordpressConnectionsTable.automationId, pluginIds));
   return rows.map((row) => {
     const config = normalizeConfig(row.config);
+    const connection = connections.find((item) => item.automationId === row.id);
     return {
       id: row.id,
       kind: row.kind,
@@ -120,6 +129,11 @@ async function serialize(rows: Automation[]) {
       sourceUrl: row.sourceUrl,
       status: row.status,
       config,
+      // The plugin's side of a plugin automation. Never the key: that is shown once, when it is made.
+      plugin: connection ? {
+        status: connection.status, siteUrl: connection.siteUrl, siteName: connection.siteName, wpVersion: connection.wpVersion, pluginVersion: connection.pluginVersion,
+        connectedAt: connection.connectedAt, lastSeenAt: connection.lastSeenAt, lastPostAt: connection.lastPostAt,
+      } : null,
       lastRunAt: row.lastRunAt,
       nextRunAt: row.status === "active" ? row.nextRunAt : null,
       lastStatus: row.lastStatus,
@@ -152,9 +166,9 @@ router.post("/automations/test-source", testSourceLimiter, async (req, res): Pro
   const ctx = await requireAccess(req, res, "automations:manage");
   if (!ctx) return;
   const body = (req.body ?? {}) as Record<string, unknown>;
-  if (!automationKinds.includes(body.kind as AutomationKind)) return jsonError(res, 400, "invalid_body", "Kind must be wordpress or rss.");
+  if (body.kind !== "wordpress" && body.kind !== "rss") return jsonError(res, 400, "invalid_body", "Kind must be wordpress or rss.");
   if (typeof body.url !== "string") return jsonError(res, 400, "invalid_url", "Enter a full link that starts with http:// or https://.");
-  const kind = body.kind as AutomationKind;
+  const kind: PolledAutomationKind = body.kind;
   try {
     const url = normalizeSourceUrl(kind, body.url);
     const result = await fetchSource(kind, url);
@@ -183,18 +197,58 @@ router.post("/automations", async (req, res): Promise<void> => {
   const ctx = await requireAccess(req, res, "automations:manage");
   if (!ctx) return;
   const body = (req.body ?? {}) as Record<string, unknown>;
-  if (!automationKinds.includes(body.kind as AutomationKind)) return jsonError(res, 400, "invalid_body", "Kind must be wordpress or rss.");
+  if (!automationKinds.includes(body.kind as AutomationKind)) return jsonError(res, 400, "invalid_body", "Kind must be wordpress, rss or wordpress_plugin.");
   const kind = body.kind as AutomationKind;
   const [count] = await db.select({ total: sql<number>`count(*)::int` }).from(automationsTable).where(eq(automationsTable.workspaceId, ctx.workspaceId));
   if (Number(count?.total ?? 0) >= MAX_AUTOMATIONS_PER_WORKSPACE) return jsonError(res, 400, "limit_reached", `A workspace can have up to ${MAX_AUTOMATIONS_PER_WORKSPACE} automations. Delete one to add another.`);
   const checked = await validate(body, ctx.workspaceId, kind);
   if ("error" in checked) return jsonError(res, 400, "invalid_body", checked.error);
   const { name, sourceUrl, config } = checked.fields;
+
+  if (!isPolledKind(kind)) {
+    // Nothing to poll, so no next run. The connection key is made with the automation and returned this once.
+    const apiBase = publicApiBase(req);
+    if (!apiBase) return jsonError(res, 500, "no_public_address", "SocialFlow couldn't work out its own address for the plugin to call.");
+    const { created, secret, keyId } = await db.transaction(async (tx) => {
+      const [row] = await tx.insert(automationsTable).values({ workspaceId: ctx.workspaceId, kind, name, sourceUrl: "", config, status: "active", nextRunAt: null, createdByUserId: ctx.userId }).returning();
+      const key = newKeyMaterial(row!.id);
+      await tx.insert(wordpressConnectionsTable).values({ automationId: row!.id, workspaceId: ctx.workspaceId, keyId: key.keyId, secretEncrypted: key.secretEncrypted, status: "pending" });
+      return { created: row!, secret: key.secret, keyId: key.keyId };
+    });
+    await recordAudit({ workspaceId: ctx.workspaceId, actorUserId: ctx.userId, action: "automation.create", target: created.id, detail: { kind, name, mode: config.mode, accountCount: config.connectedAccountIds.length } });
+    const [serialized] = await serialize([created]);
+    res.status(201).json({ ...serialized, connectionKey: encodeConnectionKey(apiBase, keyId, secret) });
+    return;
+  }
+
   // Due straight away: the first run records what is already in the source (the baseline) within a minute.
   const [created] = await db.insert(automationsTable).values({ workspaceId: ctx.workspaceId, kind, name, sourceUrl, config, status: "active", nextRunAt: new Date(), createdByUserId: ctx.userId }).returning();
   await recordAudit({ workspaceId: ctx.workspaceId, actorUserId: ctx.userId, action: "automation.create", target: created!.id, detail: { kind, name, mode: config.mode, accountCount: config.connectedAccountIds.length } });
   const [serialized] = await serialize([created!]);
   res.status(201).json(serialized);
+});
+
+/**
+ * Replaces a plugin automation's connection key and returns the new one, this once. The old key stops working at
+ * once, so the plugin on the site has to be given the new one. Used when the key was lost or should be withdrawn.
+ */
+router.post("/automations/:id/plugin-key", async (req, res): Promise<void> => {
+  const ctx = await requireAccess(req, res, "automations:manage");
+  if (!ctx) return;
+  const existing = await findAutomation(String(req.params.id), ctx.workspaceId);
+  if (!existing) return jsonError(res, 404, "not_found", "Automation not found.");
+  if (existing.kind !== "wordpress_plugin") return jsonError(res, 400, "not_a_plugin_automation", "Only an automation that uses the WordPress plugin has a connection key.");
+  const apiBase = publicApiBase(req);
+  if (!apiBase) return jsonError(res, 500, "no_public_address", "SocialFlow couldn't work out its own address for the plugin to call.");
+  const key = newKeyMaterial(existing.id);
+  const fresh = { keyId: key.keyId, secretEncrypted: key.secretEncrypted, status: "pending" as const, connectedAt: null };
+  await db
+    .insert(wordpressConnectionsTable)
+    .values({ automationId: existing.id, workspaceId: ctx.workspaceId, ...fresh })
+    .onConflictDoUpdate({ target: wordpressConnectionsTable.automationId, set: fresh });
+  await recordAudit({ workspaceId: ctx.workspaceId, actorUserId: ctx.userId, action: "automation.plugin_key_replaced", target: existing.id, detail: { name: existing.name } });
+  const [serialized] = await serialize([existing]);
+  res.json({ ...serialized, connectionKey: encodeConnectionKey(apiBase, key.keyId, key.secret) });
 });
 
 router.get("/automations/:id", async (req, res): Promise<void> => {
@@ -258,7 +312,8 @@ router.post("/automations/:id/resume", async (req, res): Promise<void> => {
   if (!ctx) return;
   const existing = await findAutomation(String(req.params.id), ctx.workspaceId);
   if (!existing) return jsonError(res, 404, "not_found", "Automation not found.");
-  const [updated] = await db.update(automationsTable).set({ status: "active", consecutiveFailures: 0, nextRunAt: new Date() }).where(eq(automationsTable.id, existing.id)).returning();
+  // A polled source is checked on the next poll; a plugin automation just starts accepting posts again.
+  const [updated] = await db.update(automationsTable).set({ status: "active", consecutiveFailures: 0, nextRunAt: isPolledKind(existing.kind) ? new Date() : null }).where(eq(automationsTable.id, existing.id)).returning();
   await recordAudit({ workspaceId: ctx.workspaceId, actorUserId: ctx.userId, action: "automation.resume", target: existing.id, detail: { name: existing.name, previousStatus: existing.status } });
   const [serialized] = await serialize([updated!]);
   res.json(serialized);
@@ -270,6 +325,7 @@ router.post("/automations/:id/run-now", runNowLimiter, async (req, res): Promise
   if (!ctx) return;
   const existing = await findAutomation(String(req.params.id), ctx.workspaceId);
   if (!existing) return jsonError(res, 404, "not_found", "Automation not found.");
+  if (!isPolledKind(existing.kind)) return jsonError(res, 400, "nothing_to_check", "This automation gets its posts from the WordPress plugin, so there is nothing to check. Use \"Share now\" on the post in WordPress.");
   const run = await runAutomation(existing.id);
   if (!run) return jsonError(res, 404, "not_found", "Automation not found.");
   const [after] = await db.select().from(automationsTable).where(eq(automationsTable.id, existing.id));

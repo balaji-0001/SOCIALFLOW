@@ -60,4 +60,7 @@ Thumbs.db
 # uploaded media (local dev storage; see docs/media.md)
 .data/
 
+# the WordPress plugin's zip, packed from wordpress-plugin/ before the dev server and every build
+artifacts/socialflow/public/downloads/
+
 .vercel

@@ -4,9 +4,11 @@ import {
   automationRunsTable,
   automationsTable,
   db,
+  isPolledKind,
   type Automation,
   type AutomationConfig,
   type AutomationRunStatus,
+  type PolledAutomationKind,
 } from "@workspace/db";
 import { fetchSource, FeedError, truncateText, type FeedItem, type FeedResult } from "./feeds";
 import { logger } from "./logger";
@@ -29,6 +31,9 @@ import { nextFreeSlot } from "./queue";
  * posted (unless postExistingOnFirstRun, which posts only the newest item). Fetch failures back off exponentially
  * (interval x 2^failures, at most 24 h) and five in a row put the automation into "error" until it is resumed.
  * Item failures (an account gone, a network rule) are retried on later runs, up to three attempts.
+ *
+ * A "wordpress_plugin" automation is never polled. The plugin on the site sends each post when it is published and
+ * ingestPushedItem() takes it through the same record-then-post path, so the duplicate protection is the same.
  */
 
 export const MAX_AUTOMATIONS_PER_WORKSPACE = 25;
@@ -37,16 +42,17 @@ export const MAX_ITEM_ATTEMPTS = 3;
 const MAX_BACKOFF_MS = 24 * 3600_000;
 const RUNS_KEPT = 50;
 const MAX_EXCERPT_IN_POST = 300;
+const STALE_PENDING_MS = 2 * 60_000;
 
 export const DEFAULT_TEMPLATE = "{title}\n\n{url}";
 
-export function pollMinutes(kind: Automation["kind"]): number {
+export function pollMinutes(kind: PolledAutomationKind): number {
   const raw = Number(kind === "wordpress" ? process.env.WORDPRESS_POLL_MINUTES : process.env.RSS_POLL_MINUTES);
   return Number.isFinite(raw) && raw >= 1 ? raw : kind === "wordpress" ? 15 : 60;
 }
 
 /** When the next run is due after `failures` consecutive fetch failures (0 = the normal interval). */
-export function nextRunAfter(kind: Automation["kind"], failures: number, now = new Date()): Date {
+export function nextRunAfter(kind: PolledAutomationKind, failures: number, now = new Date()): Date {
   const base = pollMinutes(kind) * 60_000;
   const delay = Math.min(base * 2 ** Math.max(0, failures), MAX_BACKOFF_MS);
   return new Date(now.getTime() + delay);
@@ -94,7 +100,9 @@ const siteName = (automation: Automation, result: FeedResult) => {
   try { return new URL(automation.sourceUrl).hostname.replace(/^www\./, ""); } catch { return automation.name; }
 };
 
-export type ItemPostResult = { ok: true; postId: string; note: string | null } | { ok: false; message: string };
+export type ItemPostResult =
+  | { ok: true; postId: string; note: string | null; status: "draft" | "scheduled"; scheduledAt: Date | null }
+  | { ok: false; message: string };
 
 /** Makes the post for one feed item, following the automation's mode, through the composer's own checks and inserts. */
 export async function createPostForItem(automation: Automation, item: FeedItem, site: string, now = new Date()): Promise<ItemPostResult> {
@@ -129,20 +137,22 @@ export async function createPostForItem(automation: Automation, item: FeedItem, 
   if (problem) return { ok: false, message: problem };
 
   const post = await db.transaction((tx) => insertPost(tx, { workspaceId: automation.workspaceId, userId: automation.createdByUserId, content, accountIds, status, scheduledAt, link }));
-  return { ok: true, postId: post.id, note };
+  return { ok: true, postId: post.id, note, status, scheduledAt };
 }
 
-type Candidate = { item: FeedItem; retryOf: string | null };
+type Candidate = { item: FeedItem; retryOf: string | null; anyAttempt?: boolean };
+type CandidateOutcome = { created: boolean; error: string | null; reason: string | null; post: Extract<ItemPostResult, { ok: true }> | null };
 
 /** Records the item (or claims a failed one for a retry), then makes its post. Returns null when another run already has it. */
-async function processCandidate(automation: Automation, candidate: Candidate, site: string, now: Date): Promise<{ created: boolean; error: string | null } | null> {
+async function processCandidate(automation: Automation, candidate: Candidate, site: string, now: Date): Promise<CandidateOutcome | null> {
   const { item } = candidate;
   let itemId: string | null = null;
   if (candidate.retryOf) {
     const [claimed] = await db
       .update(automationItemsTable)
       .set({ status: "pending" })
-      .where(and(eq(automationItemsTable.id, candidate.retryOf), eq(automationItemsTable.status, "failed"), sql`${automationItemsTable.attempts} < ${MAX_ITEM_ATTEMPTS}`))
+      // A person asking for another try (the plugin's "Share now") isn't held to the automatic limit.
+      .where(and(eq(automationItemsTable.id, candidate.retryOf), eq(automationItemsTable.status, "failed"), candidate.anyAttempt ? undefined : sql`${automationItemsTable.attempts} < ${MAX_ITEM_ATTEMPTS}`))
       .returning({ id: automationItemsTable.id });
     itemId = claimed?.id ?? null;
   } else {
@@ -164,10 +174,10 @@ async function processCandidate(automation: Automation, candidate: Candidate, si
   }
   if (result.ok) {
     await db.update(automationItemsTable).set({ status: "posted", postId: result.postId, attempts: sql`${automationItemsTable.attempts} + 1`, error: result.note }).where(eq(automationItemsTable.id, itemId));
-    return { created: true, error: null };
+    return { created: true, error: null, reason: null, post: result };
   }
   await db.update(automationItemsTable).set({ status: "failed", attempts: sql`${automationItemsTable.attempts} + 1`, error: result.message.slice(0, 1000) }).where(eq(automationItemsTable.id, itemId));
-  return { created: false, error: `${item.title || item.url || "An item"}: ${result.message}` };
+  return { created: false, error: `${item.title || item.url || "An item"}: ${result.message}`, reason: result.message, post: null };
 }
 
 async function markSeen(automationId: string, items: FeedItem[]): Promise<void> {
@@ -193,12 +203,14 @@ async function recordRun(automationId: string, run: Omit<RunSummary, "id" | "aut
  */
 export async function runAutomation(automationId: string, now = new Date()): Promise<RunSummary | null> {
   const [automation] = await db.select().from(automationsTable).where(eq(automationsTable.id, automationId));
-  if (!automation) return null;
+  // A plugin automation has nothing to fetch: its posts arrive from the plugin (ingestPushedItem).
+  if (!automation || !isPolledKind(automation.kind)) return null;
+  const kind = automation.kind;
   const startedAt = new Date();
 
   let result: FeedResult;
   try {
-    result = await fetchSource(automation.kind, automation.sourceUrl);
+    result = await fetchSource(kind, automation.sourceUrl);
   } catch (error) {
     const message = (error instanceof FeedError ? error.message : "The source couldn't be read.").slice(0, 1000);
     if (!(error instanceof FeedError)) logger.error({ err: error, automationId }, "Automation fetch failed unexpectedly");
@@ -209,7 +221,7 @@ export async function runAutomation(automationId: string, now = new Date()): Pro
       lastRunAt: now,
       lastStatus: "failed",
       lastError: toError ? `Stopped after ${failures} failed checks in a row. ${message}` : message,
-      nextRunAt: nextRunAfter(automation.kind, failures, now),
+      nextRunAt: nextRunAfter(kind, failures, now),
       ...(toError ? { status: "error" as const } : {}),
     }).where(eq(automationsTable.id, automation.id));
     return recordRun(automation.id, { startedAt, finishedAt: new Date(), status: "failed", itemsFound: 0, itemsNew: 0, postsCreated: 0, error: message });
@@ -265,12 +277,56 @@ export async function runAutomation(automationId: string, now = new Date()): Pro
     lastRunAt: now,
     lastStatus: status,
     lastError: error,
-    nextRunAt: nextRunAfter(automation.kind, 0, now),
+    nextRunAt: nextRunAfter(kind, 0, now),
     ...(baseline ? { baselineAt: now } : {}),
     // A source that answers again brings an automation out of "error"; a paused one stays paused.
     ...(automation.status === "error" ? { status: "active" as const } : {}),
   }).where(eq(automationsTable.id, automation.id));
   return recordRun(automation.id, { startedAt, finishedAt: new Date(), status, itemsFound: items.length, itemsNew, postsCreated: created, error });
+}
+
+export type PushOutcome =
+  | { result: "created"; postId: string; postStatus: "draft" | "scheduled"; scheduledAt: Date | null; note: string | null }
+  | { result: "duplicate" }
+  | { result: "failed"; message: string };
+
+/**
+ * One item pushed to a plugin automation. It takes the polled items' path: the item row is inserted first and only
+ * the request that inserted it makes the post, so the same article sent twice (a retry, two editors, a republish)
+ * becomes one post. An item that failed before is tried again; `manual` (someone pressed "Share now") lifts the
+ * automatic limit on attempts. Each delivery that was acted on is recorded as a run of one item.
+ */
+export async function ingestPushedItem(automation: Automation, item: FeedItem, site: string, options: { manual?: boolean } = {}, now = new Date()): Promise<PushOutcome> {
+  const startedAt = new Date();
+  const [known] = await db
+    .select({ id: automationItemsTable.id, status: automationItemsTable.status, attempts: automationItemsTable.attempts, error: automationItemsTable.error, updatedAt: automationItemsTable.updatedAt })
+    .from(automationItemsTable)
+    .where(and(eq(automationItemsTable.automationId, automation.id), eq(automationItemsTable.itemKey, item.key)));
+  // A request that died between recording the item and making its post leaves it "pending", which would block the
+  // article for good. Once that is clearly not still in progress, it counts as a failed attempt and is tried again.
+  if (known?.status === "pending" && known.updatedAt.getTime() < now.getTime() - STALE_PENDING_MS) {
+    await db.update(automationItemsTable).set({ status: "failed", error: "Interrupted before the post was made." })
+      .where(and(eq(automationItemsTable.id, known.id), eq(automationItemsTable.status, "pending")));
+    known.status = "failed";
+  }
+  const retry = known?.status === "failed" && (options.manual === true || known.attempts < MAX_ITEM_ATTEMPTS);
+  // Given up on, which is not the same as shared: say so, and say how to try again.
+  if (known?.status === "failed" && !retry) {
+    return { result: "failed", message: `SocialFlow tried this post ${known.attempts} times and stopped. The last reason: ${known.error ?? "unknown"} Fix that, then use Share now.` };
+  }
+  if (known && !retry) return { result: "duplicate" };
+
+  const outcome = await processCandidate(automation, { item, retryOf: known?.id ?? null, anyAttempt: options.manual === true }, site, now);
+  // Another request recorded or claimed it between the look-up and here.
+  if (!outcome) return { result: "duplicate" };
+
+  await db.update(automationsTable)
+    .set({ lastRunAt: now, lastStatus: outcome.created ? "success" : "failed", lastError: outcome.error?.slice(0, 1000) ?? null, consecutiveFailures: 0 })
+    .where(eq(automationsTable.id, automation.id));
+  await recordRun(automation.id, { startedAt, finishedAt: new Date(), status: outcome.created ? "success" : "failed", itemsFound: 1, itemsNew: known ? 0 : 1, postsCreated: outcome.created ? 1 : 0, error: outcome.error?.slice(0, 1000) ?? null });
+
+  if (outcome.post) return { result: "created", postId: outcome.post.postId, postStatus: outcome.post.status, scheduledAt: outcome.post.scheduledAt, note: outcome.post.note };
+  return { result: "failed", message: outcome.reason ?? "The post couldn't be created." };
 }
 
 /**
@@ -282,10 +338,10 @@ export async function claimDueAutomations(limit = 10, now = new Date()): Promise
     const due = await tx.execute(sql`
       select a.id, a.kind from socialflow_automations a
       join socialflow_workspaces w on w.id = a.workspace_id
-      where a.status = 'active' and a.next_run_at is not null and a.next_run_at <= ${now.toISOString()}::timestamptz
+      where a.status = 'active' and a.kind <> 'wordpress_plugin' and a.next_run_at is not null and a.next_run_at <= ${now.toISOString()}::timestamptz
       order by a.next_run_at asc limit ${limit} for update of a skip locked`);
     const ids: string[] = [];
-    for (const row of due.rows as Array<{ id: string; kind: Automation["kind"] }>) {
+    for (const row of due.rows as Array<{ id: string; kind: PolledAutomationKind }>) {
       await tx.update(automationsTable).set({ nextRunAt: nextRunAfter(row.kind, 0, now) }).where(eq(automationsTable.id, row.id));
       ids.push(row.id);
     }

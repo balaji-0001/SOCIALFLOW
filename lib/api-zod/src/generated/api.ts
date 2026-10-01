@@ -3052,13 +3052,13 @@ export const testAutomationSourceBodyUrlMax = 2048;
 
 
 export const TestAutomationSourceBody = zod.object({
-  "kind": zod.enum(['wordpress', 'rss']),
+  "kind": zod.enum(['wordpress', 'rss', 'wordpress_plugin']).describe('wordpress and rss are polled. wordpress_plugin is never polled: the SocialFlow plugin on the site sends each post as it is published.'),
   "url": zod.string().max(testAutomationSourceBodyUrlMax)
 })
 
 export const TestAutomationSourceResponse = zod.object({
   "ok": zod.boolean(),
-  "kind": zod.enum(['wordpress', 'rss']),
+  "kind": zod.enum(['wordpress', 'rss', 'wordpress_plugin']).describe('wordpress and rss are polled. wordpress_plugin is never polled: the SocialFlow plugin on the site sends each post as it is published.'),
   "url": zod.string().describe('The address as it will be saved'),
   "sourceTitle": zod.string().nullable(),
   "items": zod.array(zod.object({
@@ -3081,9 +3081,9 @@ export const listAutomationsResponseAutomationsItemConfigMaxPostsPerRunMax = 10;
 export const ListAutomationsResponse = zod.object({
   "automations": zod.array(zod.object({
   "id": zod.string(),
-  "kind": zod.enum(['wordpress', 'rss']),
+  "kind": zod.enum(['wordpress', 'rss', 'wordpress_plugin']).describe('wordpress and rss are polled. wordpress_plugin is never polled: the SocialFlow plugin on the site sends each post as it is published.'),
   "name": zod.string(),
-  "sourceUrl": zod.string(),
+  "sourceUrl": zod.string().describe('wordpress_plugin: the site the plugin connected from, empty until it has'),
   "status": zod.enum(['active', 'paused', 'error']).describe('error = stopped after 5 failed checks in a row; resume to try again'),
   "config": zod.object({
   "connectedAccountIds": zod.array(zod.string()),
@@ -3093,6 +3093,17 @@ export const ListAutomationsResponse = zod.object({
   "maxPostsPerRun": zod.number().int().min(1).max(listAutomationsResponseAutomationsItemConfigMaxPostsPerRunMax),
   "postExistingOnFirstRun": zod.boolean().describe('Post the single newest existing item on the first run instead of nothing')
 }),
+  "plugin": zod.union([zod.object({
+  "status": zod.enum(['pending', 'connected', 'disconnected']).describe('pending = a key was issued and the plugin hasn\'t connected with it yet; disconnected = the WordPress admin disconnected the plugin'),
+  "siteUrl": zod.string().nullable(),
+  "siteName": zod.string().nullable(),
+  "wpVersion": zod.string().nullable(),
+  "pluginVersion": zod.string().nullable(),
+  "connectedAt": zod.coerce.date().nullable(),
+  "lastSeenAt": zod.coerce.date().nullable().describe('The last signed request from the plugin'),
+  "lastPostAt": zod.coerce.date().nullable().describe('The last post from the plugin that became a social post')
+}).describe('The plugin\'s side of a wordpress_plugin automation, as it last reported itself'),zod.null()]).describe('Set for wordpress_plugin automations, null for the others'),
+  "connectionKey": zod.string().nullish().describe('Only in the answer that creates a wordpress_plugin automation or replaces its key. What the user pastes into the plugin; it is never returned again.'),
   "lastRunAt": zod.coerce.date().nullable(),
   "nextRunAt": zod.coerce.date().nullable().describe('null unless active'),
   "lastStatus": zod.string().nullable().describe('success, no_new, partial or failed'),
@@ -3118,7 +3129,7 @@ export const ListAutomationsResponse = zod.object({
 
 
 /**
- * @summary Create an automation (automations:manage). At most 25 per workspace. Its first run records what is already in the source and posts nothing, unless postExistingOnFirstRun.
+ * @summary Create an automation (automations:manage). At most 25 per workspace. A polled automation's first run records what is already in the source and posts nothing, unless postExistingOnFirstRun. A wordpress_plugin automation is created with a connectionKey for the plugin, returned this once.
  */
 export const createAutomationBodyNameMax = 120;
 
@@ -3132,9 +3143,9 @@ export const createAutomationBodyConfigMaxPostsPerRunMax = 10;
 
 
 export const CreateAutomationBody = zod.object({
-  "kind": zod.enum(['wordpress', 'rss']),
+  "kind": zod.enum(['wordpress', 'rss', 'wordpress_plugin']).describe('wordpress and rss are polled. wordpress_plugin is never polled: the SocialFlow plugin on the site sends each post as it is published.'),
   "name": zod.string().max(createAutomationBodyNameMax),
-  "sourceUrl": zod.string().max(createAutomationBodySourceUrlMax).describe('wordpress: the site\'s address (a bare domain is fine); rss: the feed\'s address. http(s) only.'),
+  "sourceUrl": zod.string().max(createAutomationBodySourceUrlMax).optional().describe('Required for wordpress (the site\'s address; a bare domain is fine) and rss (the feed\'s address). http(s) only. Not used for wordpress_plugin.'),
   "config": zod.object({
   "connectedAccountIds": zod.array(zod.string()).min(1).optional().describe('Required when creating. YouTube channels can\'t be used.'),
   "mode": zod.enum(['publish', 'queue', 'draft']).optional().describe('publish = goes out on the publisher\'s next pass (the approvals gate still applies); queue = next free queue slot, or a draft when there is none; draft = saved as a draft'),
@@ -3151,9 +3162,9 @@ export const createAutomationResponseConfigMaxPostsPerRunMax = 10;
 
 export const CreateAutomationResponse = zod.object({
   "id": zod.string(),
-  "kind": zod.enum(['wordpress', 'rss']),
+  "kind": zod.enum(['wordpress', 'rss', 'wordpress_plugin']).describe('wordpress and rss are polled. wordpress_plugin is never polled: the SocialFlow plugin on the site sends each post as it is published.'),
   "name": zod.string(),
-  "sourceUrl": zod.string(),
+  "sourceUrl": zod.string().describe('wordpress_plugin: the site the plugin connected from, empty until it has'),
   "status": zod.enum(['active', 'paused', 'error']).describe('error = stopped after 5 failed checks in a row; resume to try again'),
   "config": zod.object({
   "connectedAccountIds": zod.array(zod.string()),
@@ -3163,6 +3174,17 @@ export const CreateAutomationResponse = zod.object({
   "maxPostsPerRun": zod.number().int().min(1).max(createAutomationResponseConfigMaxPostsPerRunMax),
   "postExistingOnFirstRun": zod.boolean().describe('Post the single newest existing item on the first run instead of nothing')
 }),
+  "plugin": zod.union([zod.object({
+  "status": zod.enum(['pending', 'connected', 'disconnected']).describe('pending = a key was issued and the plugin hasn\'t connected with it yet; disconnected = the WordPress admin disconnected the plugin'),
+  "siteUrl": zod.string().nullable(),
+  "siteName": zod.string().nullable(),
+  "wpVersion": zod.string().nullable(),
+  "pluginVersion": zod.string().nullable(),
+  "connectedAt": zod.coerce.date().nullable(),
+  "lastSeenAt": zod.coerce.date().nullable().describe('The last signed request from the plugin'),
+  "lastPostAt": zod.coerce.date().nullable().describe('The last post from the plugin that became a social post')
+}).describe('The plugin\'s side of a wordpress_plugin automation, as it last reported itself'),zod.null()]).describe('Set for wordpress_plugin automations, null for the others'),
+  "connectionKey": zod.string().nullish().describe('Only in the answer that creates a wordpress_plugin automation or replaces its key. What the user pastes into the plugin; it is never returned again.'),
   "lastRunAt": zod.coerce.date().nullable(),
   "nextRunAt": zod.coerce.date().nullable().describe('null unless active'),
   "lastStatus": zod.string().nullable().describe('success, no_new, partial or failed'),
@@ -3194,9 +3216,9 @@ export const getAutomationResponseConfigMaxPostsPerRunMax = 10;
 
 export const GetAutomationResponse = zod.object({
   "id": zod.string(),
-  "kind": zod.enum(['wordpress', 'rss']),
+  "kind": zod.enum(['wordpress', 'rss', 'wordpress_plugin']).describe('wordpress and rss are polled. wordpress_plugin is never polled: the SocialFlow plugin on the site sends each post as it is published.'),
   "name": zod.string(),
-  "sourceUrl": zod.string(),
+  "sourceUrl": zod.string().describe('wordpress_plugin: the site the plugin connected from, empty until it has'),
   "status": zod.enum(['active', 'paused', 'error']).describe('error = stopped after 5 failed checks in a row; resume to try again'),
   "config": zod.object({
   "connectedAccountIds": zod.array(zod.string()),
@@ -3206,6 +3228,17 @@ export const GetAutomationResponse = zod.object({
   "maxPostsPerRun": zod.number().int().min(1).max(getAutomationResponseConfigMaxPostsPerRunMax),
   "postExistingOnFirstRun": zod.boolean().describe('Post the single newest existing item on the first run instead of nothing')
 }),
+  "plugin": zod.union([zod.object({
+  "status": zod.enum(['pending', 'connected', 'disconnected']).describe('pending = a key was issued and the plugin hasn\'t connected with it yet; disconnected = the WordPress admin disconnected the plugin'),
+  "siteUrl": zod.string().nullable(),
+  "siteName": zod.string().nullable(),
+  "wpVersion": zod.string().nullable(),
+  "pluginVersion": zod.string().nullable(),
+  "connectedAt": zod.coerce.date().nullable(),
+  "lastSeenAt": zod.coerce.date().nullable().describe('The last signed request from the plugin'),
+  "lastPostAt": zod.coerce.date().nullable().describe('The last post from the plugin that became a social post')
+}).describe('The plugin\'s side of a wordpress_plugin automation, as it last reported itself'),zod.null()]).describe('Set for wordpress_plugin automations, null for the others'),
+  "connectionKey": zod.string().nullish().describe('Only in the answer that creates a wordpress_plugin automation or replaces its key. What the user pastes into the plugin; it is never returned again.'),
   "lastRunAt": zod.coerce.date().nullable(),
   "nextRunAt": zod.coerce.date().nullable().describe('null unless active'),
   "lastStatus": zod.string().nullable().describe('success, no_new, partial or failed'),
@@ -3261,9 +3294,9 @@ export const updateAutomationResponseConfigMaxPostsPerRunMax = 10;
 
 export const UpdateAutomationResponse = zod.object({
   "id": zod.string(),
-  "kind": zod.enum(['wordpress', 'rss']),
+  "kind": zod.enum(['wordpress', 'rss', 'wordpress_plugin']).describe('wordpress and rss are polled. wordpress_plugin is never polled: the SocialFlow plugin on the site sends each post as it is published.'),
   "name": zod.string(),
-  "sourceUrl": zod.string(),
+  "sourceUrl": zod.string().describe('wordpress_plugin: the site the plugin connected from, empty until it has'),
   "status": zod.enum(['active', 'paused', 'error']).describe('error = stopped after 5 failed checks in a row; resume to try again'),
   "config": zod.object({
   "connectedAccountIds": zod.array(zod.string()),
@@ -3273,6 +3306,17 @@ export const UpdateAutomationResponse = zod.object({
   "maxPostsPerRun": zod.number().int().min(1).max(updateAutomationResponseConfigMaxPostsPerRunMax),
   "postExistingOnFirstRun": zod.boolean().describe('Post the single newest existing item on the first run instead of nothing')
 }),
+  "plugin": zod.union([zod.object({
+  "status": zod.enum(['pending', 'connected', 'disconnected']).describe('pending = a key was issued and the plugin hasn\'t connected with it yet; disconnected = the WordPress admin disconnected the plugin'),
+  "siteUrl": zod.string().nullable(),
+  "siteName": zod.string().nullable(),
+  "wpVersion": zod.string().nullable(),
+  "pluginVersion": zod.string().nullable(),
+  "connectedAt": zod.coerce.date().nullable(),
+  "lastSeenAt": zod.coerce.date().nullable().describe('The last signed request from the plugin'),
+  "lastPostAt": zod.coerce.date().nullable().describe('The last post from the plugin that became a social post')
+}).describe('The plugin\'s side of a wordpress_plugin automation, as it last reported itself'),zod.null()]).describe('Set for wordpress_plugin automations, null for the others'),
+  "connectionKey": zod.string().nullish().describe('Only in the answer that creates a wordpress_plugin automation or replaces its key. What the user pastes into the plugin; it is never returned again.'),
   "lastRunAt": zod.coerce.date().nullable(),
   "nextRunAt": zod.coerce.date().nullable().describe('null unless active'),
   "lastStatus": zod.string().nullable().describe('success, no_new, partial or failed'),
@@ -3314,9 +3358,9 @@ export const pauseAutomationResponseConfigMaxPostsPerRunMax = 10;
 
 export const PauseAutomationResponse = zod.object({
   "id": zod.string(),
-  "kind": zod.enum(['wordpress', 'rss']),
+  "kind": zod.enum(['wordpress', 'rss', 'wordpress_plugin']).describe('wordpress and rss are polled. wordpress_plugin is never polled: the SocialFlow plugin on the site sends each post as it is published.'),
   "name": zod.string(),
-  "sourceUrl": zod.string(),
+  "sourceUrl": zod.string().describe('wordpress_plugin: the site the plugin connected from, empty until it has'),
   "status": zod.enum(['active', 'paused', 'error']).describe('error = stopped after 5 failed checks in a row; resume to try again'),
   "config": zod.object({
   "connectedAccountIds": zod.array(zod.string()),
@@ -3326,6 +3370,17 @@ export const PauseAutomationResponse = zod.object({
   "maxPostsPerRun": zod.number().int().min(1).max(pauseAutomationResponseConfigMaxPostsPerRunMax),
   "postExistingOnFirstRun": zod.boolean().describe('Post the single newest existing item on the first run instead of nothing')
 }),
+  "plugin": zod.union([zod.object({
+  "status": zod.enum(['pending', 'connected', 'disconnected']).describe('pending = a key was issued and the plugin hasn\'t connected with it yet; disconnected = the WordPress admin disconnected the plugin'),
+  "siteUrl": zod.string().nullable(),
+  "siteName": zod.string().nullable(),
+  "wpVersion": zod.string().nullable(),
+  "pluginVersion": zod.string().nullable(),
+  "connectedAt": zod.coerce.date().nullable(),
+  "lastSeenAt": zod.coerce.date().nullable().describe('The last signed request from the plugin'),
+  "lastPostAt": zod.coerce.date().nullable().describe('The last post from the plugin that became a social post')
+}).describe('The plugin\'s side of a wordpress_plugin automation, as it last reported itself'),zod.null()]).describe('Set for wordpress_plugin automations, null for the others'),
+  "connectionKey": zod.string().nullish().describe('Only in the answer that creates a wordpress_plugin automation or replaces its key. What the user pastes into the plugin; it is never returned again.'),
   "lastRunAt": zod.coerce.date().nullable(),
   "nextRunAt": zod.coerce.date().nullable().describe('null unless active'),
   "lastStatus": zod.string().nullable().describe('success, no_new, partial or failed'),
@@ -3357,9 +3412,9 @@ export const resumeAutomationResponseConfigMaxPostsPerRunMax = 10;
 
 export const ResumeAutomationResponse = zod.object({
   "id": zod.string(),
-  "kind": zod.enum(['wordpress', 'rss']),
+  "kind": zod.enum(['wordpress', 'rss', 'wordpress_plugin']).describe('wordpress and rss are polled. wordpress_plugin is never polled: the SocialFlow plugin on the site sends each post as it is published.'),
   "name": zod.string(),
-  "sourceUrl": zod.string(),
+  "sourceUrl": zod.string().describe('wordpress_plugin: the site the plugin connected from, empty until it has'),
   "status": zod.enum(['active', 'paused', 'error']).describe('error = stopped after 5 failed checks in a row; resume to try again'),
   "config": zod.object({
   "connectedAccountIds": zod.array(zod.string()),
@@ -3369,6 +3424,17 @@ export const ResumeAutomationResponse = zod.object({
   "maxPostsPerRun": zod.number().int().min(1).max(resumeAutomationResponseConfigMaxPostsPerRunMax),
   "postExistingOnFirstRun": zod.boolean().describe('Post the single newest existing item on the first run instead of nothing')
 }),
+  "plugin": zod.union([zod.object({
+  "status": zod.enum(['pending', 'connected', 'disconnected']).describe('pending = a key was issued and the plugin hasn\'t connected with it yet; disconnected = the WordPress admin disconnected the plugin'),
+  "siteUrl": zod.string().nullable(),
+  "siteName": zod.string().nullable(),
+  "wpVersion": zod.string().nullable(),
+  "pluginVersion": zod.string().nullable(),
+  "connectedAt": zod.coerce.date().nullable(),
+  "lastSeenAt": zod.coerce.date().nullable().describe('The last signed request from the plugin'),
+  "lastPostAt": zod.coerce.date().nullable().describe('The last post from the plugin that became a social post')
+}).describe('The plugin\'s side of a wordpress_plugin automation, as it last reported itself'),zod.null()]).describe('Set for wordpress_plugin automations, null for the others'),
+  "connectionKey": zod.string().nullish().describe('Only in the answer that creates a wordpress_plugin automation or replaces its key. What the user pastes into the plugin; it is never returned again.'),
   "lastRunAt": zod.coerce.date().nullable(),
   "nextRunAt": zod.coerce.date().nullable().describe('null unless active'),
   "lastStatus": zod.string().nullable().describe('success, no_new, partial or failed'),
@@ -3412,9 +3478,9 @@ export const RunAutomationNowResponse = zod.object({
 }),
   "automation": zod.object({
   "id": zod.string(),
-  "kind": zod.enum(['wordpress', 'rss']),
+  "kind": zod.enum(['wordpress', 'rss', 'wordpress_plugin']).describe('wordpress and rss are polled. wordpress_plugin is never polled: the SocialFlow plugin on the site sends each post as it is published.'),
   "name": zod.string(),
-  "sourceUrl": zod.string(),
+  "sourceUrl": zod.string().describe('wordpress_plugin: the site the plugin connected from, empty until it has'),
   "status": zod.enum(['active', 'paused', 'error']).describe('error = stopped after 5 failed checks in a row; resume to try again'),
   "config": zod.object({
   "connectedAccountIds": zod.array(zod.string()),
@@ -3424,6 +3490,17 @@ export const RunAutomationNowResponse = zod.object({
   "maxPostsPerRun": zod.number().int().min(1).max(runAutomationNowResponseAutomationConfigMaxPostsPerRunMax),
   "postExistingOnFirstRun": zod.boolean().describe('Post the single newest existing item on the first run instead of nothing')
 }),
+  "plugin": zod.union([zod.object({
+  "status": zod.enum(['pending', 'connected', 'disconnected']).describe('pending = a key was issued and the plugin hasn\'t connected with it yet; disconnected = the WordPress admin disconnected the plugin'),
+  "siteUrl": zod.string().nullable(),
+  "siteName": zod.string().nullable(),
+  "wpVersion": zod.string().nullable(),
+  "pluginVersion": zod.string().nullable(),
+  "connectedAt": zod.coerce.date().nullable(),
+  "lastSeenAt": zod.coerce.date().nullable().describe('The last signed request from the plugin'),
+  "lastPostAt": zod.coerce.date().nullable().describe('The last post from the plugin that became a social post')
+}).describe('The plugin\'s side of a wordpress_plugin automation, as it last reported itself'),zod.null()]).describe('Set for wordpress_plugin automations, null for the others'),
+  "connectionKey": zod.string().nullish().describe('Only in the answer that creates a wordpress_plugin automation or replaces its key. What the user pastes into the plugin; it is never returned again.'),
   "lastRunAt": zod.coerce.date().nullable(),
   "nextRunAt": zod.coerce.date().nullable().describe('null unless active'),
   "lastStatus": zod.string().nullable().describe('success, no_new, partial or failed'),
@@ -3487,6 +3564,189 @@ export const ListAutomationItemsResponse = zod.object({
   "error": zod.string().nullable().describe('Why the item failed, or a note such as a queue fallback to draft'),
   "createdAt": zod.coerce.date()
 }))
+})
+
+
+/**
+ * @summary Replace a wordpress_plugin automation's connection key and return the new one, once (automations:manage). The old key stops working at once and the plugin is pending until it connects with the new one.
+ */
+export const ReplaceAutomationPluginKeyParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const replaceAutomationPluginKeyResponseConfigMaxPostsPerRunMax = 10;
+
+
+
+export const ReplaceAutomationPluginKeyResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['wordpress', 'rss', 'wordpress_plugin']).describe('wordpress and rss are polled. wordpress_plugin is never polled: the SocialFlow plugin on the site sends each post as it is published.'),
+  "name": zod.string(),
+  "sourceUrl": zod.string().describe('wordpress_plugin: the site the plugin connected from, empty until it has'),
+  "status": zod.enum(['active', 'paused', 'error']).describe('error = stopped after 5 failed checks in a row; resume to try again'),
+  "config": zod.object({
+  "connectedAccountIds": zod.array(zod.string()),
+  "mode": zod.enum(['publish', 'queue', 'draft']).describe('publish = goes out on the publisher\'s next pass (the approvals gate still applies); queue = next free queue slot, or a draft when there is none; draft = saved as a draft'),
+  "template": zod.string().describe('Post text. Tokens: {title} {url} {excerpt} {author} {site}'),
+  "includeImage": zod.boolean().describe('Use the item\'s picture on the link card (and as Instagram\'s photo)'),
+  "maxPostsPerRun": zod.number().int().min(1).max(replaceAutomationPluginKeyResponseConfigMaxPostsPerRunMax),
+  "postExistingOnFirstRun": zod.boolean().describe('Post the single newest existing item on the first run instead of nothing')
+}),
+  "plugin": zod.union([zod.object({
+  "status": zod.enum(['pending', 'connected', 'disconnected']).describe('pending = a key was issued and the plugin hasn\'t connected with it yet; disconnected = the WordPress admin disconnected the plugin'),
+  "siteUrl": zod.string().nullable(),
+  "siteName": zod.string().nullable(),
+  "wpVersion": zod.string().nullable(),
+  "pluginVersion": zod.string().nullable(),
+  "connectedAt": zod.coerce.date().nullable(),
+  "lastSeenAt": zod.coerce.date().nullable().describe('The last signed request from the plugin'),
+  "lastPostAt": zod.coerce.date().nullable().describe('The last post from the plugin that became a social post')
+}).describe('The plugin\'s side of a wordpress_plugin automation, as it last reported itself'),zod.null()]).describe('Set for wordpress_plugin automations, null for the others'),
+  "connectionKey": zod.string().nullish().describe('Only in the answer that creates a wordpress_plugin automation or replaces its key. What the user pastes into the plugin; it is never returned again.'),
+  "lastRunAt": zod.coerce.date().nullable(),
+  "nextRunAt": zod.coerce.date().nullable().describe('null unless active'),
+  "lastStatus": zod.string().nullable().describe('success, no_new, partial or failed'),
+  "lastError": zod.string().nullable(),
+  "consecutiveFailures": zod.number().int(),
+  "postsCreatedTotal": zod.number().int(),
+  "accounts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "platform": zod.string(),
+  "avatarUrl": zod.string().nullable(),
+  "status": zod.string().describe('The connected account\'s status; anything but active needs a reconnect')
+})).describe('The configured accounts that still exist'),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Called by the SocialFlow WordPress plugin, not by the app. No session: the request is signed with the connection key (X-SocialFlow-Key, X-SocialFlow-Timestamp, X-SocialFlow-Signature: v1=<hex HMAC-SHA256 of "<timestamp>.<raw body>">). Records the site and marks the plugin connected.
+ */
+export const wordpressPluginConnectBodySiteUrlMax = 2048;
+
+
+
+export const WordpressPluginConnectBody = zod.object({
+  "site": zod.object({
+  "url": zod.string().max(wordpressPluginConnectBodySiteUrlMax).optional().describe('The site\'s address (home_url). Required when connecting.'),
+  "name": zod.string().optional(),
+  "wpVersion": zod.string().optional(),
+  "pluginVersion": zod.string().optional()
+}).optional().describe('What the plugin says about the site it is installed on')
+})
+
+export const WordpressPluginConnectResponse = zod.object({
+  "connection": zod.object({
+  "status": zod.enum(['pending', 'connected', 'disconnected']).describe('pending = a key was issued and the plugin hasn\'t connected with it yet; disconnected = the WordPress admin disconnected the plugin'),
+  "workspaceName": zod.string(),
+  "automationName": zod.string(),
+  "automationStatus": zod.enum(['active', 'paused', 'error']).describe('error = stopped after 5 failed checks in a row; resume to try again'),
+  "mode": zod.enum(['publish', 'queue', 'draft']).describe('publish = goes out on the publisher\'s next pass (the approvals gate still applies); queue = next free queue slot, or a draft when there is none; draft = saved as a draft'),
+  "accounts": zod.array(zod.object({
+  "name": zod.string(),
+  "platform": zod.string(),
+  "status": zod.string()
+})),
+  "postsCreated": zod.number().int(),
+  "dashboardUrl": zod.string().nullable()
+})
+})
+
+
+/**
+ * @summary Called by the plugin (signed). What it is connected to and the latest posts it sent, for its settings page.
+ */
+export const wordpressPluginStatusBodySiteUrlMax = 2048;
+
+
+
+export const WordpressPluginStatusBody = zod.object({
+  "site": zod.object({
+  "url": zod.string().max(wordpressPluginStatusBodySiteUrlMax).optional().describe('The site\'s address (home_url). Required when connecting.'),
+  "name": zod.string().optional(),
+  "wpVersion": zod.string().optional(),
+  "pluginVersion": zod.string().optional()
+}).optional().describe('What the plugin says about the site it is installed on')
+})
+
+export const WordpressPluginStatusResponse = zod.object({
+  "connection": zod.object({
+  "status": zod.enum(['pending', 'connected', 'disconnected']).describe('pending = a key was issued and the plugin hasn\'t connected with it yet; disconnected = the WordPress admin disconnected the plugin'),
+  "workspaceName": zod.string(),
+  "automationName": zod.string(),
+  "automationStatus": zod.enum(['active', 'paused', 'error']).describe('error = stopped after 5 failed checks in a row; resume to try again'),
+  "mode": zod.enum(['publish', 'queue', 'draft']).describe('publish = goes out on the publisher\'s next pass (the approvals gate still applies); queue = next free queue slot, or a draft when there is none; draft = saved as a draft'),
+  "accounts": zod.array(zod.object({
+  "name": zod.string(),
+  "platform": zod.string(),
+  "status": zod.string()
+})),
+  "postsCreated": zod.number().int(),
+  "dashboardUrl": zod.string().nullable()
+}),
+  "recent": zod.array(zod.object({
+  "title": zod.string().nullable(),
+  "url": zod.string().nullable(),
+  "status": zod.enum(['pending', 'posted', 'skipped', 'failed']),
+  "error": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "postStatus": zod.string().nullable().describe('The social post\'s current status, when it still exists'),
+  "postScheduledAt": zod.coerce.date().nullable()
+})).describe('The latest 10 posts the plugin sent, newest first')
+})
+
+
+/**
+ * @summary Called by the plugin (signed) when a post is published. Makes the social post through the automation's settings, once: the same post sent again is a duplicate. A handled post is always a 200; see result.
+ */
+export const wordpressPluginPostBodyPostUrlMax = 2048;
+
+
+
+export const WordpressPluginPostBody = zod.object({
+  "post": zod.object({
+  "id": zod.number().int().optional(),
+  "guid": zod.string().optional().describe('WordPress\'s guid for the post: its identity for duplicate protection'),
+  "title": zod.string().optional(),
+  "excerpt": zod.string().optional(),
+  "url": zod.string().max(wordpressPluginPostBodyPostUrlMax).describe('The permalink'),
+  "imageUrl": zod.string().nullish().describe('The featured image'),
+  "author": zod.string().nullish(),
+  "publishedAt": zod.coerce.date().nullish()
+}).describe('A post as published on the site. Text is plain text; SocialFlow fetches nothing when it receives it.'),
+  "manual": zod.boolean().optional().describe('Someone pressed Share now in WordPress: a post that failed before is tried again whatever its attempt count')
+})
+
+export const WordpressPluginPostResponse = zod.object({
+  "result": zod.enum(['created', 'duplicate', 'skipped', 'failed']).describe('duplicate = SocialFlow already has this post; skipped = sharing is paused in SocialFlow; failed = it can\'t be posted as it is (see message)'),
+  "message": zod.string().describe('Words for the WordPress admin'),
+  "post": zod.union([zod.object({
+  "status": zod.enum(['scheduled', 'draft']),
+  "scheduledAt": zod.coerce.date().nullable()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Called by the plugin (signed) when the WordPress admin disconnects it. The key keeps working for a later connect until it is replaced in SocialFlow.
+ */
+export const wordpressPluginDisconnectBodySiteUrlMax = 2048;
+
+
+
+export const WordpressPluginDisconnectBody = zod.object({
+  "site": zod.object({
+  "url": zod.string().max(wordpressPluginDisconnectBodySiteUrlMax).optional().describe('The site\'s address (home_url). Required when connecting.'),
+  "name": zod.string().optional(),
+  "wpVersion": zod.string().optional(),
+  "pluginVersion": zod.string().optional()
+}).optional().describe('What the plugin says about the site it is installed on')
+})
+
+export const WordpressPluginDisconnectResponse = zod.object({
+  "ok": zod.boolean()
 })
 
 

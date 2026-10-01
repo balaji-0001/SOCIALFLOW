@@ -2893,7 +2893,7 @@ paths:
     post:
       operationId: createAutomation
       tags: [automations]
-      summary: "Create an automation (automations:manage). At most 25 per workspace. Its first run records what is already in the source and posts nothing, unless postExistingOnFirstRun."
+      summary: "Create an automation (automations:manage). At most 25 per workspace. A polled automation's first run records what is already in the source and posts nothing, unless postExistingOnFirstRun. A wordpress_plugin automation is created with a connectionKey for the plugin, returned this once."
       requestBody:
         required: true
         content:
@@ -3081,6 +3081,158 @@ paths:
                 $ref: "#/components/schemas/AutomationItemList"
         "404":
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /automations/{id}/plugin-key:
+    post:
+      operationId: replaceAutomationPluginKey
+      tags: [automations]
+      summary: "Replace a wordpress_plugin automation's connection key and return the new one, once (automations:manage). The old key stops working at once and the plugin is pending until it connects with the new one."
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The automation with its new connectionKey
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Automation"
+        "400":
+          description: Not a wordpress_plugin automation (not_a_plugin_automation)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /wordpress-plugin/connect:
+    post:
+      operationId: wordpressPluginConnect
+      tags: [wordpress-plugin]
+      summary: "Called by the SocialFlow WordPress plugin, not by the app. No session: the request is signed with the connection key (X-SocialFlow-Key, X-SocialFlow-Timestamp, X-SocialFlow-Signature: v1=<hex HMAC-SHA256 of \"<timestamp>.<raw body>\">). Records the site and marks the plugin connected."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WordPressPluginSiteInput"
+      responses:
+        "200":
+          description: Connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WordPressPluginConnected"
+        "400":
+          description: The site's address is missing (invalid_site)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: "unknown_key (the key was replaced or its automation deleted), bad_signature, or stale_timestamp (the clocks are more than 10 minutes apart)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /wordpress-plugin/status:
+    post:
+      operationId: wordpressPluginStatus
+      tags: [wordpress-plugin]
+      summary: "Called by the plugin (signed). What it is connected to and the latest posts it sent, for its settings page."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WordPressPluginSiteInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WordPressPluginStatus"
+        "401":
+          description: unknown_key, bad_signature or stale_timestamp
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: The plugin was disconnected (not_connected)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /wordpress-plugin/posts:
+    post:
+      operationId: wordpressPluginPost
+      tags: [wordpress-plugin]
+      summary: "Called by the plugin (signed) when a post is published. Makes the social post through the automation's settings, once: the same post sent again is a duplicate. A handled post is always a 200; see result."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WordPressPluginPostInput"
+      responses:
+        "200":
+          description: Handled (created, duplicate, skipped or failed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WordPressPluginPostResult"
+        "401":
+          description: unknown_key, bad_signature or stale_timestamp
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: The plugin was disconnected (not_connected)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: The post has no usable web address (invalid_post)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: More posts than one site may send in an hour (rate_limited); try again later
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /wordpress-plugin/disconnect:
+    post:
+      operationId: wordpressPluginDisconnect
+      tags: [wordpress-plugin]
+      summary: "Called by the plugin (signed) when the WordPress admin disconnects it. The key keeps working for a later connect until it is replaced in SocialFlow."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WordPressPluginSiteInput"
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WordPressPluginOk"
+        "401":
+          description: unknown_key, bad_signature or stale_timestamp
           content:
             application/json:
               schema:
@@ -4828,7 +4980,25 @@ components:
         runs: { type: array, items: { $ref: "#/components/schemas/ReportRun" } }
     AutomationKind:
       type: string
-      enum: [wordpress, rss]
+      enum: [wordpress, rss, wordpress_plugin]
+      description: "wordpress and rss are polled. wordpress_plugin is never polled: the SocialFlow plugin on the site sends each post as it is published."
+    AutomationPluginStatus:
+      type: string
+      enum: [pending, connected, disconnected]
+      description: "pending = a key was issued and the plugin hasn't connected with it yet; disconnected = the WordPress admin disconnected the plugin"
+    AutomationPlugin:
+      type: object
+      description: "The plugin's side of a wordpress_plugin automation, as it last reported itself"
+      required: [status, siteUrl, siteName, wpVersion, pluginVersion, connectedAt, lastSeenAt, lastPostAt]
+      properties:
+        status: { $ref: "#/components/schemas/AutomationPluginStatus" }
+        siteUrl: { type: ["string", "null"] }
+        siteName: { type: ["string", "null"] }
+        wpVersion: { type: ["string", "null"] }
+        pluginVersion: { type: ["string", "null"] }
+        connectedAt: { type: ["string", "null"], format: date-time }
+        lastSeenAt: { type: ["string", "null"], format: date-time, description: "The last signed request from the plugin" }
+        lastPostAt: { type: ["string", "null"], format: date-time, description: "The last post from the plugin that became a social post" }
     AutomationStatus:
       type: string
       enum: [active, paused, error]
@@ -4867,14 +5037,20 @@ components:
         status: { type: string, description: "The connected account's status; anything but active needs a reconnect" }
     Automation:
       type: object
-      required: [id, kind, name, sourceUrl, status, config, lastRunAt, nextRunAt, lastStatus, lastError, consecutiveFailures, postsCreatedTotal, accounts, createdAt, updatedAt]
+      required: [id, kind, name, sourceUrl, status, config, plugin, lastRunAt, nextRunAt, lastStatus, lastError, consecutiveFailures, postsCreatedTotal, accounts, createdAt, updatedAt]
       properties:
         id: { type: string }
         kind: { $ref: "#/components/schemas/AutomationKind" }
         name: { type: string }
-        sourceUrl: { type: string }
+        sourceUrl: { type: string, description: "wordpress_plugin: the site the plugin connected from, empty until it has" }
         status: { $ref: "#/components/schemas/AutomationStatus" }
         config: { $ref: "#/components/schemas/AutomationConfig" }
+        plugin:
+          oneOf:
+            - $ref: "#/components/schemas/AutomationPlugin"
+            - type: "null"
+          description: "Set for wordpress_plugin automations, null for the others"
+        connectionKey: { type: ["string", "null"], description: "Only in the answer that creates a wordpress_plugin automation or replaces its key. What the user pastes into the plugin; it is never returned again." }
         lastRunAt: { type: ["string", "null"], format: date-time }
         nextRunAt: { type: ["string", "null"], format: date-time, description: "null unless active" }
         lastStatus: { type: ["string", "null"], description: "success, no_new, partial or failed" }
@@ -4900,11 +5076,11 @@ components:
         pollMinutes: { $ref: "#/components/schemas/AutomationPollMinutes" }
     AutomationCreateInput:
       type: object
-      required: [kind, name, sourceUrl, config]
+      required: [kind, name, config]
       properties:
         kind: { $ref: "#/components/schemas/AutomationKind" }
         name: { type: string, maxLength: 120 }
-        sourceUrl: { type: string, maxLength: 2048, description: "wordpress: the site's address (a bare domain is fine); rss: the feed's address. http(s) only." }
+        sourceUrl: { type: string, maxLength: 2048, description: "Required for wordpress (the site's address; a bare domain is fine) and rss (the feed's address). http(s) only. Not used for wordpress_plugin." }
         config: { $ref: "#/components/schemas/AutomationConfigInput" }
     AutomationUpdateInput:
       type: object
@@ -4963,6 +5139,99 @@ components:
       properties:
         kind: { $ref: "#/components/schemas/AutomationKind" }
         url: { type: string, maxLength: 2048 }
+    WordPressPluginSite:
+      type: object
+      description: "What the plugin says about the site it is installed on"
+      properties:
+        url: { type: string, maxLength: 2048, description: "The site's address (home_url). Required when connecting." }
+        name: { type: string }
+        wpVersion: { type: string }
+        pluginVersion: { type: string }
+    WordPressPluginSiteInput:
+      type: object
+      properties:
+        site: { $ref: "#/components/schemas/WordPressPluginSite" }
+    WordPressPluginAccount:
+      type: object
+      required: [name, platform, status]
+      properties:
+        name: { type: string }
+        platform: { type: string }
+        status: { type: string }
+    WordPressPluginConnection:
+      type: object
+      required: [status, workspaceName, automationName, automationStatus, mode, accounts, postsCreated, dashboardUrl]
+      properties:
+        status: { $ref: "#/components/schemas/AutomationPluginStatus" }
+        workspaceName: { type: string }
+        automationName: { type: string }
+        automationStatus: { $ref: "#/components/schemas/AutomationStatus" }
+        mode: { $ref: "#/components/schemas/AutomationMode" }
+        accounts: { type: array, items: { $ref: "#/components/schemas/WordPressPluginAccount" } }
+        postsCreated: { type: integer }
+        dashboardUrl: { type: ["string", "null"] }
+    WordPressPluginConnected:
+      type: object
+      required: [connection]
+      properties:
+        connection: { $ref: "#/components/schemas/WordPressPluginConnection" }
+    WordPressPluginShare:
+      type: object
+      required: [title, url, status, error, createdAt, postStatus, postScheduledAt]
+      properties:
+        title: { type: ["string", "null"] }
+        url: { type: ["string", "null"] }
+        status: { type: string, enum: [pending, posted, skipped, failed] }
+        error: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        postStatus: { type: ["string", "null"], description: "The social post's current status, when it still exists" }
+        postScheduledAt: { type: ["string", "null"], format: date-time }
+    WordPressPluginStatus:
+      type: object
+      required: [connection, recent]
+      properties:
+        connection: { $ref: "#/components/schemas/WordPressPluginConnection" }
+        recent: { type: array, items: { $ref: "#/components/schemas/WordPressPluginShare" }, description: "The latest 10 posts the plugin sent, newest first" }
+    WordPressPluginPost:
+      type: object
+      description: "A post as published on the site. Text is plain text; SocialFlow fetches nothing when it receives it."
+      required: [url]
+      properties:
+        id: { type: integer }
+        guid: { type: string, description: "WordPress's guid for the post: its identity for duplicate protection" }
+        title: { type: string }
+        excerpt: { type: string }
+        url: { type: string, maxLength: 2048, description: "The permalink" }
+        imageUrl: { type: ["string", "null"], description: "The featured image" }
+        author: { type: ["string", "null"] }
+        publishedAt: { type: ["string", "null"], format: date-time }
+    WordPressPluginPostInput:
+      type: object
+      required: [post]
+      properties:
+        post: { $ref: "#/components/schemas/WordPressPluginPost" }
+        manual: { type: boolean, description: "Someone pressed Share now in WordPress: a post that failed before is tried again whatever its attempt count" }
+    WordPressPluginPostCreated:
+      type: object
+      required: [status, scheduledAt]
+      properties:
+        status: { type: string, enum: [scheduled, draft] }
+        scheduledAt: { type: ["string", "null"], format: date-time }
+    WordPressPluginPostResult:
+      type: object
+      required: [result, message, post]
+      properties:
+        result: { type: string, enum: [created, duplicate, skipped, failed], description: "duplicate = SocialFlow already has this post; skipped = sharing is paused in SocialFlow; failed = it can't be posted as it is (see message)" }
+        message: { type: string, description: "Words for the WordPress admin" }
+        post:
+          oneOf:
+            - $ref: "#/components/schemas/WordPressPluginPostCreated"
+            - type: "null"
+    WordPressPluginOk:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
     AutomationSourceItem:
       type: object
       required: [title, url, publishedAt, imageUrl, excerpt]

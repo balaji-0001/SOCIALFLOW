@@ -22,8 +22,10 @@
 .sfa-auto-dim { color: hsl(var(--muted-foreground)); }
 .sfa-auto-code { color: hsl(var(--foreground)); font-family: var(--app-font-mono); font-size: 12.5px; overflow-wrap: anywhere; }
 .sfa-auto-inlinelink { color: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
-.sfa-auto-mark { align-items: center; border-radius: 28%; color: #fff; display: inline-flex; flex: none; justify-content: center; }
+.sfa-auto-mark { align-items: center; border-radius: 28%; color: #fff; display: inline-flex; flex: none; justify-content: center; position: relative; }
 .sfa-auto-mark--csv { background: hsl(var(--primary-soft)); color: hsl(var(--primary)); }
+/* The bolt on the plugin's WordPress mark: posts arrive at once. Ringed in the surface colour so it reads on any card. */
+.sfa-auto-mark__badge { align-items: center; background: hsl(var(--primary)); border-radius: 50%; bottom: -4px; box-shadow: 0 0 0 2px hsl(var(--surface)); color: hsl(var(--primary-foreground)); display: inline-flex; height: 46%; justify-content: center; min-height: 14px; min-width: 14px; position: absolute; right: -4px; width: 46%; }
 
 /* ---------- Summary tiles ---------- */
 .sfa-auto-stats { display: grid; gap: var(--space-3); grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -72,6 +74,13 @@
 .sfa-auto-problem strong { font-weight: 600; }
 .sfa-auto-problem p { margin: 0; overflow-wrap: anywhere; }
 .sfa-auto-problem .sfa-auto-problem__todo { color: hsl(var(--foreground)); }
+.sfa-auto-problem.is-warn { background: hsl(var(--warning-soft)); border-color: hsl(var(--warning) / .28); color: hsl(var(--warning)); }
+/* A plugin automation that no site has connected to yet: what is missing and the way to fix it, side by side. */
+.sfa-auto-setupnote { align-items: center; background: hsl(var(--primary-soft)); border: 1px solid hsl(var(--primary) / .28); border-radius: var(--radius-md-app); display: flex; flex-wrap: wrap; font-size: var(--text-small); gap: var(--space-2) var(--space-3); line-height: 1.5; padding: var(--space-3); }
+.sfa-auto-setupnote > svg { color: hsl(var(--primary)); flex: none; }
+.sfa-auto-setupnote > div { display: grid; flex: 1 1 240px; gap: 2px; min-width: 0; }
+.sfa-auto-setupnote strong { font-weight: 600; }
+.sfa-auto-setupnote p { color: hsl(var(--muted-foreground)); margin: 0; overflow-wrap: anywhere; }
 .sfa-auto-card__actions { align-items: center; border-top: 1px solid hsl(var(--border)); display: flex; flex-wrap: wrap; gap: var(--space-2); padding-top: var(--space-3); }
 .sfa-btn.sfa-auto-card__delete { margin-left: auto; }
 .sfa-btn.sfa-auto-card__delete:hover:not(:disabled) { background: hsl(var(--error-soft)); color: hsl(var(--error)); }
@@ -79,11 +88,12 @@
 /* ---------- Empty state: the three ways to start ---------- */
 .sfa-auto-empty .sfa-emptystate { padding: var(--space-8) var(--space-5); }
 .sfa-auto-empty .sfa-emptystate__actions { align-self: stretch; }
-.sfa-auto-options { display: grid; gap: var(--space-3); grid-template-columns: repeat(3, minmax(0, 1fr)); margin: var(--space-2) auto 0; max-width: 900px; text-align: left; width: 100%; }
-.sfa-auto-option { align-content: start; background: hsl(var(--surface-2)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-lg-app); display: grid; gap: var(--space-2); justify-items: start; min-width: 0; padding: var(--space-4); }
+.sfa-auto-options { display: grid; gap: var(--space-3); grid-template-columns: repeat(4, minmax(0, 1fr)); margin: var(--space-2) auto 0; max-width: 1120px; text-align: left; width: 100%; }
+/* A column, so the buttons line up along the bottom however long each description is. */
+.sfa-auto-option { align-items: flex-start; background: hsl(var(--surface-2)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-lg-app); display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; padding: var(--space-4); }
 .sfa-auto-option strong { font-size: var(--text-body); font-weight: 600; }
 .sfa-auto-options .sfa-auto-option p { color: hsl(var(--muted-foreground)); font-size: var(--text-small); line-height: 1.5; margin: 0 0 var(--space-1); max-width: none; }
-.sfa-auto-option .sfa-btn { max-width: 100%; }
+.sfa-auto-option .sfa-btn { margin-top: auto; max-width: 100%; }
 
 /* ---------- New automation menu ---------- */
 .sfa-auto-menuitem { align-items: center; cursor: pointer; gap: var(--space-3); padding: var(--space-2) var(--space-3); }
@@ -177,6 +187,30 @@
 .sfa-auto-foot { align-items: center; border-top: 1px solid hsl(var(--border)); display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; padding-top: var(--space-4); }
 .sfa-auto-foot__hint { color: hsl(var(--muted-foreground)); flex: 1; font-size: var(--text-small); min-width: 160px; }
 .sfa-auto-foot__hint.is-error { color: hsl(var(--error)); font-weight: 600; }
+
+/* ---------- WordPress plugin setup dialog ---------- */
+.sfa-dialog.sfa-auto-setup { max-width: 640px; }
+.sfa-auto-setup__steps { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1fr); list-style: none; margin: var(--space-2) 0 0; padding: 0; }
+.sfa-auto-setup__steps > li { align-items: flex-start; display: flex; gap: var(--space-3); min-width: 0; }
+.sfa-auto-setup__steps > li > div { display: grid; flex: 1; gap: var(--space-2); grid-template-columns: minmax(0, 1fr); justify-items: start; min-width: 0; }
+.sfa-auto-setup__steps strong { font-size: var(--text-body); font-weight: 600; line-height: 28px; }
+.sfa-auto-setup__steps p { color: hsl(var(--muted-foreground)); font-size: var(--text-small); line-height: 1.55; margin: calc(-1 * var(--space-1)) 0 0; overflow-wrap: anywhere; }
+.sfa-auto-setup__steps em { color: hsl(var(--foreground)); font-style: normal; font-weight: 600; }
+.sfa-auto-key { display: grid; gap: var(--space-2); grid-template-columns: minmax(0, 1fr); justify-self: stretch; min-width: 0; }
+.sfa-textarea.sfa-auto-key__box { background: hsl(var(--surface-2)); border-radius: var(--radius-md-app); font-family: var(--app-font-mono); font-size: 12.5px; line-height: 1.5; min-height: 0; overflow-wrap: anywhere; padding: var(--space-2) var(--space-3); resize: none; word-break: break-all; }
+.sfa-auto-key__row { align-items: center; display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); }
+.sfa-auto-key__row .sfa-auto-muted { flex: 1 1 180px; }
+.sfa-auto-key > .sfa-auto-muted { margin: 0; }
+.sfa-auto-setup__state { align-items: flex-start; background: hsl(var(--foreground) / .06); border-radius: var(--radius-md-app); display: flex; font-size: var(--text-small); gap: var(--space-3); line-height: 1.5; margin-top: var(--space-5); padding: var(--space-3); }
+.sfa-auto-setup__state > svg { color: hsl(var(--muted-foreground)); flex: none; margin-top: 1px; }
+.sfa-auto-setup__state > div { display: grid; gap: 1px; min-width: 0; }
+.sfa-auto-setup__state strong { font-weight: 600; overflow-wrap: anywhere; }
+.sfa-auto-setup__state span { color: hsl(var(--muted-foreground)); overflow-wrap: anywhere; }
+.sfa-auto-setup__state.is-ok { background: hsl(var(--success-soft)); }
+.sfa-auto-setup__state.is-ok > svg { color: hsl(var(--success)); }
+.sfa-auto-setup__state.is-warn { background: hsl(var(--warning-soft)); }
+.sfa-auto-setup__state.is-warn > svg { color: hsl(var(--warning)); }
+.sfa-auto-setup > .sfa-auto-foot { margin-top: var(--space-5); }
 
 /* ---------- History drawer (rendered in a portal, so it sets its own type) ---------- */
 @keyframes sfa-auto-slide { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
@@ -333,6 +367,9 @@ a.sfa-auto-chip--link:focus-visible { outline: 2px solid hsl(var(--primary)); ou
 }
 @media (max-width: 900px) {
   .sfa-auto-stats, .sfa-auto-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 1180px) {
+  .sfa-auto-options { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 720px; }
 }
 @media (max-width: 760px) {
   .sfa-auto-options { grid-template-columns: minmax(0, 1fr); }

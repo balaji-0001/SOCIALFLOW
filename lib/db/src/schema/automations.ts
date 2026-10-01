@@ -3,8 +3,12 @@ import { postsTable } from "./posts";
 import { usersTable } from "./users";
 import { workspacesTable } from "./workspaces";
 
-export const automationKinds = ["wordpress", "rss"] as const;
+// "wordpress" and "rss" are polled (lib/automations.ts). "wordpress_plugin" is never polled: the SocialFlow plugin on
+// the site sends each post as it is published (lib/wordpress-plugin.ts).
+export const automationKinds = ["wordpress", "rss", "wordpress_plugin"] as const;
 export type AutomationKind = (typeof automationKinds)[number];
+export type PolledAutomationKind = Exclude<AutomationKind, "wordpress_plugin">;
+export const isPolledKind = (kind: AutomationKind): kind is PolledAutomationKind => kind !== "wordpress_plugin";
 export type AutomationStatus = "active" | "paused" | "error";
 export type AutomationMode = "publish" | "queue" | "draft";
 
@@ -83,6 +87,33 @@ export const automationRunsTable = pgTable(
   (table) => [index("socialflow_automation_runs_idx").on(table.automationId, table.startedAt)],
 );
 
+export type WordPressConnectionStatus = "pending" | "connected" | "disconnected";
+
+// The plugin side of a "wordpress_plugin" automation: the key that signs the plugin's requests (the secret is stored
+// encrypted, see lib/crypto.ts) and what the plugin last reported about its site. pending = key issued, plugin not
+// connected yet; disconnected = the WordPress admin disconnected it.
+export const wordpressConnectionsTable = pgTable(
+  "socialflow_wordpress_connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    automationId: uuid("automation_id").notNull().unique().references(() => automationsTable.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspacesTable.id, { onDelete: "cascade" }),
+    keyId: text("key_id").notNull().unique(),
+    secretEncrypted: text("secret_encrypted").notNull(),
+    status: text("status").$type<WordPressConnectionStatus>().notNull().default("pending"),
+    siteUrl: text("site_url"),
+    siteName: text("site_name"),
+    wpVersion: text("wp_version"),
+    pluginVersion: text("plugin_version"),
+    connectedAt: timestamp("connected_at", { withTimezone: true }),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    lastPostAt: timestamp("last_post_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  },
+  (table) => [index("socialflow_wordpress_connections_workspace_idx").on(table.workspaceId)],
+);
+
 export type BulkImportStatus = "completed" | "partial" | "failed";
 export type BulkImportRowError = { row: number; message: string };
 
@@ -108,4 +139,5 @@ export const bulkImportsTable = pgTable(
 export type Automation = typeof automationsTable.$inferSelect;
 export type AutomationItem = typeof automationItemsTable.$inferSelect;
 export type AutomationRun = typeof automationRunsTable.$inferSelect;
+export type WordPressConnection = typeof wordpressConnectionsTable.$inferSelect;
 export type BulkImport = typeof bulkImportsTable.$inferSelect;

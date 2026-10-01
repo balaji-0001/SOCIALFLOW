@@ -128,6 +128,12 @@ import type {
   TagList,
   Team,
   UpdatePostRequest,
+  WordPressPluginConnected,
+  WordPressPluginOk,
+  WordPressPluginPostInput,
+  WordPressPluginPostResult,
+  WordPressPluginSiteInput,
+  WordPressPluginStatus,
   WorkspaceList
 } from './api.schemas';
 
@@ -8098,7 +8104,7 @@ export const getCreateAutomationUrl = () => {
 }
 
 /**
- * @summary Create an automation (automations:manage). At most 25 per workspace. Its first run records what is already in the source and posts nothing, unless postExistingOnFirstRun.
+ * @summary Create an automation (automations:manage). At most 25 per workspace. A polled automation's first run records what is already in the source and posts nothing, unless postExistingOnFirstRun. A wordpress_plugin automation is created with a connectionKey for the plugin, returned this once.
  */
 export const createAutomation = async (automationCreateInput: AutomationCreateInput, options?: Parameters<typeof customFetch>[1]): Promise<Automation> => {
 
@@ -8164,7 +8170,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateAutomationMutationVariables = {data: BodyType<AutomationCreateInput>}
 
     /**
- * @summary Create an automation (automations:manage). At most 25 per workspace. Its first run records what is already in the source and posts nothing, unless postExistingOnFirstRun.
+ * @summary Create an automation (automations:manage). At most 25 per workspace. A polled automation's first run records what is already in the source and posts nothing, unless postExistingOnFirstRun. A wordpress_plugin automation is created with a connectionKey for the plugin, returned this once.
  */
 export const useCreateAutomation = <TError = ErrorType<ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAutomation>>, TError,CreateAutomationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -8792,6 +8798,432 @@ export function useListAutomationItems<TData = Awaited<ReturnType<typeof listAut
 
 
 
+
+export const getReplaceAutomationPluginKeyUrl = (id: string,) => {
+
+
+
+
+  return `/api/automations/${id}/plugin-key`
+}
+
+/**
+ * @summary Replace a wordpress_plugin automation's connection key and return the new one, once (automations:manage). The old key stops working at once and the plugin is pending until it connects with the new one.
+ */
+export const replaceAutomationPluginKey = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<Automation> => {
+
+  return customFetch<Automation>(getReplaceAutomationPluginKeyUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReplaceAutomationPluginKeyMutationKey = () => ['replaceAutomationPluginKey'] as const;
+
+export const getReplaceAutomationPluginKeyMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof replaceAutomationPluginKey>>, TError,ReplaceAutomationPluginKeyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof replaceAutomationPluginKey>>, TError,ReplaceAutomationPluginKeyMutationVariables, TContext> => {
+
+const mutationKey = getReplaceAutomationPluginKeyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof replaceAutomationPluginKey>>, ReplaceAutomationPluginKeyMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  replaceAutomationPluginKey(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReplaceAutomationPluginKeyMutationResult = NonNullable<Awaited<ReturnType<typeof replaceAutomationPluginKey>>>
+
+    export type ReplaceAutomationPluginKeyMutationError = ErrorType<ErrorResponse>
+    export type ReplaceAutomationPluginKeyMutationVariables = {id: string}
+
+    /**
+ * @summary Replace a wordpress_plugin automation's connection key and return the new one, once (automations:manage). The old key stops working at once and the plugin is pending until it connects with the new one.
+ */
+export const useReplaceAutomationPluginKey = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof replaceAutomationPluginKey>>, TError,ReplaceAutomationPluginKeyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof replaceAutomationPluginKey>>,
+        TError,
+        ReplaceAutomationPluginKeyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReplaceAutomationPluginKeyMutationOptions(options));
+    }
+
+export const getWordpressPluginConnectUrl = () => {
+
+
+
+
+  return `/api/wordpress-plugin/connect`
+}
+
+/**
+ * @summary Called by the SocialFlow WordPress plugin, not by the app. No session: the request is signed with the connection key (X-SocialFlow-Key, X-SocialFlow-Timestamp, X-SocialFlow-Signature: v1=<hex HMAC-SHA256 of "<timestamp>.<raw body>">). Records the site and marks the plugin connected.
+ */
+export const wordpressPluginConnect = async (wordPressPluginSiteInput: WordPressPluginSiteInput, options?: Parameters<typeof customFetch>[1]): Promise<WordPressPluginConnected> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<WordPressPluginConnected>(getWordpressPluginConnectUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(wordPressPluginSiteInput)
+  }
+);}
+
+
+
+
+
+export const getWordpressPluginConnectMutationKey = () => ['wordpressPluginConnect'] as const;
+
+export const getWordpressPluginConnectMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof wordpressPluginConnect>>, TError,WordpressPluginConnectMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof wordpressPluginConnect>>, TError,WordpressPluginConnectMutationVariables, TContext> => {
+
+const mutationKey = getWordpressPluginConnectMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof wordpressPluginConnect>>, WordpressPluginConnectMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  wordpressPluginConnect(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type WordpressPluginConnectMutationResult = NonNullable<Awaited<ReturnType<typeof wordpressPluginConnect>>>
+    export type WordpressPluginConnectMutationBody = BodyType<WordPressPluginSiteInput>
+    export type WordpressPluginConnectMutationError = ErrorType<ErrorResponse>
+    export type WordpressPluginConnectMutationVariables = {data: BodyType<WordPressPluginSiteInput>}
+
+    /**
+ * @summary Called by the SocialFlow WordPress plugin, not by the app. No session: the request is signed with the connection key (X-SocialFlow-Key, X-SocialFlow-Timestamp, X-SocialFlow-Signature: v1=<hex HMAC-SHA256 of "<timestamp>.<raw body>">). Records the site and marks the plugin connected.
+ */
+export const useWordpressPluginConnect = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof wordpressPluginConnect>>, TError,WordpressPluginConnectMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof wordpressPluginConnect>>,
+        TError,
+        WordpressPluginConnectMutationVariables,
+        TContext
+      > => {
+      return useMutation(getWordpressPluginConnectMutationOptions(options));
+    }
+
+export const getWordpressPluginStatusUrl = () => {
+
+
+
+
+  return `/api/wordpress-plugin/status`
+}
+
+/**
+ * @summary Called by the plugin (signed). What it is connected to and the latest posts it sent, for its settings page.
+ */
+export const wordpressPluginStatus = async (wordPressPluginSiteInput: WordPressPluginSiteInput, options?: Parameters<typeof customFetch>[1]): Promise<WordPressPluginStatus> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<WordPressPluginStatus>(getWordpressPluginStatusUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(wordPressPluginSiteInput)
+  }
+);}
+
+
+
+
+
+export const getWordpressPluginStatusMutationKey = () => ['wordpressPluginStatus'] as const;
+
+export const getWordpressPluginStatusMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof wordpressPluginStatus>>, TError,WordpressPluginStatusMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof wordpressPluginStatus>>, TError,WordpressPluginStatusMutationVariables, TContext> => {
+
+const mutationKey = getWordpressPluginStatusMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof wordpressPluginStatus>>, WordpressPluginStatusMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  wordpressPluginStatus(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type WordpressPluginStatusMutationResult = NonNullable<Awaited<ReturnType<typeof wordpressPluginStatus>>>
+    export type WordpressPluginStatusMutationBody = BodyType<WordPressPluginSiteInput>
+    export type WordpressPluginStatusMutationError = ErrorType<ErrorResponse>
+    export type WordpressPluginStatusMutationVariables = {data: BodyType<WordPressPluginSiteInput>}
+
+    /**
+ * @summary Called by the plugin (signed). What it is connected to and the latest posts it sent, for its settings page.
+ */
+export const useWordpressPluginStatus = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof wordpressPluginStatus>>, TError,WordpressPluginStatusMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof wordpressPluginStatus>>,
+        TError,
+        WordpressPluginStatusMutationVariables,
+        TContext
+      > => {
+      return useMutation(getWordpressPluginStatusMutationOptions(options));
+    }
+
+export const getWordpressPluginPostUrl = () => {
+
+
+
+
+  return `/api/wordpress-plugin/posts`
+}
+
+/**
+ * @summary Called by the plugin (signed) when a post is published. Makes the social post through the automation's settings, once: the same post sent again is a duplicate. A handled post is always a 200; see result.
+ */
+export const wordpressPluginPost = async (wordPressPluginPostInput: WordPressPluginPostInput, options?: Parameters<typeof customFetch>[1]): Promise<WordPressPluginPostResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<WordPressPluginPostResult>(getWordpressPluginPostUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(wordPressPluginPostInput)
+  }
+);}
+
+
+
+
+
+export const getWordpressPluginPostMutationKey = () => ['wordpressPluginPost'] as const;
+
+export const getWordpressPluginPostMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof wordpressPluginPost>>, TError,WordpressPluginPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof wordpressPluginPost>>, TError,WordpressPluginPostMutationVariables, TContext> => {
+
+const mutationKey = getWordpressPluginPostMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof wordpressPluginPost>>, WordpressPluginPostMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  wordpressPluginPost(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type WordpressPluginPostMutationResult = NonNullable<Awaited<ReturnType<typeof wordpressPluginPost>>>
+    export type WordpressPluginPostMutationBody = BodyType<WordPressPluginPostInput>
+    export type WordpressPluginPostMutationError = ErrorType<ErrorResponse>
+    export type WordpressPluginPostMutationVariables = {data: BodyType<WordPressPluginPostInput>}
+
+    /**
+ * @summary Called by the plugin (signed) when a post is published. Makes the social post through the automation's settings, once: the same post sent again is a duplicate. A handled post is always a 200; see result.
+ */
+export const useWordpressPluginPost = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof wordpressPluginPost>>, TError,WordpressPluginPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof wordpressPluginPost>>,
+        TError,
+        WordpressPluginPostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getWordpressPluginPostMutationOptions(options));
+    }
+
+export const getWordpressPluginDisconnectUrl = () => {
+
+
+
+
+  return `/api/wordpress-plugin/disconnect`
+}
+
+/**
+ * @summary Called by the plugin (signed) when the WordPress admin disconnects it. The key keeps working for a later connect until it is replaced in SocialFlow.
+ */
+export const wordpressPluginDisconnect = async (wordPressPluginSiteInput: WordPressPluginSiteInput, options?: Parameters<typeof customFetch>[1]): Promise<WordPressPluginOk> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<WordPressPluginOk>(getWordpressPluginDisconnectUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(wordPressPluginSiteInput)
+  }
+);}
+
+
+
+
+
+export const getWordpressPluginDisconnectMutationKey = () => ['wordpressPluginDisconnect'] as const;
+
+export const getWordpressPluginDisconnectMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof wordpressPluginDisconnect>>, TError,WordpressPluginDisconnectMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof wordpressPluginDisconnect>>, TError,WordpressPluginDisconnectMutationVariables, TContext> => {
+
+const mutationKey = getWordpressPluginDisconnectMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof wordpressPluginDisconnect>>, WordpressPluginDisconnectMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  wordpressPluginDisconnect(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type WordpressPluginDisconnectMutationResult = NonNullable<Awaited<ReturnType<typeof wordpressPluginDisconnect>>>
+    export type WordpressPluginDisconnectMutationBody = BodyType<WordPressPluginSiteInput>
+    export type WordpressPluginDisconnectMutationError = ErrorType<ErrorResponse>
+    export type WordpressPluginDisconnectMutationVariables = {data: BodyType<WordPressPluginSiteInput>}
+
+    /**
+ * @summary Called by the plugin (signed) when the WordPress admin disconnects it. The key keeps working for a later connect until it is replaced in SocialFlow.
+ */
+export const useWordpressPluginDisconnect = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof wordpressPluginDisconnect>>, TError,WordpressPluginDisconnectMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof wordpressPluginDisconnect>>,
+        TError,
+        WordpressPluginDisconnectMutationVariables,
+        TContext
+      > => {
+      return useMutation(getWordpressPluginDisconnectMutationOptions(options));
+    }
 
 export const getPreviewBulkImportUrl = () => {
 

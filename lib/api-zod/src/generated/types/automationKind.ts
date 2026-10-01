@@ -6,10 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * wordpress and rss are polled. wordpress_plugin is never polled: the SocialFlow plugin on the site sends each post as it is published.
+ */
 export type AutomationKind = typeof AutomationKind[keyof typeof AutomationKind];
 
 
 export const AutomationKind = {
   wordpress: 'wordpress',
   rss: 'rss',
+  wordpress_plugin: 'wordpress_plugin',
 } as const;

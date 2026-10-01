@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --config vite.config.ts --host 0.0.0.0",
-    "build": "vite build --config vite.config.ts && node scripts/prerender-legal.mjs",
+    "dev": "node scripts/build-wordpress-plugin.mjs && vite --config vite.config.ts --host 0.0.0.0",
+    "build": "node scripts/build-wordpress-plugin.mjs && vite build --config vite.config.ts && node scripts/prerender-legal.mjs",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

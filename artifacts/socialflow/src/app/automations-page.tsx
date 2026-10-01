@@ -4,8 +4,8 @@ import { useLocation, useSearch } from 'wouter';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  CalendarClock, ChevronDown, ChevronRight, CircleAlert, CircleCheck, CirclePause, CirclePlay, Clock, Download, ExternalLink, FilePen, FileSpreadsheet, FlaskConical,
-  History, Image as ImageIcon, ImageOff, Info, Link2, ListOrdered, MessageSquare, Pause, Pencil, Play, Plus, RefreshCw, Rss, Send, ShieldCheck, Trash2, TriangleAlert, UploadCloud, Workflow, X,
+  CalendarClock, Check, ChevronDown, ChevronRight, CircleAlert, CircleCheck, CirclePause, CirclePlay, Clock, Copy, Download, ExternalLink, FilePen, FileSpreadsheet, FlaskConical,
+  History, Image as ImageIcon, ImageOff, Info, KeyRound, Link2, ListOrdered, LoaderCircle, MessageSquare, Pause, Pencil, Play, Plus, RefreshCw, Rss, Send, ShieldCheck, Trash2, TriangleAlert, UploadCloud, Workflow, X, Zap,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -30,6 +30,7 @@ import {
   useListConnectedAccounts,
   usePauseAutomation,
   usePreviewBulkImport,
+  useReplaceAutomationPluginKey,
   useResumeAutomation,
   useRunAutomationNow,
   useTestAutomationSource,
@@ -159,13 +160,23 @@ const KIND_META: Record<AutomationKind, { label: string; longLabel: string; colo
     urlLabel: 'Feed address', urlHelp: 'The feed address', urlPlaceholder: 'https://example.com/feed',
     title: 'Share new items from a feed', about: 'Each new item in an RSS or Atom feed becomes a post for the accounts you choose.',
   },
+  // Not polled and has no address to enter: the SocialFlow plugin on the site sends each post as it is published.
+  wordpress_plugin: {
+    label: 'WordPress plugin', longLabel: 'WordPress plugin', color: '#21759b',
+    sources: '', urlLabel: '', urlHelp: '', urlPlaceholder: '',
+    title: 'Share posts with the WordPress plugin', about: 'The SocialFlow plugin on your WordPress site sends each post the moment it is published, and it becomes a post for the accounts you choose.',
+  },
 };
+
+/** Where the plugin's zip is served from (packed from wordpress-plugin/ by scripts/build-wordpress-plugin.mjs). */
+const PLUGIN_DOWNLOAD = '/downloads/socialflow-auto-share.zip';
+const isPluginKind = (kind: AutomationKind): boolean => kind === 'wordpress_plugin';
 
 type PollMinutes = AutomationList['pollMinutes'];
 
 /** How often the server checks a kind of source, in words ("every 15 minutes", "every hour"), or '' until it has said. */
 function cadenceOf(kind: AutomationKind, poll: PollMinutes | null | undefined): string {
-  const minutes = poll?.[kind];
+  const minutes = kind === 'wordpress_plugin' ? undefined : poll?.[kind];
   if (typeof minutes !== 'number' || !Number.isFinite(minutes) || minutes < 1) return '';
   if (minutes % 60 === 0) return minutes === 60 ? 'every hour' : `every ${minutes / 60} hours`;
   return minutes === 1 ? 'every minute' : `every ${minutes} minutes`;
@@ -210,6 +221,9 @@ const AUTOMATION_MODES: RadioOption<AutomationMode>[] = [
   { value: 'draft', label: 'Save as draft', description: 'Nothing is sent until you review it.', Icon: FilePen },
 ];
 
+/** The same three choices, in the words of a post that arrives from the plugin the moment it is published. */
+const PLUGIN_MODES: RadioOption<AutomationMode>[] = AUTOMATION_MODES.map((option) => (option.value === 'publish' ? { ...option, description: 'Goes out within about a minute of being published on your site.' } : option));
+
 const IMPORT_MODES: RadioOption<BulkImportMode>[] = [
   { value: 'schedule', label: "Schedule at each row's time", description: 'Every row needs a scheduled_at that is in the future.', Icon: CalendarClock },
   { value: 'queue', label: 'Add to queue', description: "Each post takes the next free time in its accounts' posting schedules. scheduled_at is ignored.", Icon: ListOrdered },
@@ -246,7 +260,9 @@ function WordPressGlyph({ size }: { size: number }) {
 function KindMark({ kind, size = 36 }: { kind: AutomationKind; size?: number }) {
   const meta = KIND_META[kind] ?? KIND_META.rss;
   return <span className="sfa-auto-mark" style={{ background: meta.color, height: size, width: size }} aria-hidden="true">
-    {kind === 'wordpress' ? <WordPressGlyph size={Math.round(size * 0.6)} /> : <Rss size={Math.round(size * 0.52)} strokeWidth={2.6} />}
+    {kind === 'rss' ? <Rss size={Math.round(size * 0.52)} strokeWidth={2.6} /> : <WordPressGlyph size={Math.round(size * 0.6)} />}
+    {/* The same WordPress mark, with a bolt: posts arrive at once instead of being checked for. */}
+    {kind === 'wordpress_plugin' && <span className="sfa-auto-mark__badge"><Zap size={Math.max(9, Math.round(size * 0.28))} strokeWidth={2.6} /></span>}
   </span>;
 }
 
@@ -431,15 +447,17 @@ function initialForm(target: DialogTarget): FormState {
 type FieldKey = 'name' | 'url' | 'accounts' | 'template' | 'maxPosts';
 const FIELD_ORDER: FieldKey[] = ['name', 'url', 'accounts', 'template', 'maxPosts'];
 
-function AutomationDialog({ target, accounts, accountsLoading, accountsFailed, onRetryAccounts, pollMinutes, approvalRequired, onClose, onCloseAutoFocus }: {
+function AutomationDialog({ target, accounts, accountsLoading, accountsFailed, onRetryAccounts, pollMinutes, approvalRequired, onClose, onPluginCreated, onCloseAutoFocus }: {
   target: DialogTarget; accounts: ConnectedAccount[]; accountsLoading: boolean; accountsFailed: boolean; onRetryAccounts: () => void;
-  pollMinutes: PollMinutes | null; approvalRequired: boolean; onClose: () => void; onCloseAutoFocus: (event: Event) => void;
+  pollMinutes: PollMinutes | null; approvalRequired: boolean; onClose: () => void; onPluginCreated: (created: Automation) => void; onCloseAutoFocus: (event: Event) => void;
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const uid = useId();
   const editing = target.mode === 'edit' ? target.automation : null;
   const kind: AutomationKind = target.mode === 'edit' ? target.automation.kind : target.kind;
+  // A plugin automation has no address, nothing to test and no "checks": the plugin sends each post as it is published.
+  const plugin = isPluginKind(kind);
   const meta = KIND_META[kind] ?? KIND_META.rss;
   const cadence = cadenceOf(kind, pollMinutes);
   const formRef = useRef<HTMLFormElement>(null);
@@ -479,6 +497,8 @@ function AutomationDialog({ target, accounts, accountsLoading, accountsFailed, o
     mutation: {
       onSuccess: (saved) => {
         refresh();
+        // A plugin automation's next step is the connection key, which this answer carries and no later one will.
+        if (saved.kind === 'wordpress_plugin') { onPluginCreated(saved); return; }
         toast({ title: 'Automation created', description: saved.config.postExistingOnFirstRun
           ? 'It checks the source within about a minute and posts the newest article. After that, only new ones.'
           : 'It checks the source within about a minute. Articles already there are skipped; new ones are posted.' });
@@ -511,11 +531,11 @@ function AutomationDialog({ target, accounts, accountsLoading, accountsFailed, o
 
   const errors: Record<FieldKey, string | null> = {
     name: form.name.trim() === '' ? 'Give the automation a name.' : form.name.trim().length > MAX_NAME ? `The name can be up to ${MAX_NAME} characters.` : null,
-    url: url === '' ? (kind === 'wordpress' ? "Enter your WordPress site's address." : "Enter the feed's address.") : url.length > MAX_URL ? 'That address is too long.' : null,
+    url: plugin ? null : url === '' ? (kind === 'wordpress' ? "Enter your WordPress site's address." : "Enter the feed's address.") : url.length > MAX_URL ? 'That address is too long.' : null,
     accounts: chosen.length === 0 ? 'Choose at least one account to post to.' : chosen.length > 50 ? 'Choose at most 50 accounts.' : null,
     template: !form.template.includes('{title}') && !form.template.includes('{url}') ? 'The post text must include {title} or {url}.'
       : form.template.length > MAX_TEMPLATE ? `The post text can be up to ${MAX_TEMPLATE.toLocaleString()} characters.` : null,
-    maxPosts: form.maxPosts.trim() === '' || !Number.isInteger(maxPosts) || maxPosts < 1 || maxPosts > 10 ? 'Posts per check must be 1 to 10.' : null,
+    maxPosts: plugin ? null : form.maxPosts.trim() === '' || !Number.isInteger(maxPosts) || maxPosts < 1 || maxPosts > 10 ? 'Posts per check must be 1 to 10.' : null,
   };
   // The template rule is shown as you type; the rest wait for the first attempt to save.
   const shown = (key: FieldKey): string | null => (attempted || key === 'template' ? errors[key] : null);
@@ -537,8 +557,14 @@ function AutomationDialog({ target, accounts, accountsLoading, accountsFailed, o
     setServerError(null);
     const firstInvalid = FIELD_ORDER.find((key) => errors[key] !== null);
     if (firstInvalid) { focusField(firstInvalid); return; }
-    const config: AutomationConfigInput = { connectedAccountIds: chosen, mode: form.mode, template: form.template, includeImage: form.includeImage, maxPostsPerRun: maxPosts, postExistingOnFirstRun: form.postExisting };
+    const shared: AutomationConfigInput = { connectedAccountIds: chosen, mode: form.mode, template: form.template, includeImage: form.includeImage };
+    const config: AutomationConfigInput = plugin ? shared : { ...shared, maxPostsPerRun: maxPosts, postExistingOnFirstRun: form.postExisting };
     const name = form.name.trim();
+    if (plugin) {
+      if (editing) update.mutate({ id: editing.id, data: { name, config } });
+      else create.mutate({ data: { kind, name, config } });
+      return;
+    }
     // An unchanged address is left out, so saving other settings never restarts the automation from scratch.
     if (editing) update.mutate({ id: editing.id, data: { name, ...(url !== editing.sourceUrl ? { sourceUrl: url } : {}), config } });
     else create.mutate({ data: { kind, name, sourceUrl: url, config } });
@@ -560,8 +586,9 @@ function AutomationDialog({ target, accounts, accountsLoading, accountsFailed, o
     const platform = PLATFORM_META[account.platform];
     return platform && (lowest === null || platform.charLimit < lowest.limit) ? { name: platform.name, limit: platform.charLimit } : lowest;
   }, null);
-  const sourceChanged = editing !== null && url !== '' && url !== editing.sourceUrl;
-  const footHint = attempted && hasErrors ? 'Check the highlighted fields.' : tested?.result && !stale ? '' : 'Tip: test the source before you save.';
+  const sourceChanged = editing !== null && !plugin && url !== '' && url !== editing.sourceUrl;
+  const footHint = attempted && hasErrors ? 'Check the highlighted fields.' : plugin ? (editing ? '' : 'Next: the key that connects the plugin.') : tested?.result && !stale ? '' : 'Tip: test the source before you save.';
+  const modes = plugin ? PLUGIN_MODES : AUTOMATION_MODES;
 
   return <DialogPrimitive.Root open onOpenChange={(open) => { if (!open && !saving) onClose(); }}>
     <DialogPrimitive.Portal>
@@ -578,12 +605,15 @@ function AutomationDialog({ target, accounts, accountsLoading, accountsFailed, o
             <legend className="sfa-label">Source</legend>
             <div className="sfa-field">
               <label htmlFor={`${uid}-name`}>Name</label>
-              <input ref={nameRef} id={`${uid}-name`} data-field="name" className="sfa-input" value={form.name} maxLength={MAX_NAME} autoComplete="off"
+              <input ref={nameRef} id={`${uid}-name`} data-field="name" className="sfa-input" value={form.name} maxLength={MAX_NAME} autoComplete="off" placeholder={plugin ? 'For example the name of your site' : undefined}
                 aria-invalid={shown('name') ? true : undefined} aria-describedby={shown('name') ? `${uid}-name-err` : undefined}
                 onChange={(event) => set('name', event.target.value)} data-testid="input-auto-name" />
               {shown('name') && <p id={`${uid}-name-err`} className="sfa-auto-err" role="alert">{shown('name')}</p>}
             </div>
-            <div className="sfa-field">
+            {plugin && <p className="sfa-auto-cadence" data-testid="text-auto-plugin-source"><Zap size={14} aria-hidden="true" /> {editing
+              ? (editing.plugin?.status === 'connected' && editing.sourceUrl ? `Posts come from the plugin on ${hostOf(editing.sourceUrl)}, the moment each one is published.` : 'Posts come from the plugin once it is connected. Use “Plugin key” on the automation to connect it.')
+              : 'There is no address to enter. After this step you get a connection key to paste into the plugin on your site, and posts arrive the moment they are published.'}</p>}
+            {!plugin && <><div className="sfa-field">
               <label htmlFor={`${uid}-url`}>{meta.urlLabel}</label>
               <div className="sfa-auto-urlrow">
                 <input id={`${uid}-url`} data-field="url" className="sfa-input" type="text" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off"
@@ -600,7 +630,7 @@ function AutomationDialog({ target, accounts, accountsLoading, accountsFailed, o
                   : tested && <TestResult tested={tested} stale={stale} />}
               </div>
             </div>
-            <p className="sfa-auto-cadence" data-testid="text-auto-cadence"><Clock size={14} aria-hidden="true" /> {cadence ? `${meta.sources} are checked ${cadence}. ` : ''}The first check happens within about a minute of saving.</p>
+            <p className="sfa-auto-cadence" data-testid="text-auto-cadence"><Clock size={14} aria-hidden="true" /> {cadence ? `${meta.sources} are checked ${cadence}. ` : ''}The first check happens within about a minute of saving.</p></>}
           </fieldset>
 
           <fieldset className="sfa-auto-fieldset" data-field="accounts" aria-describedby={shown('accounts') ? `${uid}-accounts-err` : undefined}>
@@ -611,8 +641,8 @@ function AutomationDialog({ target, accounts, accountsLoading, accountsFailed, o
           </fieldset>
 
           <fieldset className="sfa-auto-fieldset">
-            <legend className="sfa-label">When a new article is found</legend>
-            <RadioCards name={`${uid}-mode`} value={form.mode} options={AUTOMATION_MODES} onChange={(mode) => set('mode', mode)} disabled={saving} testidPrefix="radio-auto-mode" />
+            <legend className="sfa-label">{plugin ? 'When a post is published' : 'When a new article is found'}</legend>
+            <RadioCards name={`${uid}-mode`} value={form.mode} options={modes} onChange={(mode) => set('mode', mode)} disabled={saving} testidPrefix="radio-auto-mode" />
             {form.mode === 'queue' && <p className="sfa-auto-muted">If an account has no free queue time, the post is saved as a draft and History says why.</p>}
             {approvalRequired && form.mode !== 'draft' && <ApprovalNote posts="Posts from this automation" testid="text-auto-approval" />}
           </fieldset>
@@ -643,7 +673,7 @@ function AutomationDialog({ target, accounts, accountsLoading, accountsFailed, o
                 </>
                 : <>
                   <p className="sfa-auto-tplpreview__text">{splitTokens(form.template).map((part, index) => (part.token ? <span key={index} className="sfa-auto-tok">{part.value}</span> : <Fragment key={index}>{part.value}</Fragment>))}</p>
-                  <p className="sfa-auto-muted">Test the source to preview real text</p>
+                  <p className="sfa-auto-muted">{plugin ? 'The placeholders are filled in from each post the plugin sends.' : 'Test the source to preview real text'}</p>
                 </>}
             </div>
           </fieldset>
@@ -654,7 +684,7 @@ function AutomationDialog({ target, accounts, accountsLoading, accountsFailed, o
             {hasInstagram && <p className={form.includeImage ? 'sfa-auto-muted' : 'sfa-auto-warn'} role="note">{form.includeImage
               ? "Instagram needs a picture, so an article without one can't be posted to Instagram."
               : 'Instagram needs a picture. With this off, nothing can be posted to the Instagram account you chose.'}</p>}
-            <div className="sfa-auto-switchrow">
+            {!plugin && <><div className="sfa-auto-switchrow">
               <div className="sfa-auto-switchrow__copy">
                 <label htmlFor={`${uid}-max`} className="sfa-auto-switchrow__label">Posts per check</label>
                 <span id={`${uid}-max-help`} className="sfa-field__hint">The most posts one check creates, from 1 to 10. When more new articles are found, the rest follow on the next checks.</span>
@@ -666,7 +696,7 @@ function AutomationDialog({ target, accounts, accountsLoading, accountsFailed, o
             </div>
             <SwitchRow label="Also post the newest existing article when I turn this on"
               hint={`Otherwise existing articles are skipped and only new ones are posted.${editing ? ' This applies to the first check, and again if you change the address.' : ''}`}
-              checked={form.postExisting} onChange={(next) => set('postExisting', next)} disabled={saving} testid="switch-auto-post-existing" />
+              checked={form.postExisting} onChange={(next) => set('postExisting', next)} disabled={saving} testid="switch-auto-post-existing" /></>}
           </fieldset>
 
           {serverError && <div className="sfa-alert" role="alert" data-testid="status-auto-error"><CircleAlert size={15} aria-hidden="true" /> <span>{serverError}</span></div>}
@@ -674,9 +704,149 @@ function AutomationDialog({ target, accounts, accountsLoading, accountsFailed, o
           <div ref={footRef} className="sfa-auto-foot">
             <span className={`sfa-auto-foot__hint ${attempted && hasErrors ? 'is-error' : ''}`} role="status">{footHint}</span>
             <Button variant="secondary" disabled={saving} onClick={onClose} data-testid="button-auto-cancel">Cancel</Button>
-            <Button type="submit" variant="primary" loading={saving} data-testid="button-auto-save">{editing ? 'Save changes' : 'Create automation'}</Button>
+            <Button type="submit" variant="primary" loading={saving} data-testid="button-auto-save">{editing ? 'Save changes' : plugin ? 'Create and get the key' : 'Create automation'}</Button>
           </div>
         </form>
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+  </DialogPrimitive.Root>;
+}
+
+/* ---------- WordPress plugin: its state, and the dialog that connects it ---------- */
+
+/** What the plugin's side of a plugin automation is doing, in words. */
+function pluginState(automation: Automation): { label: string; tone: string; detail: string } {
+  const plugin = automation.plugin;
+  const site = plugin?.siteUrl ? hostOf(plugin.siteUrl) : '';
+  if (plugin?.status === 'connected') return { label: 'Connected', tone: 'ok', detail: [site, plugin.pluginVersion ? `plugin ${plugin.pluginVersion}` : ''].filter(Boolean).join(' · ') };
+  if (plugin?.status === 'disconnected') return { label: 'Disconnected in WordPress', tone: 'warn', detail: site ? `It was connected to ${site}.` : '' };
+  return { label: 'Waiting for the plugin', tone: 'quiet', detail: site ? `A new key was made, and ${site} hasn't been given it yet.` : 'No site has connected yet.' };
+}
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The three steps that connect a site: get the plugin, install it, paste the key. The key exists only in the answer
+ * that made it, so it is shown here straight after creating the automation or replacing its key, and never again.
+ */
+function PluginSetupDialog({ automation, connectionKey, canManage, onKey, onClose, onCloseAutoFocus }: {
+  automation: Automation; connectionKey: string | null; canManage: boolean; onKey: (key: string) => void; onClose: () => void; onCloseAutoFocus: (event: Event) => void;
+}) {
+  const queryClient = useQueryClient();
+  const confirm = useConfirm();
+  const uid = useId();
+  const keyRef = useRef<HTMLTextAreaElement>(null);
+  const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const state = pluginState(automation);
+  const connected = automation.plugin?.status === 'connected';
+  const site = automation.plugin?.siteUrl ? hostOf(automation.plugin.siteUrl) : '';
+
+  const replace = useReplaceAutomationPluginKey({
+    mutation: {
+      onSuccess: (saved) => {
+        void queryClient.invalidateQueries({ queryKey: getListAutomationsQueryKey() });
+        if (saved.connectionKey) onKey(saved.connectionKey);
+      },
+      onError: (failure) => setError(explain(failure, "A new key couldn't be made. Try again.")),
+    },
+  });
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 2500);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+
+  const copy = async () => {
+    if (!connectionKey) return;
+    const done = await copyText(connectionKey);
+    setCopied(done);
+    setCopyFailed(!done);
+    // Where the clipboard is not available, the key is selected so it can be copied by hand.
+    if (!done) { keyRef.current?.focus(); keyRef.current?.select(); }
+  };
+
+  const makeKey = async () => {
+    setError(null);
+    if (connected && !(await confirm({
+      title: 'Make a new key?',
+      description: `The plugin on ${site || 'your site'} stops sharing at once. It shares again after you disconnect it in WordPress and connect it with the new key.`,
+      confirmLabel: 'Make a new key', destructive: true,
+    }))) return;
+    replace.mutate({ id: automation.id });
+  };
+
+  return <DialogPrimitive.Root open onOpenChange={(open) => { if (!open && !replace.isPending) onClose(); }}>
+    <DialogPrimitive.Portal>
+      <DialogPrimitive.Overlay className="sfa-overlay" />
+      <DialogPrimitive.Content className="sfa-dialog sfa-auto-dialog sfa-auto-setup" data-testid="dialog-plugin-setup" onCloseAutoFocus={onCloseAutoFocus}>
+        <DialogPrimitive.Close asChild><button type="button" className="sfa-iconbtn sfa-dialog__close" aria-label="Close" data-testid="button-plugin-close"><X size={18} /></button></DialogPrimitive.Close>
+        <div className="sfa-auto-dialog__kind"><KindMark kind="wordpress_plugin" size={32} /><span className="sfa-eyebrow">{automation.name}</span></div>
+        <DialogPrimitive.Title className="sfa-dialog__title">Connect the WordPress plugin</DialogPrimitive.Title>
+        <DialogPrimitive.Description className="sfa-dialog__desc">Three steps on your WordPress site. After that, every post you publish there is shared the moment it goes live.</DialogPrimitive.Description>
+
+        <ol className="sfa-auto-setup__steps">
+          <li>
+            <span className="sfa-auto-step__num" aria-hidden="true">1</span>
+            <div>
+              <strong>Get the plugin</strong>
+              <p>One small file for your site. It is the same for every site.</p>
+              <a className="sfa-btn sfa-btn--secondary sfa-btn--sm" href={PLUGIN_DOWNLOAD} download data-testid="button-plugin-download"><Download size={14} aria-hidden="true" /> Download the plugin (.zip)</a>
+            </div>
+          </li>
+          <li>
+            <span className="sfa-auto-step__num" aria-hidden="true">2</span>
+            <div>
+              <strong>Install it in WordPress</strong>
+              <p>In your WordPress admin, open <em>Plugins</em>, then <em>Add New Plugin</em>, then <em>Upload Plugin</em>. Choose the file, install it and press <em>Activate</em>.</p>
+            </div>
+          </li>
+          <li>
+            <span className="sfa-auto-step__num" aria-hidden="true">3</span>
+            <div>
+              <strong>Paste the connection key</strong>
+              <p>In WordPress, open <em>Settings</em>, then <em>SocialFlow</em>. Paste this key and press <em>Connect</em>.</p>
+              {connectionKey
+                ? <div className="sfa-auto-key">
+                  <label htmlFor={`${uid}-key`} className="sr-only">Connection key</label>
+                  <textarea ref={keyRef} id={`${uid}-key`} className="sfa-textarea sfa-auto-key__box" rows={3} readOnly spellCheck={false} value={connectionKey} onFocus={(event) => event.currentTarget.select()} data-testid="text-plugin-key" />
+                  <div className="sfa-auto-key__row">
+                    <Button variant="primary" size="sm" icon={copied ? <Check size={14} /> : <Copy size={14} />} onClick={() => { void copy(); }} data-testid="button-plugin-copy">{copied ? 'Copied' : 'Copy the key'}</Button>
+                    <span className="sfa-auto-muted" role="status">{copyFailed ? 'Copying is blocked here. The key is selected: copy it with Ctrl+C.' : 'Shown only now. Treat it like a password.'}</span>
+                  </div>
+                </div>
+                : <div className="sfa-auto-key">
+                  <p className="sfa-auto-muted" data-testid="text-plugin-nokey">{connected
+                    ? 'The key was shown when it was made and can’t be shown again. This site is connected, so you only need a new one to cut the plugin off or to move to another site.'
+                    : 'The key was shown when it was made and can’t be shown again. If you don’t have it, make a new one.'}</p>
+                  {canManage && <div className="sfa-auto-key__row"><Button variant="secondary" size="sm" icon={<KeyRound size={14} />} loading={replace.isPending} onClick={() => { void makeKey(); }} data-testid="button-plugin-newkey">Make a new key</Button></div>}
+                </div>}
+              {error && <p className="sfa-auto-err" role="alert">{error}</p>}
+            </div>
+          </li>
+        </ol>
+
+        <div className={`sfa-auto-setup__state is-${state.tone}`} role="status" aria-live="polite" data-testid="status-plugin-setup">
+          {connected ? <CircleCheck size={18} aria-hidden="true" /> : automation.plugin?.status === 'disconnected' ? <TriangleAlert size={18} aria-hidden="true" /> : <LoaderCircle size={18} className="sfa-spin" aria-hidden="true" />}
+          <div>
+            <strong>{connected ? `Connected to ${site || 'your site'}` : state.label}</strong>
+            <span>{connected ? 'Posts published there from now on are shared. Older posts are left alone.' : automation.plugin?.status === 'disconnected' ? `${state.detail} Connect it again in WordPress with its key, or make a new key.`.trim() : 'This updates by itself as soon as the plugin connects.'}</span>
+          </div>
+        </div>
+
+        <div className="sfa-auto-foot">
+          <span className="sfa-auto-foot__hint">{connectionKey && !connected ? 'You can close this once you have copied the key.' : ''}</span>
+          <Button variant={connected ? 'primary' : 'secondary'} disabled={replace.isPending} onClick={onClose} data-testid="button-plugin-done">Done</Button>
+        </div>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   </DialogPrimitive.Root>;
@@ -686,18 +856,20 @@ function AutomationDialog({ target, accounts, accountsLoading, accountsFailed, o
 
 type HistoryTab = 'runs' | 'items';
 
-function RunRow({ run }: { run: AutomationRun }) {
+function RunRow({ run, pushed }: { run: AutomationRun; pushed: boolean }) {
   const meta = RUN_META[run.status] ?? { label: run.status, tone: 'draft' };
+  // A post sent by the plugin is a run of exactly one item, so the counts say nothing: the outcome is the whole story.
+  const label = pushed ? (run.status === 'success' ? 'Post created' : run.status === 'failed' ? "Couldn't be posted" : meta.label) : meta.label;
   return <li className="sfa-auto-run" data-testid={`row-auto-run-${run.id}`}>
     <div className="sfa-auto-run__top">
-      <span className={`sfa-pill sfa-pill--${meta.tone}`}>{meta.label}</span>
+      <span className={`sfa-pill sfa-pill--${meta.tone}`}>{label}</span>
       <time dateTime={run.startedAt} title={exact(run.startedAt)}>{exact(run.startedAt)} <span className="sfa-auto-dim">({ago(run.startedAt)})</span></time>
     </div>
-    <dl className="sfa-auto-run__counts">
+    {!pushed && <dl className="sfa-auto-run__counts">
       <div><dt>Found</dt><dd className="sfa-num">{run.itemsFound}</dd></div>
       <div><dt>New</dt><dd className="sfa-num">{run.itemsNew}</dd></div>
       <div><dt>Posts created</dt><dd className="sfa-num">{run.postsCreated}</dd></div>
-    </dl>
+    </dl>}
     {run.error && <p className="sfa-auto-err">{run.error}</p>}
   </li>;
 }
@@ -734,6 +906,8 @@ function HistoryDrawer({ automation, onClose, onCloseAutoFocus }: { automation: 
   const go = useGo();
   const uid = useId();
   const { id } = automation;
+  // A plugin automation has no checks and no baseline: its history is the posts the plugin sent.
+  const pushed = isPluginKind(automation.kind);
   const [tab, setTab] = useState<HistoryTab>('runs');
   const [refreshing, setRefreshing] = useState(false);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -742,8 +916,8 @@ function HistoryDrawer({ automation, onClose, onCloseAutoFocus }: { automation: 
   const runList = runs.data?.runs ?? [];
   const itemList = items.data?.items ?? [];
   const tabs: Array<{ id: HistoryTab; label: string; count: number | null }> = [
-    { id: 'runs', label: 'Runs', count: runs.data ? runList.length : null },
-    { id: 'items', label: 'Items', count: items.data ? itemList.length : null },
+    { id: 'runs', label: pushed ? 'Deliveries' : 'Runs', count: runs.data ? runList.length : null },
+    { id: 'items', label: pushed ? 'Posts' : 'Items', count: items.data ? itemList.length : null },
   ];
   const onTabKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const delta = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : event.key === 'Home' ? -index : event.key === 'End' ? tabs.length - 1 - index : 0;
@@ -780,20 +954,20 @@ function HistoryDrawer({ automation, onClose, onCloseAutoFocus }: { automation: 
         </div>
         <div className="sfa-auto-drawer__body" role="tabpanel" id={`${uid}-panel`} aria-labelledby={`${uid}-tab-${tab}`}>
           {tab === 'runs' && <>
-            <p className="sfa-auto-muted">Each time the source was checked: what was found and how many posts were created.</p>
+            <p className="sfa-auto-muted">{pushed ? 'Each post the plugin sent that SocialFlow acted on. A post sent again is not listed twice.' : 'Each time the source was checked: what was found and how many posts were created.'}</p>
             {runs.isError && !runs.data ? <ErrorState title="Couldn't load the runs" description={errInfo(runs.error).message} onRetry={() => { void runs.refetch(); }} />
               : runs.isLoading ? <ul className="sfa-auto-hlist" aria-busy="true" aria-label="Loading runs">{[0, 1, 2].map((i) => <li key={i} className="sfa-auto-run"><Skeleton width={110} height={22} radius={999} /><Skeleton width={`${70 - i * 12}%`} /></li>)}</ul>
-              : runList.length === 0 ? <p className="sfa-auto-drawer__empty" data-testid="text-auto-no-runs">{automation.status === 'active' ? 'No runs yet. The first check happens within about a minute of creating the automation.' : 'No runs yet.'}</p>
+              : runList.length === 0 ? <p className="sfa-auto-drawer__empty" data-testid="text-auto-no-runs">{pushed ? 'Nothing yet. Posts appear here as the plugin sends them.' : automation.status === 'active' ? 'No runs yet. The first check happens within about a minute of creating the automation.' : 'No runs yet.'}</p>
               : <>
-                <ul className="sfa-auto-hlist" aria-label="Runs, newest first" data-testid="list-auto-runs">{runList.map((run) => <RunRow key={run.id} run={run} />)}</ul>
-                {runList.length >= 50 && <p className="sfa-auto-muted">Only the latest 50 runs are kept.</p>}
+                <ul className="sfa-auto-hlist" aria-label="Runs, newest first" data-testid="list-auto-runs">{runList.map((run) => <RunRow key={run.id} run={run} pushed={pushed} />)}</ul>
+                {runList.length >= 50 && <p className="sfa-auto-muted">Only the latest 50 are kept.</p>}
               </>}
           </>}
           {tab === 'items' && <>
-            <p className="sfa-auto-drawer__note" role="note" data-testid="text-auto-seen-note"><Info size={14} aria-hidden="true" /> <span>“Seen” items already existed when the automation was switched on. They are recorded but not posted.</span></p>
+            {!pushed && <p className="sfa-auto-drawer__note" role="note" data-testid="text-auto-seen-note"><Info size={14} aria-hidden="true" /> <span>“Seen” items already existed when the automation was switched on. They are recorded but not posted.</span></p>}
             {items.isError && !items.data ? <ErrorState title="Couldn't load the items" description={errInfo(items.error).message} onRetry={() => { void items.refetch(); }} />
               : items.isLoading ? <ul className="sfa-auto-hlist" aria-busy="true" aria-label="Loading items">{[0, 1, 2].map((i) => <li key={i} className="sfa-auto-hitem"><Skeleton width={`${78 - i * 14}%`} /><Skeleton width={150} /></li>)}</ul>
-              : itemList.length === 0 ? <p className="sfa-auto-drawer__empty" data-testid="text-auto-no-items">No items recorded yet. They appear after the first check of the source.</p>
+              : itemList.length === 0 ? <p className="sfa-auto-drawer__empty" data-testid="text-auto-no-items">{pushed ? 'No posts yet. Each post published on your site appears here with the social post it became.' : 'No items recorded yet. They appear after the first check of the source.'}</p>
               : <>
                 <ul className="sfa-auto-hlist" aria-label="Items, newest first" data-testid="list-auto-items">{itemList.map((item) => <ItemRow key={item.id} item={item} go={go} />)}</ul>
                 {itemList.length >= 100 && <p className="sfa-auto-muted">Showing the latest 100 items.</p>}
@@ -809,6 +983,11 @@ function HistoryDrawer({ automation, onClose, onCloseAutoFocus }: { automation: 
 
 /** What went wrong last time and what to do about it, or null when nothing did. */
 function problemOf(automation: Automation): { title: string; todo: string } | null {
+  if (isPluginKind(automation.kind)) {
+    // Nothing is fetched, so the only thing that can go wrong is a post that couldn't be made.
+    if (!automation.lastError || automation.lastStatus !== 'failed') return null;
+    return { title: "The last post from your site couldn't be shared", todo: 'Fix the cause, for example by reconnecting an account, then use “Share now” on the post in WordPress.' };
+  }
   if (automation.status === 'error') return { title: 'Stopped after repeated errors', todo: 'Fix the source address with Edit, or press Resume to try again.' };
   if (!automation.lastError) return null;
   if (automation.consecutiveFailures > 0) {
@@ -823,6 +1002,10 @@ function problemOf(automation: Automation): { title: string; todo: string } | nu
 }
 
 function lastOutcome(automation: Automation): { text: string; tone: string } | null {
+  if (isPluginKind(automation.kind)) {
+    if (automation.lastStatus === 'success') return { text: 'Post created', tone: 'ok' };
+    return automation.lastStatus === 'failed' ? { text: "Couldn't be shared", tone: 'bad' } : null;
+  }
   switch (automation.lastStatus) {
     case 'success': return { text: 'New posts created', tone: 'ok' };
     case 'no_new': return { text: 'Nothing new', tone: 'quiet' };
@@ -842,7 +1025,10 @@ function nextRunText(automation: Automation, now: number): string {
   return formatDistanceToNow(next, { addSuffix: true });
 }
 
-function AutomationCard({ automation, canManage, now, onEdit, onHistory }: { automation: Automation; canManage: boolean; now: number; onEdit: (opener: HTMLElement) => void; onHistory: (opener: HTMLElement) => void }) {
+function AutomationCard({ automation, twin, canManage, now, onEdit, onHistory, onPlugin }: {
+  automation: Automation; twin: string | null; canManage: boolean; now: number;
+  onEdit: (opener: HTMLElement) => void; onHistory: (opener: HTMLElement) => void; onPlugin: (opener: HTMLElement) => void;
+}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const confirm = useConfirm();
@@ -850,6 +1036,10 @@ function AutomationCard({ automation, canManage, now, onEdit, onHistory }: { aut
   const { id, status } = automation;
   const statusMeta = STATUS_META[status] ?? { label: status, tone: 'draft' };
   const kindMeta = KIND_META[automation.kind] ?? KIND_META.rss;
+  // A plugin automation is fed by the plugin: there is no check to run and no next run, but there is a connection.
+  const pushed = isPluginKind(automation.kind);
+  const plugin = pushed ? pluginState(automation) : null;
+  const pluginConnected = automation.plugin?.status === 'connected';
   const firstRun = useRef(false);
 
   const refresh = () => {
@@ -864,8 +1054,8 @@ function AutomationCard({ automation, canManage, now, onEdit, onHistory }: { aut
   };
   const failed = (title: string) => (error: unknown) => { refresh(); toast({ title, description: explain(error, 'Please try again.'), variant: 'destructive' }); };
 
-  const pause = usePauseAutomation({ mutation: { onSuccess: (saved) => { store(saved); refresh(); toast({ title: 'Automation paused', description: 'It stops checking the source until you resume it.' }); }, onError: failed("Couldn't pause the automation") } });
-  const resume = useResumeAutomation({ mutation: { onSuccess: (saved) => { store(saved); refresh(); toast({ title: 'Automation resumed', description: 'It checks the source again within about a minute.' }); }, onError: failed("Couldn't resume the automation") } });
+  const pause = usePauseAutomation({ mutation: { onSuccess: (saved) => { store(saved); refresh(); toast({ title: 'Automation paused', description: pushed ? 'Posts published on your site are not shared until you resume it.' : 'It stops checking the source until you resume it.' }); }, onError: failed("Couldn't pause the automation") } });
+  const resume = useResumeAutomation({ mutation: { onSuccess: (saved) => { store(saved); refresh(); toast({ title: 'Automation resumed', description: pushed ? 'Posts published from now on are shared again.' : 'It checks the source again within about a minute.' }); }, onError: failed("Couldn't resume the automation") } });
   const run = useRunAutomationNow({
     mutation: {
       onSuccess: ({ run: result, automation: saved }) => {
@@ -903,7 +1093,10 @@ function AutomationCard({ automation, canManage, now, onEdit, onHistory }: { aut
   const stopped = status !== 'active';
 
   const onDelete = async () => {
-    if (await confirm({ title: `Delete “${automation.name}”?`, description: 'It stops checking the source and its history is removed. Posts it already created are kept.', confirmLabel: 'Delete', destructive: true })) remove.mutate({ id });
+    const description = pushed
+      ? 'Its connection key stops working, so the plugin on your site can no longer share, and its history is removed. Posts it already created are kept.'
+      : 'It stops checking the source and its history is removed. Posts it already created are kept.';
+    if (await confirm({ title: `Delete “${automation.name}”?`, description, confirmLabel: 'Delete', destructive: true })) remove.mutate({ id });
   };
 
   const sourceHref = safeHref(automation.sourceUrl);
@@ -923,7 +1116,7 @@ function AutomationCard({ automation, canManage, now, onEdit, onHistory }: { aut
           <span className="sfa-auto-kind">{kindMeta.label}</span>
           {sourceHref
             ? <a href={sourceHref} target="_blank" rel="noopener noreferrer" title={automation.sourceUrl}><span>{automation.sourceUrl}</span><ExternalLink size={12} aria-hidden="true" /><span className="sr-only"> (opens in a new tab)</span></a>
-            : <span className="sfa-auto-source__text" title={automation.sourceUrl}>{automation.sourceUrl}</span>}
+            : <span className="sfa-auto-source__text" title={automation.sourceUrl}>{pushed ? 'No site connected yet' : automation.sourceUrl}</span>}
         </p>
       </div>
       <span className={`sfa-pill sfa-pill--${statusMeta.tone}`} data-testid={`status-auto-${id}`}>{statusMeta.label}</span>
@@ -947,16 +1140,43 @@ function AutomationCard({ automation, canManage, now, onEdit, onHistory }: { aut
         </dd>
       </div>
       <div><dt>Posting</dt><dd>{MODE_WORDS[automation.config.mode] ?? automation.config.mode}</dd></div>
+      {plugin && <div>
+        <dt>Plugin</dt>
+        <dd data-testid={`text-auto-plugin-${id}`}>
+          <span className={`sfa-auto-outcome is-${plugin.tone}`}>{plugin.label}</span>
+          {/* When it isn't connected, the note under the details says what to do; repeating it here would only crowd the cell. */}
+          {pluginConnected && plugin.detail && <span className="sfa-auto-dim">{plugin.detail}</span>}
+        </dd>
+      </div>}
       <div>
-        <dt>Last run</dt>
+        <dt>{pushed ? 'Last post received' : 'Last run'}</dt>
         <dd data-testid={`text-auto-last-run-${id}`}>
-          {automation.lastRunAt ? <time dateTime={automation.lastRunAt} title={exact(automation.lastRunAt)}>{ago(automation.lastRunAt)}</time> : <span className="sfa-auto-dim">Not checked yet</span>}
+          {automation.lastRunAt ? <time dateTime={automation.lastRunAt} title={exact(automation.lastRunAt)}>{ago(automation.lastRunAt)}</time> : <span className="sfa-auto-dim">{pushed ? 'None yet' : 'Not checked yet'}</span>}
           {automation.lastRunAt && outcome && <span className={`sfa-auto-outcome is-${outcome.tone}`}>{outcome.text}</span>}
         </dd>
       </div>
-      <div><dt>Next run</dt><dd data-testid={`text-auto-next-run-${id}`} title={(status === 'active' && exact(automation.nextRunAt)) || undefined}>{nextRunText(automation, now)}</dd></div>
+      {!pushed && <div><dt>Next run</dt><dd data-testid={`text-auto-next-run-${id}`} title={(status === 'active' && exact(automation.nextRunAt)) || undefined}>{nextRunText(automation, now)}</dd></div>}
       <div><dt>Posts created</dt><dd className="sfa-num" data-testid={`text-auto-posts-${id}`}>{automation.postsCreatedTotal.toLocaleString()}</dd></div>
     </dl>
+
+    {pushed && !pluginConnected && <div className="sfa-auto-setupnote" role="status" data-testid={`text-auto-setup-${id}`}>
+      <KeyRound size={16} aria-hidden="true" />
+      <div>
+        <strong>{automation.plugin?.status === 'disconnected' ? 'The plugin was disconnected in WordPress' : 'Waiting for the plugin on your site'}</strong>
+        <p>{automation.plugin?.status === 'disconnected'
+          ? 'Nothing is shared until it is connected again, with its key or with a new one.'
+          : 'Install the plugin on your WordPress site and paste this automation’s connection key into it. Nothing is shared until then.'}</p>
+      </div>
+      {canManage && <Button size="sm" variant="primary" onClick={(event) => onPlugin(event.currentTarget)} data-testid={`button-auto-setup-${id}`}>Set up the plugin</Button>}
+    </div>}
+
+    {twin && <div className="sfa-auto-problem is-warn" role="note" data-testid={`text-auto-twin-${id}`}>
+      <TriangleAlert size={16} aria-hidden="true" />
+      <div>
+        <strong>This site is shared twice</strong>
+        <p className="sfa-auto-problem__todo">“{twin}” watches the same site, so each new article becomes two posts. Pause or delete one of the two.</p>
+      </div>
+    </div>}
 
     {problem && <div className="sfa-auto-problem" role="status" data-testid={`text-auto-error-${id}`}>
       <TriangleAlert size={16} aria-hidden="true" />
@@ -971,9 +1191,10 @@ function AutomationCard({ automation, canManage, now, onEdit, onHistory }: { aut
       {canManage && <>
         <Button size="sm" variant={status === 'error' ? 'primary' : 'secondary'} icon={stopped ? <Play size={13} /> : <Pause size={13} />} loading={toggling} disabled={busy}
           onClick={() => (stopped ? resume : pause).mutate({ id })} data-testid={`button-auto-pause-${id}`}>{stopped ? 'Resume' : 'Pause'}</Button>
-        <Button size="sm" variant="secondary" icon={<RefreshCw size={13} />} loading={run.isPending} disabled={busy} title="Check the source now"
-          onClick={() => { firstRun.current = automation.lastRunAt === null; run.mutate({ id }); }} data-testid={`button-auto-run-${id}`}>{run.isPending ? 'Checking…' : 'Run now'}</Button>
+        {!pushed && <Button size="sm" variant="secondary" icon={<RefreshCw size={13} />} loading={run.isPending} disabled={busy} title="Check the source now"
+          onClick={() => { firstRun.current = automation.lastRunAt === null; run.mutate({ id }); }} data-testid={`button-auto-run-${id}`}>{run.isPending ? 'Checking…' : 'Run now'}</Button>}
         <Button size="sm" variant="ghost" icon={<Pencil size={13} />} disabled={busy} onClick={(event) => onEdit(event.currentTarget)} data-testid={`button-auto-edit-${id}`}>Edit</Button>
+        {pushed && <Button size="sm" variant="ghost" icon={<KeyRound size={13} />} disabled={busy} title="The plugin, its key and how to connect it" onClick={(event) => onPlugin(event.currentTarget)} data-testid={`button-auto-plugin-${id}`}>Plugin key</Button>}
       </>}
       <Button size="sm" variant="ghost" icon={<History size={13} />} onClick={(event) => onHistory(event.currentTarget)} data-testid={`button-auto-history-${id}`}>History</Button>
       {canManage && <Button size="sm" variant="ghost" className="sfa-auto-card__delete" icon={<Trash2 size={13} />} loading={remove.isPending} disabled={busy} onClick={() => { void onDelete(); }} data-testid={`button-auto-delete-${id}`}>Delete</Button>}
@@ -996,14 +1217,32 @@ function CardsSkeleton() {
 
 /* ---------- Automations tab ---------- */
 
-function AutomationsPanel({ hidden, automations, limit, pollMinutes, loading, failed, failure, refreshFailed, onRetry, canManage, canImport, onCreate, onImport, onEdit, onHistory }: {
+/**
+ * Automations that would post the same article twice: a connected plugin and another active automation watching
+ * the same site. Duplicate protection is per automation, so this pair is the one way to get two posts, and each
+ * of the two cards says so. Maps an automation's id to the name of its twin.
+ */
+function findTwins(automations: Automation[]): Map<string, string> {
+  const twins = new Map<string, string>();
+  const active = automations.filter((item) => item.status === 'active' && safeHref(item.sourceUrl));
+  for (const plugin of active.filter((item) => isPluginKind(item.kind) && item.plugin?.status === 'connected')) {
+    const other = active.find((item) => item.id !== plugin.id && hostOf(item.sourceUrl) === hostOf(plugin.sourceUrl));
+    if (!other) continue;
+    twins.set(plugin.id, other.name);
+    if (!twins.has(other.id)) twins.set(other.id, plugin.name);
+  }
+  return twins;
+}
+
+function AutomationsPanel({ hidden, automations, limit, pollMinutes, loading, failed, failure, refreshFailed, onRetry, canManage, canImport, onCreate, onImport, onEdit, onHistory, onPlugin }: {
   hidden: boolean; automations: Automation[]; limit: number | null; pollMinutes: PollMinutes | null; loading: boolean; failed: boolean; failure: string | undefined; refreshFailed: boolean; onRetry: () => void;
   canManage: boolean; canImport: boolean; onCreate: (kind: AutomationKind, opener: HTMLElement) => void; onImport: () => void;
-  onEdit: (automation: Automation, opener: HTMLElement) => void; onHistory: (automation: Automation, opener: HTMLElement) => void;
+  onEdit: (automation: Automation, opener: HTMLElement) => void; onHistory: (automation: Automation, opener: HTMLElement) => void; onPlugin: (automation: Automation, opener: HTMLElement) => void;
 }) {
   const now = useNow();
   const wordpressCadence = cadenceOf('wordpress', pollMinutes);
   const rssCadence = cadenceOf('rss', pollMinutes);
+  const twins = useMemo(() => findTwins(automations), [automations]);
   // Automations that stopped come first; the rest keep the order they were created in.
   const ordered = useMemo(() => [...automations].sort((a, b) => Number(b.status === 'error') - Number(a.status === 'error')), [automations]);
   const count = (status: AutomationStatus) => automations.filter((item) => item.status === status).length;
@@ -1032,12 +1271,18 @@ function AutomationsPanel({ hidden, automations, limit, pollMinutes, loading, fa
       : loading ? <CardsSkeleton />
       : automations.length === 0 ? <div className="sfa-card sfa-auto-empty" data-testid="empty-automations">
         <EmptyState icon={<Workflow size={22} />} title="No automations yet"
-          description={canStart ? 'There are three ways to create posts without writing each one in the composer.' : 'Nothing has been set up in this workspace yet. An editor, admin or owner can create automations.'}
+          description={canStart ? 'There are four ways to create posts without writing each one in the composer.' : 'Nothing has been set up in this workspace yet. An editor, admin or owner can create automations.'}
           action={canStart ? <div className="sfa-auto-options">
+            <div className="sfa-auto-option">
+              <KindMark kind="wordpress_plugin" />
+              <strong>WordPress plugin</strong>
+              <p>Install our plugin on your site and each post is shared the moment you publish it.</p>
+              <Button variant="secondary" size="sm" icon={<Plus size={14} />} disabled={!canManage} title={canManage ? undefined : "Your role can't create automations"} onClick={(event) => onCreate('wordpress_plugin', event.currentTarget)} data-testid="button-empty-plugin">Connect the plugin</Button>
+            </div>
             <div className="sfa-auto-option">
               <KindMark kind="wordpress" />
               <strong>WordPress auto-share</strong>
-              <p>Posts every new article from your WordPress site.{wordpressCadence ? ` Checked ${wordpressCadence}.` : ''}</p>
+              <p>Nothing to install: your WordPress site is checked for new articles.{wordpressCadence ? ` Checked ${wordpressCadence}.` : ''}</p>
               <Button variant="secondary" size="sm" icon={<Plus size={14} />} disabled={!canManage} title={canManage ? undefined : "Your role can't create automations"} onClick={(event) => onCreate('wordpress', event.currentTarget)} data-testid="button-empty-wordpress">Add your site</Button>
             </div>
             <div className="sfa-auto-option">
@@ -1056,8 +1301,8 @@ function AutomationsPanel({ hidden, automations, limit, pollMinutes, loading, fa
       </div>
       : <>
         <ul className="sfa-auto-list" aria-label="Automations" data-testid="list-automations">
-          {ordered.map((automation) => <AutomationCard key={automation.id} automation={automation} canManage={canManage} now={now}
-            onEdit={(opener) => onEdit(automation, opener)} onHistory={(opener) => onHistory(automation, opener)} />)}
+          {ordered.map((automation) => <AutomationCard key={automation.id} automation={automation} twin={twins.get(automation.id) ?? null} canManage={canManage} now={now}
+            onEdit={(opener) => onEdit(automation, opener)} onHistory={(opener) => onHistory(automation, opener)} onPlugin={(opener) => onPlugin(automation, opener)} />)}
         </ul>
         {limit !== null && <p className="sfa-auto-muted sfa-num" data-testid="text-auto-limit">{atLimit
           ? `This workspace has all ${limit} automations it can hold. Delete one to add another.`
@@ -1544,9 +1789,13 @@ function NewMenu({ buttonRef, canManage, canImport, atLimit, limit, onCreate, on
       <button ref={buttonRef} type="button" className="sfa-btn sfa-btn--primary sfa-btn--md" data-testid="button-new-automation"><Plus size={16} aria-hidden="true" /> New automation <ChevronDown size={14} aria-hidden="true" /></button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" className="sfa-auto-menu w-80 rounded-xl p-1.5" onCloseAutoFocus={(event) => { if (openingDialog.current) { openingDialog.current = false; event.preventDefault(); } }}>
+      <DropdownMenuItem className="sfa-auto-menuitem rounded-md" disabled={!canManage || atLimit} onSelect={() => choose('wordpress_plugin')} data-testid="menu-new-plugin">
+        <KindMark kind="wordpress_plugin" size={30} />
+        <span className="sfa-auto-menuitem__text"><strong>WordPress plugin</strong><small>Shared the moment you publish, with our plugin</small></span>
+      </DropdownMenuItem>
       <DropdownMenuItem className="sfa-auto-menuitem rounded-md" disabled={!canManage || atLimit} onSelect={() => choose('wordpress')} data-testid="menu-new-wordpress">
         <KindMark kind="wordpress" size={30} />
-        <span className="sfa-auto-menuitem__text"><strong>WordPress auto-share</strong><small>New articles from your WordPress site</small></span>
+        <span className="sfa-auto-menuitem__text"><strong>WordPress auto-share</strong><small>Nothing to install: the site is checked for new articles</small></span>
       </DropdownMenuItem>
       <DropdownMenuItem className="sfa-auto-menuitem rounded-md" disabled={!canManage || atLimit} onSelect={() => choose('rss')} data-testid="menu-new-rss">
         <KindMark kind="rss" size={30} />
@@ -1575,7 +1824,10 @@ export function AutomationsPage() {
   if (tab === 'import' && !importSeen) setImportSeen(true);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const list = useListAutomations({ query: { queryKey: getListAutomationsQueryKey(), refetchInterval: 30_000, retry: retryTransient } });
+  // The plugin dialog: which automation, and its connection key when this page has just been given it.
+  const [setup, setSetup] = useState<{ automation: Automation; key: string | null } | null>(null);
+  // While that dialog is open the list is read every few seconds, so "connected" shows as soon as the plugin connects.
+  const list = useListAutomations({ query: { queryKey: getListAutomationsQueryKey(), refetchInterval: setup ? 3_000 : 30_000, retry: retryTransient } });
   const accountsQuery = useListConnectedAccounts({ query: { queryKey: getListConnectedAccountsQueryKey() } });
   // Only to explain what "requires approval" means here; when it can't be read the note is simply not shown.
   const approval = useGetApprovalSettings({ query: { queryKey: getGetApprovalSettingsQueryKey(), retry: false } });
@@ -1593,7 +1845,11 @@ export function AutomationsPage() {
   const newButtonRef = useRef<HTMLButtonElement>(null);
   // Dialogs opened without a Radix trigger don't know where the focus came from, so the page remembers it.
   const opener = useRef<HTMLElement | null>(null);
+  // One dialog handing over to the next (create, then the plugin's key): the focus goes to the new dialog, and the
+  // place it came from is kept for when that one closes.
+  const handingOver = useRef(false);
   const restoreFocus = useCallback((event: Event) => {
+    if (handingOver.current) { handingOver.current = false; event.preventDefault(); return; }
     const element = opener.current;
     opener.current = null;
     if (element && element.isConnected) { event.preventDefault(); element.focus(); }
@@ -1602,6 +1858,10 @@ export function AutomationsPage() {
   const openCreate = (kind: AutomationKind, from: HTMLElement | null) => { opener.current = from; selectTab('automations'); setDialog({ mode: 'create', kind }); };
   const openEdit = (automation: Automation, from: HTMLElement) => { opener.current = from; setDialog({ mode: 'edit', automation }); };
   const openHistory = (automation: Automation, from: HTMLElement) => { opener.current = from; setHistoryId(automation.id); };
+  const openPlugin = (automation: Automation, from: HTMLElement) => { opener.current = from; setSetup({ automation, key: null }); };
+  const pluginCreated = (created: Automation) => { handingOver.current = true; setDialog(null); setSetup({ automation: created, key: created.connectionKey ?? null }); };
+  // The list is the live copy (it is what shows the plugin connecting); the one from the answer stands in until it arrives.
+  const setupFor = setup ? automations.find((automation) => automation.id === setup.automation.id) ?? setup.automation : null;
 
   const onTabKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const delta = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : event.key === 'Home' ? -index : event.key === 'End' ? PAGE_TABS.length - 1 - index : 0;
@@ -1628,14 +1888,16 @@ export function AutomationsPage() {
 
     <AutomationsPanel hidden={tab !== 'automations'} automations={automations} limit={limit} pollMinutes={pollMinutes} loading={list.isLoading} failed={list.isError && !list.data} failure={errInfo(list.error).message}
       refreshFailed={list.isError && Boolean(list.data)} onRetry={() => { void list.refetch(); }} canManage={canManage} canImport={canImport}
-      onCreate={openCreate} onImport={() => selectTab('import')} onEdit={openEdit} onHistory={openHistory} />
+      onCreate={openCreate} onImport={() => selectTab('import')} onEdit={openEdit} onHistory={openHistory} onPlugin={openPlugin} />
 
     {importSeen && <ImportPanel hidden={tab !== 'import'} canImport={canImport} canSeeImports={canSeeImports} accounts={accounts} accountsLoading={accountsQuery.isLoading} accountsFailed={accountsFailed}
       onRetryAccounts={() => { void accountsQuery.refetch(); }} approvalRequired={approvalRequired} />}
 
     {dialog && <AutomationDialog key={dialog.mode === 'edit' ? dialog.automation.id : `new-${dialog.kind}`} target={dialog} accounts={accounts} accountsLoading={accountsQuery.isLoading} accountsFailed={accountsFailed}
-      onRetryAccounts={() => { void accountsQuery.refetch(); }} pollMinutes={pollMinutes} approvalRequired={approvalRequired} onClose={() => setDialog(null)} onCloseAutoFocus={restoreFocus} />}
+      onRetryAccounts={() => { void accountsQuery.refetch(); }} pollMinutes={pollMinutes} approvalRequired={approvalRequired} onClose={() => setDialog(null)} onPluginCreated={pluginCreated} onCloseAutoFocus={restoreFocus} />}
     {historyFor && <HistoryDrawer key={historyFor.id} automation={historyFor} onClose={() => setHistoryId(null)} onCloseAutoFocus={restoreFocus} />}
+    {setup && setupFor && <PluginSetupDialog key={setupFor.id} automation={setupFor} connectionKey={setup.key} canManage={canManage}
+      onKey={(key) => setSetup((current) => (current ? { ...current, key } : current))} onClose={() => setSetup(null)} onCloseAutoFocus={restoreFocus} />}
   </div>;
 }
 

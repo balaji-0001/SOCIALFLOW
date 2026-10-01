@@ -63,6 +63,8 @@ app.use((req, res, next) => {
 app.use(cookieParser(sessionSecret));
 // A CSV import carries the file in its JSON body (up to 1 MB of text), so those two routes take a larger body.
 app.use(["/api/bulk-imports", "/api/bulk-imports/preview"], express.json({ limit: "1200kb" }));
+// The WordPress plugin signs the exact bytes it sends, so those routes keep the raw body next to the parsed one.
+app.use("/api/wordpress-plugin", express.json({ limit: "256kb", verify: (req, _res, buf) => { (req as typeof req & { rawBody?: Buffer }).rawBody = buf; } }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

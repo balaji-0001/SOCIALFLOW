@@ -8,15 +8,24 @@
 import type { AutomationAccount } from './automationAccount';
 import type { AutomationConfig } from './automationConfig';
 import type { AutomationKind } from './automationKind';
+import type { AutomationPlugin } from './automationPlugin';
 import type { AutomationStatus } from './automationStatus';
 
 export interface Automation {
   id: string;
   kind: AutomationKind;
   name: string;
+  /** wordpress_plugin: the site the plugin connected from, empty until it has */
   sourceUrl: string;
   status: AutomationStatus;
   config: AutomationConfig;
+  /** Set for wordpress_plugin automations, null for the others */
+  plugin: AutomationPlugin | null;
+  /**
+     * Only in the answer that creates a wordpress_plugin automation or replaces its key. What the user pastes into the plugin; it is never returned again.
+     * @nullable
+     */
+  connectionKey?: string | null;
   /** @nullable */
   lastRunAt: Date | null;
   /**

@@ -1693,13 +1693,56 @@ export interface ReportRunList {
   runs: ReportRun[];
 }
 
+/**
+ * wordpress and rss are polled. wordpress_plugin is never polled: the SocialFlow plugin on the site sends each post as it is published.
+ */
 export type AutomationKind = typeof AutomationKind[keyof typeof AutomationKind];
 
 
 export const AutomationKind = {
   wordpress: 'wordpress',
   rss: 'rss',
+  wordpress_plugin: 'wordpress_plugin',
 } as const;
+
+/**
+ * pending = a key was issued and the plugin hasn't connected with it yet; disconnected = the WordPress admin disconnected the plugin
+ */
+export type AutomationPluginStatus = typeof AutomationPluginStatus[keyof typeof AutomationPluginStatus];
+
+
+export const AutomationPluginStatus = {
+  pending: 'pending',
+  connected: 'connected',
+  disconnected: 'disconnected',
+} as const;
+
+/**
+ * The plugin's side of a wordpress_plugin automation, as it last reported itself
+ */
+export interface AutomationPlugin {
+  status: AutomationPluginStatus;
+  /** @nullable */
+  siteUrl: string | null;
+  /** @nullable */
+  siteName: string | null;
+  /** @nullable */
+  wpVersion: string | null;
+  /** @nullable */
+  pluginVersion: string | null;
+  /** @nullable */
+  connectedAt: string | null;
+  /**
+     * The last signed request from the plugin
+     * @nullable
+     */
+  lastSeenAt: string | null;
+  /**
+     * The last post from the plugin that became a social post
+     * @nullable
+     */
+  lastPostAt: string | null;
+}
 
 /**
  * error = stopped after 5 failed checks in a row; resume to try again
@@ -1776,9 +1819,17 @@ export interface Automation {
   id: string;
   kind: AutomationKind;
   name: string;
+  /** wordpress_plugin: the site the plugin connected from, empty until it has */
   sourceUrl: string;
   status: AutomationStatus;
   config: AutomationConfig;
+  /** Set for wordpress_plugin automations, null for the others */
+  plugin: AutomationPlugin | null;
+  /**
+     * Only in the answer that creates a wordpress_plugin automation or replaces its key. What the user pastes into the plugin; it is never returned again.
+     * @nullable
+     */
+  connectionKey?: string | null;
   /** @nullable */
   lastRunAt: string | null;
   /**
@@ -1821,10 +1872,10 @@ export interface AutomationCreateInput {
   /** @maxLength 120 */
   name: string;
   /**
-     * wordpress: the site's address (a bare domain is fine); rss: the feed's address. http(s) only.
+     * Required for wordpress (the site's address; a bare domain is fine) and rss (the feed's address). http(s) only. Not used for wordpress_plugin.
      * @maxLength 2048
      */
-  sourceUrl: string;
+  sourceUrl?: string;
   config: AutomationConfigInput;
 }
 
@@ -1920,6 +1971,150 @@ export interface AutomationSourceTestInput {
   kind: AutomationKind;
   /** @maxLength 2048 */
   url: string;
+}
+
+/**
+ * What the plugin says about the site it is installed on
+ */
+export interface WordPressPluginSite {
+  /**
+     * The site's address (home_url). Required when connecting.
+     * @maxLength 2048
+     */
+  url?: string;
+  name?: string;
+  wpVersion?: string;
+  pluginVersion?: string;
+}
+
+export interface WordPressPluginSiteInput {
+  site?: WordPressPluginSite;
+}
+
+export interface WordPressPluginAccount {
+  name: string;
+  platform: string;
+  status: string;
+}
+
+export interface WordPressPluginConnection {
+  status: AutomationPluginStatus;
+  workspaceName: string;
+  automationName: string;
+  automationStatus: AutomationStatus;
+  mode: AutomationMode;
+  accounts: WordPressPluginAccount[];
+  postsCreated: number;
+  /** @nullable */
+  dashboardUrl: string | null;
+}
+
+export interface WordPressPluginConnected {
+  connection: WordPressPluginConnection;
+}
+
+export type WordPressPluginShareStatus = typeof WordPressPluginShareStatus[keyof typeof WordPressPluginShareStatus];
+
+
+export const WordPressPluginShareStatus = {
+  pending: 'pending',
+  posted: 'posted',
+  skipped: 'skipped',
+  failed: 'failed',
+} as const;
+
+export interface WordPressPluginShare {
+  /** @nullable */
+  title: string | null;
+  /** @nullable */
+  url: string | null;
+  status: WordPressPluginShareStatus;
+  /** @nullable */
+  error: string | null;
+  createdAt: string;
+  /**
+     * The social post's current status, when it still exists
+     * @nullable
+     */
+  postStatus: string | null;
+  /** @nullable */
+  postScheduledAt: string | null;
+}
+
+export interface WordPressPluginStatus {
+  connection: WordPressPluginConnection;
+  /** The latest 10 posts the plugin sent, newest first */
+  recent: WordPressPluginShare[];
+}
+
+/**
+ * A post as published on the site. Text is plain text; SocialFlow fetches nothing when it receives it.
+ */
+export interface WordPressPluginPost {
+  id?: number;
+  /** WordPress's guid for the post: its identity for duplicate protection */
+  guid?: string;
+  title?: string;
+  excerpt?: string;
+  /**
+     * The permalink
+     * @maxLength 2048
+     */
+  url: string;
+  /**
+     * The featured image
+     * @nullable
+     */
+  imageUrl?: string | null;
+  /** @nullable */
+  author?: string | null;
+  /** @nullable */
+  publishedAt?: string | null;
+}
+
+export interface WordPressPluginPostInput {
+  post: WordPressPluginPost;
+  /** Someone pressed Share now in WordPress: a post that failed before is tried again whatever its attempt count */
+  manual?: boolean;
+}
+
+export type WordPressPluginPostCreatedStatus = typeof WordPressPluginPostCreatedStatus[keyof typeof WordPressPluginPostCreatedStatus];
+
+
+export const WordPressPluginPostCreatedStatus = {
+  scheduled: 'scheduled',
+  draft: 'draft',
+} as const;
+
+export interface WordPressPluginPostCreated {
+  status: WordPressPluginPostCreatedStatus;
+  /** @nullable */
+  scheduledAt: string | null;
+}
+
+/**
+ * duplicate = SocialFlow already has this post; skipped = sharing is paused in SocialFlow; failed = it can't be posted as it is (see message)
+ */
+export type WordPressPluginPostResultResult = typeof WordPressPluginPostResultResult[keyof typeof WordPressPluginPostResultResult];
+
+
+export const WordPressPluginPostResultResult = {
+  created: 'created',
+  duplicate: 'duplicate',
+  skipped: 'skipped',
+  failed: 'failed',
+} as const;
+
+export interface WordPressPluginPostResult {
+  /** duplicate = SocialFlow already has this post; skipped = sharing is paused in SocialFlow; failed = it can't be posted as it is (see message) */
+  result: WordPressPluginPostResultResult;
+  /** Words for the WordPress admin */
+  message: string;
+  post: WordPressPluginPostCreated | null;
+}
+
+export interface WordPressPluginOk {
+  ok: boolean;
 }
 
 export interface AutomationSourceItem {

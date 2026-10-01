@@ -18,6 +18,7 @@ import linkPreviewRouter from "./link-preview";
 import dataDeletionRouter from "./data-deletion";
 import automationsRouter from "./automations";
 import bulkImportsRouter from "./bulk-imports";
+import wordpressPluginRouter from "./wordpress-plugin";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(linkPreviewRouter);
 router.use(dataDeletionRouter);
 router.use(automationsRouter);
 router.use(bulkImportsRouter);
+router.use(wordpressPluginRouter);
 
 export default router;

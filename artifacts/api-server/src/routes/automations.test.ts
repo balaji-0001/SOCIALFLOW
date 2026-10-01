@@ -152,7 +152,7 @@ describe.skipIf(!tablesExist)("automations API (test DB only)", () => {
 
     const base = { kind: "rss", name: "Company blog", sourceUrl: "https://blog.example.com/feed", config: { connectedAccountIds: [fb.id] } };
     const bad: Array<[Record<string, unknown>, RegExp]> = [
-      [{ ...base, kind: "twitter" }, /wordpress or rss/],
+      [{ ...base, kind: "twitter" }, /wordpress, rss or wordpress_plugin/],
       [{ ...base, name: "" }, /Name must be/],
       [{ ...base, name: "n".repeat(121) }, /Name must be/],
       [{ ...base, sourceUrl: "ftp://example.com/feed" }, /http/],

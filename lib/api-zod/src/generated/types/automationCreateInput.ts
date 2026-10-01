@@ -13,9 +13,9 @@ export interface AutomationCreateInput {
   /** @maxLength 120 */
   name: string;
   /**
-     * wordpress: the site's address (a bare domain is fine); rss: the feed's address. http(s) only.
+     * Required for wordpress (the site's address; a bare domain is fine) and rss (the feed's address). http(s) only. Not used for wordpress_plugin.
      * @maxLength 2048
      */
-  sourceUrl: string;
+  sourceUrl?: string;
   config: AutomationConfigInput;
 }
