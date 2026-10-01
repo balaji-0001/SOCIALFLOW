@@ -2,7 +2,7 @@ import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import { useLocation } from 'wouter';
 import {
   BarChart3, Bell, CalendarDays, ChevronDown, CircleHelp, FilePen, House, Images, LayoutDashboard, ListChecks, ListOrdered,
-  LogOut, Network, PanelLeftClose, PanelLeftOpen, Plus, Repeat, Send, Settings, ShieldCheck, Sparkles, Users,
+  LogOut, Network, PanelLeftClose, PanelLeftOpen, Plus, Repeat, Send, Settings, ShieldCheck, Sparkles, Users, Workflow,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getAuthMeQueryKey, getListPostsQueryKey, useAuthLogout, useAuthMe, useListPosts, useListWorkspaces, useSwitchWorkspace } from '@workspace/api-client-react';
@@ -24,11 +24,11 @@ import './app.css';
 import './shell.css';
 
 export type NavKey =
-  | 'dashboard' | 'posts' | 'calendar' | 'drafts' | 'queue' | 'recurring' | 'accounts' | 'settings'
+  | 'dashboard' | 'posts' | 'calendar' | 'drafts' | 'queue' | 'recurring' | 'automations' | 'accounts' | 'settings'
   | 'library' | 'analytics' | 'inbox' | 'approvals' | 'ai' | 'team';
 
 const PAGE_TITLES: Record<NavKey, string> = {
-  dashboard: 'Dashboard', calendar: 'Calendar', posts: 'Manage Posts', drafts: 'Drafts', queue: 'Queue', recurring: 'Recurring posts', accounts: 'Connected Accounts', settings: 'Settings',
+  dashboard: 'Dashboard', calendar: 'Calendar', posts: 'Manage Posts', drafts: 'Drafts', queue: 'Queue', recurring: 'Recurring posts', automations: 'Automations', accounts: 'Connected Accounts', settings: 'Settings',
   library: 'Content Library', analytics: 'Analytics', inbox: 'Inbox', approvals: 'Approvals', ai: 'AI Studio', team: 'Team',
 };
 
@@ -46,6 +46,7 @@ const NAV: NavGroup[] = [
     { key: 'drafts', href: '/drafts', label: 'Drafts', Icon: FilePen, count: 'drafts' },
     { key: 'queue', href: '/queue', label: 'Queue', Icon: ListOrdered },
     { key: 'recurring', href: '/recurring', label: 'Recurring', Icon: Repeat },
+    { key: 'automations', href: '/automations', label: 'Automations', Icon: Workflow },
     { key: 'library', href: '/library', label: 'Content Library', Icon: Images },
   ] },
   { label: 'Grow', items: [

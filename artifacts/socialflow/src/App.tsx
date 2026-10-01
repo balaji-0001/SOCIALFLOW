@@ -27,6 +27,7 @@ const PostsPage = lazy(() => import('@/app/posts-pages').then((m) => ({ default:
 const DraftsPage = lazy(() => import('@/app/posts-pages').then((m) => ({ default: m.DraftsPage })));
 const QueuePage = lazy(() => import('@/app/queue-page').then((m) => ({ default: m.QueuePage })));
 const RecurringPage = lazy(() => import('@/app/recurring-page').then((m) => ({ default: m.RecurringPage })));
+const AutomationsPage = lazy(() => import('@/app/automations-page').then((m) => ({ default: m.AutomationsPage })));
 const SettingsPage = lazy(() => import('@/app/settings-page').then((m) => ({ default: m.SettingsPage })));
 const PrivacyPage = lazy(() => import('@/app/legal-pages').then((m) => ({ default: m.PrivacyPage })));
 const TermsPage = lazy(() => import('@/app/legal-pages').then((m) => ({ default: m.TermsPage })));
@@ -751,6 +752,7 @@ function Router() {
     <Route path="/drafts">{() => <AppShell active="drafts"><DraftsPage /></AppShell>}</Route>
     <Route path="/queue">{() => <AppShell active="queue"><QueuePage /></AppShell>}</Route>
     <Route path="/recurring">{() => <AppShell active="recurring"><RecurringPage /></AppShell>}</Route>
+    <Route path="/automations">{() => <AppShell active="automations"><AutomationsPage /></AppShell>}</Route>
     <Route path="/settings">{() => <AppShell active="settings"><SettingsPage /></AppShell>}</Route>
     <Route path="/library">{() => <AppShell active="library"><LibraryPage /></AppShell>}</Route>
     <Route path="/analytics">{() => <AppShell active="analytics"><AnalyticsPage /></AppShell>}</Route>

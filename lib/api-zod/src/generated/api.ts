@@ -3109,7 +3109,11 @@ export const ListAutomationsResponse = zod.object({
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })),
-  "limit": zod.number().int().describe('Most automations a workspace can have')
+  "limit": zod.number().int().describe('Most automations a workspace can have'),
+  "pollMinutes": zod.object({
+  "wordpress": zod.number().int(),
+  "rss": zod.number().int()
+}).describe('How often the server checks each kind of source, in minutes')
 })
 
 

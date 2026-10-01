@@ -1801,10 +1801,19 @@ export interface Automation {
   updatedAt: string;
 }
 
+/**
+ * How often the server checks each kind of source, in minutes
+ */
+export interface AutomationPollMinutes {
+  wordpress: number;
+  rss: number;
+}
+
 export interface AutomationList {
   automations: Automation[];
   /** Most automations a workspace can have */
   limit: number;
+  pollMinutes: AutomationPollMinutes;
 }
 
 export interface AutomationCreateInput {

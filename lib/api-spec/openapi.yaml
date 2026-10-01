@@ -4884,12 +4884,20 @@ components:
         accounts: { type: array, items: { $ref: "#/components/schemas/AutomationAccount" }, description: "The configured accounts that still exist" }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    AutomationPollMinutes:
+      type: object
+      description: "How often the server checks each kind of source, in minutes"
+      required: [wordpress, rss]
+      properties:
+        wordpress: { type: integer }
+        rss: { type: integer }
     AutomationList:
       type: object
-      required: [automations, limit]
+      required: [automations, limit, pollMinutes]
       properties:
         automations: { type: array, items: { $ref: "#/components/schemas/Automation" } }
         limit: { type: integer, description: "Most automations a workspace can have" }
+        pollMinutes: { $ref: "#/components/schemas/AutomationPollMinutes" }
     AutomationCreateInput:
       type: object
       required: [kind, name, sourceUrl, config]

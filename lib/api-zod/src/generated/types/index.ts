@@ -57,6 +57,7 @@ export * from './automationItemStatus';
 export * from './automationKind';
 export * from './automationList';
 export * from './automationMode';
+export * from './automationPollMinutes';
 export * from './automationRun';
 export * from './automationRunList';
 export * from './automationRunNow';

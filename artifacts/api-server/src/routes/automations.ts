@@ -19,6 +19,7 @@ import {
   latestRuns,
   MAX_AUTOMATIONS_PER_WORKSPACE,
   normalizeConfig,
+  pollMinutes,
   runAutomation,
 } from "../lib/automations";
 import { FeedError, feedErrorStatus, fetchSource, normalizeSourceUrl } from "../lib/feeds";
@@ -175,7 +176,7 @@ router.get("/automations", async (req, res): Promise<void> => {
   const ctx = await requireAccess(req, res, "automations:read");
   if (!ctx) return;
   const rows = await db.select().from(automationsTable).where(eq(automationsTable.workspaceId, ctx.workspaceId)).orderBy(asc(automationsTable.createdAt));
-  res.json({ automations: await serialize(rows), limit: MAX_AUTOMATIONS_PER_WORKSPACE });
+  res.json({ automations: await serialize(rows), limit: MAX_AUTOMATIONS_PER_WORKSPACE, pollMinutes: { wordpress: Math.round(pollMinutes("wordpress")), rss: Math.round(pollMinutes("rss")) } });
 });
 
 router.post("/automations", async (req, res): Promise<void> => {

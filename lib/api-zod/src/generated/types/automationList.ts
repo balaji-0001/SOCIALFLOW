@@ -6,9 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Automation } from './automation';
+import type { AutomationPollMinutes } from './automationPollMinutes';
 
 export interface AutomationList {
   automations: Automation[];
   /** Most automations a workspace can have */
   limit: number;
+  pollMinutes: AutomationPollMinutes;
 }

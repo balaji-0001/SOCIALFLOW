@@ -196,6 +196,8 @@ describe.skipIf(!tablesExist)("automations API (test DB only)", () => {
     const list = await owner.agent.get("/api/automations");
     expect(list.status).toBe(200);
     expect(list.body.limit).toBe(25);
+    // How often each kind is checked, so the page can say so without guessing.
+    expect(list.body.pollMinutes).toEqual({ wordpress: 15, rss: 60 });
     expect(() => ListAutomationsResponse.parse(list.body)).not.toThrow();
     expect(list.body.automations.map((a: { name: string }) => a.name)).toEqual(["Company blog", "WP"]);
     expect((await owner.agent.get(`/api/automations/${id}`)).body.name).toBe("Company blog");

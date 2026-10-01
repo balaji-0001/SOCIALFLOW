@@ -18,6 +18,7 @@ import { PlatformBadge, STATUS_LABEL, snippet } from './platforms';
 const PAGES = [
   { label: 'Dashboard', href: '/dashboard' }, { label: 'Calendar', href: '/calendar' }, { label: 'Manage Posts', href: '/posts' }, { label: 'Drafts', href: '/drafts' },
   { label: 'Queue', href: '/queue' }, { label: 'Recurring posts', href: '/recurring' }, { label: 'Connected accounts', href: '/workspace' }, { label: 'Settings', href: '/settings' },
+  { label: 'Automations: WordPress and RSS', href: '/automations' }, { label: 'Bulk import (CSV)', href: '/automations?tab=import' },
 ];
 
 type Hit = { key: string; group: 'Posts' | 'Accounts' | 'Tags' | 'Pages'; label: string; hint: string; icon: 'post' | 'account' | 'tag' | 'page'; run: () => void; platform?: Parameters<typeof PlatformBadge>[0]['platform'] };
