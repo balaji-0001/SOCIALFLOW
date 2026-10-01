@@ -61,6 +61,8 @@ app.use((req, res, next) => {
 });
 
 app.use(cookieParser(sessionSecret));
+// A CSV import carries the file in its JSON body (up to 1 MB of text), so those two routes take a larger body.
+app.use(["/api/bulk-imports", "/api/bulk-imports/preview"], express.json({ limit: "1200kb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

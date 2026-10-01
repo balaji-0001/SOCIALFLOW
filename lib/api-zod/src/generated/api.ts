@@ -3044,3 +3044,532 @@ export const ListReportScheduleRunsResponse = zod.object({
 })
 
 
+/**
+ * @summary Fetch a WordPress site or RSS/Atom feed and show its latest 5 items (automations:manage, rate limited). SSRF-safe: public http(s) addresses on ports 80/443 only.
+ */
+export const testAutomationSourceBodyUrlMax = 2048;
+
+
+
+export const TestAutomationSourceBody = zod.object({
+  "kind": zod.enum(['wordpress', 'rss']),
+  "url": zod.string().max(testAutomationSourceBodyUrlMax)
+})
+
+export const TestAutomationSourceResponse = zod.object({
+  "ok": zod.boolean(),
+  "kind": zod.enum(['wordpress', 'rss']),
+  "url": zod.string().describe('The address as it will be saved'),
+  "sourceTitle": zod.string().nullable(),
+  "items": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string().nullable(),
+  "publishedAt": zod.coerce.date().nullable(),
+  "imageUrl": zod.string().nullable(),
+  "excerpt": zod.string()
+}))
+})
+
+
+/**
+ * @summary The workspace's automations with their last run and accounts (automations:read)
+ */
+export const listAutomationsResponseAutomationsItemConfigMaxPostsPerRunMax = 10;
+
+
+
+export const ListAutomationsResponse = zod.object({
+  "automations": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['wordpress', 'rss']),
+  "name": zod.string(),
+  "sourceUrl": zod.string(),
+  "status": zod.enum(['active', 'paused', 'error']).describe('error = stopped after 5 failed checks in a row; resume to try again'),
+  "config": zod.object({
+  "connectedAccountIds": zod.array(zod.string()),
+  "mode": zod.enum(['publish', 'queue', 'draft']).describe('publish = goes out on the publisher\'s next pass (the approvals gate still applies); queue = next free queue slot, or a draft when there is none; draft = saved as a draft'),
+  "template": zod.string().describe('Post text. Tokens: {title} {url} {excerpt} {author} {site}'),
+  "includeImage": zod.boolean().describe('Use the item\'s picture on the link card (and as Instagram\'s photo)'),
+  "maxPostsPerRun": zod.number().int().min(1).max(listAutomationsResponseAutomationsItemConfigMaxPostsPerRunMax),
+  "postExistingOnFirstRun": zod.boolean().describe('Post the single newest existing item on the first run instead of nothing')
+}),
+  "lastRunAt": zod.coerce.date().nullable(),
+  "nextRunAt": zod.coerce.date().nullable().describe('null unless active'),
+  "lastStatus": zod.string().nullable().describe('success, no_new, partial or failed'),
+  "lastError": zod.string().nullable(),
+  "consecutiveFailures": zod.number().int(),
+  "postsCreatedTotal": zod.number().int(),
+  "accounts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "platform": zod.string(),
+  "avatarUrl": zod.string().nullable(),
+  "status": zod.string().describe('The connected account\'s status; anything but active needs a reconnect')
+})).describe('The configured accounts that still exist'),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
+  "limit": zod.number().int().describe('Most automations a workspace can have')
+})
+
+
+/**
+ * @summary Create an automation (automations:manage). At most 25 per workspace. Its first run records what is already in the source and posts nothing, unless postExistingOnFirstRun.
+ */
+export const createAutomationBodyNameMax = 120;
+
+export const createAutomationBodySourceUrlMax = 2048;
+
+
+export const createAutomationBodyConfigTemplateMax = 2000;
+
+export const createAutomationBodyConfigMaxPostsPerRunMax = 10;
+
+
+
+export const CreateAutomationBody = zod.object({
+  "kind": zod.enum(['wordpress', 'rss']),
+  "name": zod.string().max(createAutomationBodyNameMax),
+  "sourceUrl": zod.string().max(createAutomationBodySourceUrlMax).describe('wordpress: the site\'s address (a bare domain is fine); rss: the feed\'s address. http(s) only.'),
+  "config": zod.object({
+  "connectedAccountIds": zod.array(zod.string()).min(1).optional().describe('Required when creating. YouTube channels can\'t be used.'),
+  "mode": zod.enum(['publish', 'queue', 'draft']).optional().describe('publish = goes out on the publisher\'s next pass (the approvals gate still applies); queue = next free queue slot, or a draft when there is none; draft = saved as a draft'),
+  "template": zod.string().max(createAutomationBodyConfigTemplateMax).optional().describe('Must contain {title} or {url}. Default "{title}\\n\\n{url}"'),
+  "includeImage": zod.boolean().optional(),
+  "maxPostsPerRun": zod.number().int().min(1).max(createAutomationBodyConfigMaxPostsPerRunMax).optional(),
+  "postExistingOnFirstRun": zod.boolean().optional()
+})
+})
+
+export const createAutomationResponseConfigMaxPostsPerRunMax = 10;
+
+
+
+export const CreateAutomationResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['wordpress', 'rss']),
+  "name": zod.string(),
+  "sourceUrl": zod.string(),
+  "status": zod.enum(['active', 'paused', 'error']).describe('error = stopped after 5 failed checks in a row; resume to try again'),
+  "config": zod.object({
+  "connectedAccountIds": zod.array(zod.string()),
+  "mode": zod.enum(['publish', 'queue', 'draft']).describe('publish = goes out on the publisher\'s next pass (the approvals gate still applies); queue = next free queue slot, or a draft when there is none; draft = saved as a draft'),
+  "template": zod.string().describe('Post text. Tokens: {title} {url} {excerpt} {author} {site}'),
+  "includeImage": zod.boolean().describe('Use the item\'s picture on the link card (and as Instagram\'s photo)'),
+  "maxPostsPerRun": zod.number().int().min(1).max(createAutomationResponseConfigMaxPostsPerRunMax),
+  "postExistingOnFirstRun": zod.boolean().describe('Post the single newest existing item on the first run instead of nothing')
+}),
+  "lastRunAt": zod.coerce.date().nullable(),
+  "nextRunAt": zod.coerce.date().nullable().describe('null unless active'),
+  "lastStatus": zod.string().nullable().describe('success, no_new, partial or failed'),
+  "lastError": zod.string().nullable(),
+  "consecutiveFailures": zod.number().int(),
+  "postsCreatedTotal": zod.number().int(),
+  "accounts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "platform": zod.string(),
+  "avatarUrl": zod.string().nullable(),
+  "status": zod.string().describe('The connected account\'s status; anything but active needs a reconnect')
+})).describe('The configured accounts that still exist'),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary One automation (automations:read)
+ */
+export const GetAutomationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const getAutomationResponseConfigMaxPostsPerRunMax = 10;
+
+
+
+export const GetAutomationResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['wordpress', 'rss']),
+  "name": zod.string(),
+  "sourceUrl": zod.string(),
+  "status": zod.enum(['active', 'paused', 'error']).describe('error = stopped after 5 failed checks in a row; resume to try again'),
+  "config": zod.object({
+  "connectedAccountIds": zod.array(zod.string()),
+  "mode": zod.enum(['publish', 'queue', 'draft']).describe('publish = goes out on the publisher\'s next pass (the approvals gate still applies); queue = next free queue slot, or a draft when there is none; draft = saved as a draft'),
+  "template": zod.string().describe('Post text. Tokens: {title} {url} {excerpt} {author} {site}'),
+  "includeImage": zod.boolean().describe('Use the item\'s picture on the link card (and as Instagram\'s photo)'),
+  "maxPostsPerRun": zod.number().int().min(1).max(getAutomationResponseConfigMaxPostsPerRunMax),
+  "postExistingOnFirstRun": zod.boolean().describe('Post the single newest existing item on the first run instead of nothing')
+}),
+  "lastRunAt": zod.coerce.date().nullable(),
+  "nextRunAt": zod.coerce.date().nullable().describe('null unless active'),
+  "lastStatus": zod.string().nullable().describe('success, no_new, partial or failed'),
+  "lastError": zod.string().nullable(),
+  "consecutiveFailures": zod.number().int(),
+  "postsCreatedTotal": zod.number().int(),
+  "accounts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "platform": zod.string(),
+  "avatarUrl": zod.string().nullable(),
+  "status": zod.string().describe('The connected account\'s status; anything but active needs a reconnect')
+})).describe('The configured accounts that still exist'),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Change the name, source address or settings (automations:manage). Config fields that are left out keep their value. A new source address takes a fresh baseline.
+ */
+export const UpdateAutomationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const updateAutomationBodyNameMax = 120;
+
+export const updateAutomationBodySourceUrlMax = 2048;
+
+
+export const updateAutomationBodyConfigTemplateMax = 2000;
+
+export const updateAutomationBodyConfigMaxPostsPerRunMax = 10;
+
+
+
+export const UpdateAutomationBody = zod.object({
+  "name": zod.string().max(updateAutomationBodyNameMax).optional(),
+  "sourceUrl": zod.string().max(updateAutomationBodySourceUrlMax).optional(),
+  "config": zod.object({
+  "connectedAccountIds": zod.array(zod.string()).min(1).optional().describe('Required when creating. YouTube channels can\'t be used.'),
+  "mode": zod.enum(['publish', 'queue', 'draft']).optional().describe('publish = goes out on the publisher\'s next pass (the approvals gate still applies); queue = next free queue slot, or a draft when there is none; draft = saved as a draft'),
+  "template": zod.string().max(updateAutomationBodyConfigTemplateMax).optional().describe('Must contain {title} or {url}. Default "{title}\\n\\n{url}"'),
+  "includeImage": zod.boolean().optional(),
+  "maxPostsPerRun": zod.number().int().min(1).max(updateAutomationBodyConfigMaxPostsPerRunMax).optional(),
+  "postExistingOnFirstRun": zod.boolean().optional()
+}).optional()
+})
+
+export const updateAutomationResponseConfigMaxPostsPerRunMax = 10;
+
+
+
+export const UpdateAutomationResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['wordpress', 'rss']),
+  "name": zod.string(),
+  "sourceUrl": zod.string(),
+  "status": zod.enum(['active', 'paused', 'error']).describe('error = stopped after 5 failed checks in a row; resume to try again'),
+  "config": zod.object({
+  "connectedAccountIds": zod.array(zod.string()),
+  "mode": zod.enum(['publish', 'queue', 'draft']).describe('publish = goes out on the publisher\'s next pass (the approvals gate still applies); queue = next free queue slot, or a draft when there is none; draft = saved as a draft'),
+  "template": zod.string().describe('Post text. Tokens: {title} {url} {excerpt} {author} {site}'),
+  "includeImage": zod.boolean().describe('Use the item\'s picture on the link card (and as Instagram\'s photo)'),
+  "maxPostsPerRun": zod.number().int().min(1).max(updateAutomationResponseConfigMaxPostsPerRunMax),
+  "postExistingOnFirstRun": zod.boolean().describe('Post the single newest existing item on the first run instead of nothing')
+}),
+  "lastRunAt": zod.coerce.date().nullable(),
+  "nextRunAt": zod.coerce.date().nullable().describe('null unless active'),
+  "lastStatus": zod.string().nullable().describe('success, no_new, partial or failed'),
+  "lastError": zod.string().nullable(),
+  "consecutiveFailures": zod.number().int(),
+  "postsCreatedTotal": zod.number().int(),
+  "accounts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "platform": zod.string(),
+  "avatarUrl": zod.string().nullable(),
+  "status": zod.string().describe('The connected account\'s status; anything but active needs a reconnect')
+})).describe('The configured accounts that still exist'),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete an automation and its history (automations:manage). Posts it created stay.
+ */
+export const DeleteAutomationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteAutomationResponse = zod.void()
+
+
+/**
+ * @summary Stop checking the source until resumed (automations:manage)
+ */
+export const PauseAutomationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const pauseAutomationResponseConfigMaxPostsPerRunMax = 10;
+
+
+
+export const PauseAutomationResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['wordpress', 'rss']),
+  "name": zod.string(),
+  "sourceUrl": zod.string(),
+  "status": zod.enum(['active', 'paused', 'error']).describe('error = stopped after 5 failed checks in a row; resume to try again'),
+  "config": zod.object({
+  "connectedAccountIds": zod.array(zod.string()),
+  "mode": zod.enum(['publish', 'queue', 'draft']).describe('publish = goes out on the publisher\'s next pass (the approvals gate still applies); queue = next free queue slot, or a draft when there is none; draft = saved as a draft'),
+  "template": zod.string().describe('Post text. Tokens: {title} {url} {excerpt} {author} {site}'),
+  "includeImage": zod.boolean().describe('Use the item\'s picture on the link card (and as Instagram\'s photo)'),
+  "maxPostsPerRun": zod.number().int().min(1).max(pauseAutomationResponseConfigMaxPostsPerRunMax),
+  "postExistingOnFirstRun": zod.boolean().describe('Post the single newest existing item on the first run instead of nothing')
+}),
+  "lastRunAt": zod.coerce.date().nullable(),
+  "nextRunAt": zod.coerce.date().nullable().describe('null unless active'),
+  "lastStatus": zod.string().nullable().describe('success, no_new, partial or failed'),
+  "lastError": zod.string().nullable(),
+  "consecutiveFailures": zod.number().int(),
+  "postsCreatedTotal": zod.number().int(),
+  "accounts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "platform": zod.string(),
+  "avatarUrl": zod.string().nullable(),
+  "status": zod.string().describe('The connected account\'s status; anything but active needs a reconnect')
+})).describe('The configured accounts that still exist'),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Resume a paused or errored automation: clears the failure count and checks the source on the next poll (automations:manage)
+ */
+export const ResumeAutomationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const resumeAutomationResponseConfigMaxPostsPerRunMax = 10;
+
+
+
+export const ResumeAutomationResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['wordpress', 'rss']),
+  "name": zod.string(),
+  "sourceUrl": zod.string(),
+  "status": zod.enum(['active', 'paused', 'error']).describe('error = stopped after 5 failed checks in a row; resume to try again'),
+  "config": zod.object({
+  "connectedAccountIds": zod.array(zod.string()),
+  "mode": zod.enum(['publish', 'queue', 'draft']).describe('publish = goes out on the publisher\'s next pass (the approvals gate still applies); queue = next free queue slot, or a draft when there is none; draft = saved as a draft'),
+  "template": zod.string().describe('Post text. Tokens: {title} {url} {excerpt} {author} {site}'),
+  "includeImage": zod.boolean().describe('Use the item\'s picture on the link card (and as Instagram\'s photo)'),
+  "maxPostsPerRun": zod.number().int().min(1).max(resumeAutomationResponseConfigMaxPostsPerRunMax),
+  "postExistingOnFirstRun": zod.boolean().describe('Post the single newest existing item on the first run instead of nothing')
+}),
+  "lastRunAt": zod.coerce.date().nullable(),
+  "nextRunAt": zod.coerce.date().nullable().describe('null unless active'),
+  "lastStatus": zod.string().nullable().describe('success, no_new, partial or failed'),
+  "lastError": zod.string().nullable(),
+  "consecutiveFailures": zod.number().int(),
+  "postsCreatedTotal": zod.number().int(),
+  "accounts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "platform": zod.string(),
+  "avatarUrl": zod.string().nullable(),
+  "status": zod.string().describe('The connected account\'s status; anything but active needs a reconnect')
+})).describe('The configured accounts that still exist'),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Check the source now and return the run (automations:manage, rate limited). A failed check is still a 200; see run.status and run.error.
+ */
+export const RunAutomationNowParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const runAutomationNowResponseAutomationConfigMaxPostsPerRunMax = 10;
+
+
+
+export const RunAutomationNowResponse = zod.object({
+  "run": zod.object({
+  "id": zod.string(),
+  "automationId": zod.string(),
+  "startedAt": zod.coerce.date(),
+  "finishedAt": zod.coerce.date().nullable(),
+  "status": zod.enum(['success', 'no_new', 'partial', 'failed']),
+  "itemsFound": zod.number().int(),
+  "itemsNew": zod.number().int(),
+  "postsCreated": zod.number().int(),
+  "error": zod.string().nullable()
+}),
+  "automation": zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['wordpress', 'rss']),
+  "name": zod.string(),
+  "sourceUrl": zod.string(),
+  "status": zod.enum(['active', 'paused', 'error']).describe('error = stopped after 5 failed checks in a row; resume to try again'),
+  "config": zod.object({
+  "connectedAccountIds": zod.array(zod.string()),
+  "mode": zod.enum(['publish', 'queue', 'draft']).describe('publish = goes out on the publisher\'s next pass (the approvals gate still applies); queue = next free queue slot, or a draft when there is none; draft = saved as a draft'),
+  "template": zod.string().describe('Post text. Tokens: {title} {url} {excerpt} {author} {site}'),
+  "includeImage": zod.boolean().describe('Use the item\'s picture on the link card (and as Instagram\'s photo)'),
+  "maxPostsPerRun": zod.number().int().min(1).max(runAutomationNowResponseAutomationConfigMaxPostsPerRunMax),
+  "postExistingOnFirstRun": zod.boolean().describe('Post the single newest existing item on the first run instead of nothing')
+}),
+  "lastRunAt": zod.coerce.date().nullable(),
+  "nextRunAt": zod.coerce.date().nullable().describe('null unless active'),
+  "lastStatus": zod.string().nullable().describe('success, no_new, partial or failed'),
+  "lastError": zod.string().nullable(),
+  "consecutiveFailures": zod.number().int(),
+  "postsCreatedTotal": zod.number().int(),
+  "accounts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "platform": zod.string(),
+  "avatarUrl": zod.string().nullable(),
+  "status": zod.string().describe('The connected account\'s status; anything but active needs a reconnect')
+})).describe('The configured accounts that still exist'),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+})
+
+
+/**
+ * @summary Latest 50 runs, newest first (automations:read)
+ */
+export const ListAutomationRunsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ListAutomationRunsResponse = zod.object({
+  "runs": zod.array(zod.object({
+  "id": zod.string(),
+  "automationId": zod.string(),
+  "startedAt": zod.coerce.date(),
+  "finishedAt": zod.coerce.date().nullable(),
+  "status": zod.enum(['success', 'no_new', 'partial', 'failed']),
+  "itemsFound": zod.number().int(),
+  "itemsNew": zod.number().int(),
+  "postsCreated": zod.number().int(),
+  "error": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Latest 100 source items the automation has recorded, with the post each became (automations:read)
+ */
+export const ListAutomationItemsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ListAutomationItemsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "itemKey": zod.string(),
+  "title": zod.string().nullable(),
+  "url": zod.string().nullable(),
+  "publishedAt": zod.coerce.date().nullable(),
+  "status": zod.enum(['pending', 'posted', 'skipped', 'failed', 'seen']).describe('seen = already in the source when the automation started watching it'),
+  "postId": zod.string().nullable(),
+  "postStatus": zod.string().nullable().describe('The post\'s current status, when it still exists'),
+  "postScheduledAt": zod.coerce.date().nullable(),
+  "attempts": zod.number().int(),
+  "error": zod.string().nullable().describe('Why the item failed, or a note such as a queue fallback to draft'),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Validate a CSV of posts without saving anything (posts:write, rate limited). Up to 500 rows and 1 MB.
+ */
+export const previewBulkImportBodyFileNameMax = 200;
+
+
+
+export const PreviewBulkImportBody = zod.object({
+  "csv": zod.string().describe('The file\'s text, up to 1 MB and 500 rows. Header row required. Columns (case-insensitive): content (required), scheduled_at, accounts, link, first_comment, tags, image_url'),
+  "fileName": zod.string().max(previewBulkImportBodyFileNameMax).optional(),
+  "timezone": zod.string().optional().describe('IANA zone used for scheduled_at values written as YYYY-MM-DD HH:mm. Default UTC'),
+  "defaultAccountIds": zod.array(zod.string()).optional().describe('Used for rows whose accounts column is empty'),
+  "mode": zod.enum(['schedule', 'queue', 'draft'])
+})
+
+export const PreviewBulkImportResponse = zod.object({
+  "rows": zod.array(zod.object({
+  "row": zod.number().int().describe('Spreadsheet row number (the header is row 1)'),
+  "content": zod.string(),
+  "scheduledAt": zod.coerce.date().nullable(),
+  "accountIds": zod.array(zod.string()),
+  "accountNames": zod.array(zod.string()),
+  "link": zod.string().nullable(),
+  "firstComment": zod.string().nullable(),
+  "tags": zod.array(zod.string()),
+  "imageUrl": zod.string().nullable(),
+  "errors": zod.array(zod.string()).describe('Any entry means the row will not be imported'),
+  "warnings": zod.array(zod.string())
+})),
+  "totalRows": zod.number().int(),
+  "validCount": zod.number().int(),
+  "errorCount": zod.number().int(),
+  "warnings": zod.array(zod.string()).describe('About the file as a whole, such as ignored columns')
+})
+
+
+/**
+ * @summary Latest 20 imports, newest first (posts:read)
+ */
+export const ListBulkImportsResponse = zod.object({
+  "imports": zod.array(zod.object({
+  "id": zod.string(),
+  "fileName": zod.string(),
+  "totalRows": zod.number().int(),
+  "createdCount": zod.number().int(),
+  "failedCount": zod.number().int(),
+  "status": zod.enum(['completed', 'partial', 'failed']),
+  "mode": zod.string(),
+  "errors": zod.array(zod.object({
+  "row": zod.number().int(),
+  "message": zod.string()
+})),
+  "createdByUserId": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Import a CSV (posts:write, rate limited). The file is validated again on the server; valid rows become posts and the rest are reported per row.
+ */
+export const createBulkImportBodyFileNameMax = 200;
+
+
+
+export const CreateBulkImportBody = zod.object({
+  "csv": zod.string().describe('The file\'s text, up to 1 MB and 500 rows. Header row required. Columns (case-insensitive): content (required), scheduled_at, accounts, link, first_comment, tags, image_url'),
+  "fileName": zod.string().max(createBulkImportBodyFileNameMax).optional(),
+  "timezone": zod.string().optional().describe('IANA zone used for scheduled_at values written as YYYY-MM-DD HH:mm. Default UTC'),
+  "defaultAccountIds": zod.array(zod.string()).optional().describe('Used for rows whose accounts column is empty'),
+  "mode": zod.enum(['schedule', 'queue', 'draft'])
+})
+
+export const CreateBulkImportResponse = zod.object({
+  "importId": zod.string(),
+  "status": zod.enum(['completed', 'partial', 'failed']),
+  "totalRows": zod.number().int(),
+  "created": zod.number().int(),
+  "failed": zod.number().int(),
+  "errors": zod.array(zod.object({
+  "row": zod.number().int(),
+  "message": zod.string()
+})),
+  "postIds": zod.array(zod.string())
+})
+
+

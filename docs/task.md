@@ -17,7 +17,8 @@ Status of the work. Update it as things change.
 - [x] Content library: captions, templates, snippets, media; folders, favourites; composer picker including media
 - [x] Reports: PDF export and scheduled emailed reports
 - [x] Link previews: pasted links become cards; Facebook and LinkedIn publish as link posts
-- [x] Tests: 362 API tests, browser suites for composer, media, publishing, Aurora, theme, phase 1, and the newer pages
+- [x] Automations (backend): WordPress auto-share and RSS/Atom feeds with baseline, duplicate protection, backoff and retries; CSV bulk import with preview (API and OpenAPI done; see docs/implementation.md section 9)
+- [x] Tests: 424 API tests, browser suites for composer, media, publishing, Aurora, theme, phase 1, and the newer pages
 
 ## Needs your action (external)
 - [ ] Set `ANTHROPIC_API_KEY` to turn on AI Studio.
@@ -26,6 +27,8 @@ Status of the work. Update it as things change.
 - [ ] Add each new tunnel URL as a redirect URI in every network's developer console.
 
 ## Next
+- [ ] Automations and bulk import pages (the API is ready; the UI is built from the OpenAPI spec).
+- [ ] Try the WordPress and RSS fetchers against real sites (tests use stubbed responses only).
 - [ ] Chrome extension to share a page, selection or image into the composer (composer prefill from query parameters + `extension/` folder).
 - [ ] Deployment setup: Dockerfile, environment checklist, managed Postgres, persistent or S3 media storage, backups.
 - [ ] Verify Facebook and LinkedIn link cards against the real networks. LinkedIn only shows a real, client-set thumbnail when `LINKEDIN_API_VERSION` is set (see `.env`); without it, LinkedIn's own crawl fills the card in, sometimes with a delay.

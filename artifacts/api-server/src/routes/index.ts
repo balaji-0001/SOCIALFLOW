@@ -16,6 +16,8 @@ import libraryRouter from "./library";
 import reportsRouter from "./reports";
 import linkPreviewRouter from "./link-preview";
 import dataDeletionRouter from "./data-deletion";
+import automationsRouter from "./automations";
+import bulkImportsRouter from "./bulk-imports";
 
 const router: IRouter = Router();
 
@@ -36,5 +38,7 @@ router.use(libraryRouter);
 router.use(reportsRouter);
 router.use(linkPreviewRouter);
 router.use(dataDeletionRouter);
+router.use(automationsRouter);
+router.use(bulkImportsRouter);
 
 export default router;

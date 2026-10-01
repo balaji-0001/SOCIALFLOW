@@ -2836,6 +2836,338 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /automations/test-source:
+    post:
+      operationId: testAutomationSource
+      tags: [automations]
+      summary: "Fetch a WordPress site or RSS/Atom feed and show its latest 5 items (automations:manage, rate limited). SSRF-safe: public http(s) addresses on ports 80/443 only."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AutomationSourceTestInput"
+      responses:
+        "200":
+          description: The source answered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutomationSourceTest"
+        "400":
+          description: Not a usable address (invalid_url) or bad input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: The address answered but isn't a WordPress site / RSS or Atom feed (not_a_source)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: The site couldn't be reached or answered with an error (fetch_failed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /automations:
+    get:
+      operationId: listAutomations
+      tags: [automations]
+      summary: "The workspace's automations with their last run and accounts (automations:read)"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutomationList"
+    post:
+      operationId: createAutomation
+      tags: [automations]
+      summary: "Create an automation (automations:manage). At most 25 per workspace. Its first run records what is already in the source and posts nothing, unless postExistingOnFirstRun."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AutomationCreateInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Automation"
+        "400":
+          description: Invalid, or the workspace already has 25 automations (limit_reached)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /automations/{id}:
+    get:
+      operationId: getAutomation
+      tags: [automations]
+      summary: "One automation (automations:read)"
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Automation"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateAutomation
+      tags: [automations]
+      summary: "Change the name, source address or settings (automations:manage). Config fields that are left out keep their value. A new source address takes a fresh baseline."
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AutomationUpdateInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Automation"
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteAutomation
+      tags: [automations]
+      summary: "Delete an automation and its history (automations:manage). Posts it created stay."
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /automations/{id}/pause:
+    post:
+      operationId: pauseAutomation
+      tags: [automations]
+      summary: "Stop checking the source until resumed (automations:manage)"
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Automation"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /automations/{id}/resume:
+    post:
+      operationId: resumeAutomation
+      tags: [automations]
+      summary: "Resume a paused or errored automation: clears the failure count and checks the source on the next poll (automations:manage)"
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Automation"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /automations/{id}/run-now:
+    post:
+      operationId: runAutomationNow
+      tags: [automations]
+      summary: "Check the source now and return the run (automations:manage, rate limited). A failed check is still a 200; see run.status and run.error."
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The run that was recorded, with the updated automation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutomationRunNow"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /automations/{id}/runs:
+    get:
+      operationId: listAutomationRuns
+      tags: [automations]
+      summary: "Latest 50 runs, newest first (automations:read)"
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutomationRunList"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /automations/{id}/items:
+    get:
+      operationId: listAutomationItems
+      tags: [automations]
+      summary: "Latest 100 source items the automation has recorded, with the post each became (automations:read)"
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutomationItemList"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /bulk-imports/preview:
+    post:
+      operationId: previewBulkImport
+      tags: [bulk-imports]
+      summary: "Validate a CSV of posts without saving anything (posts:write, rate limited). Up to 500 rows and 1 MB."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkImportInput"
+      responses:
+        "200":
+          description: Every row with its errors and warnings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkImportPreview"
+        "400":
+          description: The file can't be used at all (no content column, more than 500 rows, unclosed quote, bad options)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: The CSV is over 1 MB
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /bulk-imports:
+    get:
+      operationId: listBulkImports
+      tags: [bulk-imports]
+      summary: "Latest 20 imports, newest first (posts:read)"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkImportList"
+    post:
+      operationId: createBulkImport
+      tags: [bulk-imports]
+      summary: "Import a CSV (posts:write, rate limited). The file is validated again on the server; valid rows become posts and the rest are reported per row."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkImportInput"
+      responses:
+        "201":
+          description: The import ran; see created, failed and errors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkImportResult"
+        "400":
+          description: The file can't be used at all
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: The CSV is over 1 MB
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     LinkPreview:
@@ -4494,3 +4826,222 @@ components:
       required: [runs]
       properties:
         runs: { type: array, items: { $ref: "#/components/schemas/ReportRun" } }
+    AutomationKind:
+      type: string
+      enum: [wordpress, rss]
+    AutomationStatus:
+      type: string
+      enum: [active, paused, error]
+      description: "error = stopped after 5 failed checks in a row; resume to try again"
+    AutomationMode:
+      type: string
+      enum: [publish, queue, draft]
+      description: "publish = goes out on the publisher's next pass (the approvals gate still applies); queue = next free queue slot, or a draft when there is none; draft = saved as a draft"
+    AutomationConfig:
+      type: object
+      required: [connectedAccountIds, mode, template, includeImage, maxPostsPerRun, postExistingOnFirstRun]
+      properties:
+        connectedAccountIds: { type: array, items: { type: string } }
+        mode: { $ref: "#/components/schemas/AutomationMode" }
+        template: { type: string, description: "Post text. Tokens: {title} {url} {excerpt} {author} {site}" }
+        includeImage: { type: boolean, description: "Use the item's picture on the link card (and as Instagram's photo)" }
+        maxPostsPerRun: { type: integer, minimum: 1, maximum: 10 }
+        postExistingOnFirstRun: { type: boolean, description: "Post the single newest existing item on the first run instead of nothing" }
+    AutomationConfigInput:
+      type: object
+      properties:
+        connectedAccountIds: { type: array, minItems: 1, items: { type: string }, description: "Required when creating. YouTube channels can't be used." }
+        mode: { $ref: "#/components/schemas/AutomationMode" }
+        template: { type: string, maxLength: 2000, description: "Must contain {title} or {url}. Default \"{title}\\n\\n{url}\"" }
+        includeImage: { type: boolean }
+        maxPostsPerRun: { type: integer, minimum: 1, maximum: 10 }
+        postExistingOnFirstRun: { type: boolean }
+    AutomationAccount:
+      type: object
+      required: [id, name, platform, avatarUrl, status]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        platform: { type: string }
+        avatarUrl: { type: ["string", "null"] }
+        status: { type: string, description: "The connected account's status; anything but active needs a reconnect" }
+    Automation:
+      type: object
+      required: [id, kind, name, sourceUrl, status, config, lastRunAt, nextRunAt, lastStatus, lastError, consecutiveFailures, postsCreatedTotal, accounts, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        kind: { $ref: "#/components/schemas/AutomationKind" }
+        name: { type: string }
+        sourceUrl: { type: string }
+        status: { $ref: "#/components/schemas/AutomationStatus" }
+        config: { $ref: "#/components/schemas/AutomationConfig" }
+        lastRunAt: { type: ["string", "null"], format: date-time }
+        nextRunAt: { type: ["string", "null"], format: date-time, description: "null unless active" }
+        lastStatus: { type: ["string", "null"], description: "success, no_new, partial or failed" }
+        lastError: { type: ["string", "null"] }
+        consecutiveFailures: { type: integer }
+        postsCreatedTotal: { type: integer }
+        accounts: { type: array, items: { $ref: "#/components/schemas/AutomationAccount" }, description: "The configured accounts that still exist" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    AutomationList:
+      type: object
+      required: [automations, limit]
+      properties:
+        automations: { type: array, items: { $ref: "#/components/schemas/Automation" } }
+        limit: { type: integer, description: "Most automations a workspace can have" }
+    AutomationCreateInput:
+      type: object
+      required: [kind, name, sourceUrl, config]
+      properties:
+        kind: { $ref: "#/components/schemas/AutomationKind" }
+        name: { type: string, maxLength: 120 }
+        sourceUrl: { type: string, maxLength: 2048, description: "wordpress: the site's address (a bare domain is fine); rss: the feed's address. http(s) only." }
+        config: { $ref: "#/components/schemas/AutomationConfigInput" }
+    AutomationUpdateInput:
+      type: object
+      properties:
+        name: { type: string, maxLength: 120 }
+        sourceUrl: { type: string, maxLength: 2048 }
+        config: { $ref: "#/components/schemas/AutomationConfigInput" }
+    AutomationRun:
+      type: object
+      required: [id, automationId, startedAt, finishedAt, status, itemsFound, itemsNew, postsCreated, error]
+      properties:
+        id: { type: string }
+        automationId: { type: string }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: ["string", "null"], format: date-time }
+        status: { type: string, enum: [success, no_new, partial, failed] }
+        itemsFound: { type: integer }
+        itemsNew: { type: integer }
+        postsCreated: { type: integer }
+        error: { type: ["string", "null"] }
+    AutomationRunList:
+      type: object
+      required: [runs]
+      properties:
+        runs: { type: array, items: { $ref: "#/components/schemas/AutomationRun" } }
+    AutomationRunNow:
+      type: object
+      required: [run, automation]
+      properties:
+        run: { $ref: "#/components/schemas/AutomationRun" }
+        automation: { $ref: "#/components/schemas/Automation" }
+    AutomationItem:
+      type: object
+      required: [id, itemKey, title, url, publishedAt, status, postId, postStatus, postScheduledAt, attempts, error, createdAt]
+      properties:
+        id: { type: string }
+        itemKey: { type: string }
+        title: { type: ["string", "null"] }
+        url: { type: ["string", "null"] }
+        publishedAt: { type: ["string", "null"], format: date-time }
+        status: { type: string, enum: [pending, posted, skipped, failed, seen], description: "seen = already in the source when the automation started watching it" }
+        postId: { type: ["string", "null"] }
+        postStatus: { type: ["string", "null"], description: "The post's current status, when it still exists" }
+        postScheduledAt: { type: ["string", "null"], format: date-time }
+        attempts: { type: integer }
+        error: { type: ["string", "null"], description: "Why the item failed, or a note such as a queue fallback to draft" }
+        createdAt: { type: string, format: date-time }
+    AutomationItemList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AutomationItem" } }
+    AutomationSourceTestInput:
+      type: object
+      required: [kind, url]
+      properties:
+        kind: { $ref: "#/components/schemas/AutomationKind" }
+        url: { type: string, maxLength: 2048 }
+    AutomationSourceItem:
+      type: object
+      required: [title, url, publishedAt, imageUrl, excerpt]
+      properties:
+        title: { type: string }
+        url: { type: ["string", "null"] }
+        publishedAt: { type: ["string", "null"], format: date-time }
+        imageUrl: { type: ["string", "null"] }
+        excerpt: { type: string }
+    AutomationSourceTest:
+      type: object
+      required: [ok, kind, url, sourceTitle, items]
+      properties:
+        ok: { type: boolean }
+        kind: { $ref: "#/components/schemas/AutomationKind" }
+        url: { type: string, description: "The address as it will be saved" }
+        sourceTitle: { type: ["string", "null"] }
+        items: { type: array, items: { $ref: "#/components/schemas/AutomationSourceItem" } }
+    BulkImportMode:
+      type: string
+      enum: [schedule, queue, draft]
+    BulkImportInput:
+      type: object
+      required: [csv, mode]
+      properties:
+        csv: { type: string, description: "The file's text, up to 1 MB and 500 rows. Header row required. Columns (case-insensitive): content (required), scheduled_at, accounts, link, first_comment, tags, image_url" }
+        fileName: { type: string, maxLength: 200 }
+        timezone: { type: string, description: "IANA zone used for scheduled_at values written as YYYY-MM-DD HH:mm. Default UTC" }
+        defaultAccountIds: { type: array, items: { type: string }, description: "Used for rows whose accounts column is empty" }
+        mode: { $ref: "#/components/schemas/BulkImportMode" }
+    BulkImportPreviewRow:
+      type: object
+      required: [row, content, scheduledAt, accountIds, accountNames, link, firstComment, tags, imageUrl, errors, warnings]
+      properties:
+        row: { type: integer, description: "Spreadsheet row number (the header is row 1)" }
+        content: { type: string }
+        scheduledAt: { type: ["string", "null"], format: date-time }
+        accountIds: { type: array, items: { type: string } }
+        accountNames: { type: array, items: { type: string } }
+        link: { type: ["string", "null"] }
+        firstComment: { type: ["string", "null"] }
+        tags: { type: array, items: { type: string } }
+        imageUrl: { type: ["string", "null"] }
+        errors: { type: array, items: { type: string }, description: "Any entry means the row will not be imported" }
+        warnings: { type: array, items: { type: string } }
+    BulkImportPreview:
+      type: object
+      required: [rows, totalRows, validCount, errorCount, warnings]
+      properties:
+        rows: { type: array, items: { $ref: "#/components/schemas/BulkImportPreviewRow" } }
+        totalRows: { type: integer }
+        validCount: { type: integer }
+        errorCount: { type: integer }
+        warnings: { type: array, items: { type: string }, description: "About the file as a whole, such as ignored columns" }
+    BulkImportRowError:
+      type: object
+      required: [row, message]
+      properties:
+        row: { type: integer }
+        message: { type: string }
+    BulkImportResult:
+      type: object
+      required: [importId, status, totalRows, created, failed, errors, postIds]
+      properties:
+        importId: { type: string }
+        status: { type: string, enum: [completed, partial, failed] }
+        totalRows: { type: integer }
+        created: { type: integer }
+        failed: { type: integer }
+        errors: { type: array, items: { $ref: "#/components/schemas/BulkImportRowError" } }
+        postIds: { type: array, items: { type: string } }
+    BulkImportRecord:
+      type: object
+      required: [id, fileName, totalRows, createdCount, failedCount, status, mode, errors, createdByUserId, createdAt]
+      properties:
+        id: { type: string }
+        fileName: { type: string }
+        totalRows: { type: integer }
+        createdCount: { type: integer }
+        failedCount: { type: integer }
+        status: { type: string, enum: [completed, partial, failed] }
+        mode: { type: string }
+        errors: { type: array, items: { $ref: "#/components/schemas/BulkImportRowError" } }
+        createdByUserId: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+    BulkImportList:
+      type: object
+      required: [imports]
+      properties:
+        imports: { type: array, items: { $ref: "#/components/schemas/BulkImportRecord" } }

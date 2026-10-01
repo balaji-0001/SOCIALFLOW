@@ -1693,6 +1693,348 @@ export interface ReportRunList {
   runs: ReportRun[];
 }
 
+export type AutomationKind = typeof AutomationKind[keyof typeof AutomationKind];
+
+
+export const AutomationKind = {
+  wordpress: 'wordpress',
+  rss: 'rss',
+} as const;
+
+/**
+ * error = stopped after 5 failed checks in a row; resume to try again
+ */
+export type AutomationStatus = typeof AutomationStatus[keyof typeof AutomationStatus];
+
+
+export const AutomationStatus = {
+  active: 'active',
+  paused: 'paused',
+  error: 'error',
+} as const;
+
+/**
+ * publish = goes out on the publisher's next pass (the approvals gate still applies); queue = next free queue slot, or a draft when there is none; draft = saved as a draft
+ */
+export type AutomationMode = typeof AutomationMode[keyof typeof AutomationMode];
+
+
+export const AutomationMode = {
+  publish: 'publish',
+  queue: 'queue',
+  draft: 'draft',
+} as const;
+
+export interface AutomationConfig {
+  connectedAccountIds: string[];
+  mode: AutomationMode;
+  /** Post text. Tokens: {title} {url} {excerpt} {author} {site} */
+  template: string;
+  /** Use the item's picture on the link card (and as Instagram's photo) */
+  includeImage: boolean;
+  /**
+     * @minimum 1
+     * @maximum 10
+     */
+  maxPostsPerRun: number;
+  /** Post the single newest existing item on the first run instead of nothing */
+  postExistingOnFirstRun: boolean;
+}
+
+export interface AutomationConfigInput {
+  /**
+     * Required when creating. YouTube channels can't be used.
+     * @minItems 1
+     */
+  connectedAccountIds?: string[];
+  mode?: AutomationMode;
+  /**
+     * Must contain {title} or {url}. Default "{title}\n\n{url}"
+     * @maxLength 2000
+     */
+  template?: string;
+  includeImage?: boolean;
+  /**
+     * @minimum 1
+     * @maximum 10
+     */
+  maxPostsPerRun?: number;
+  postExistingOnFirstRun?: boolean;
+}
+
+export interface AutomationAccount {
+  id: string;
+  name: string;
+  platform: string;
+  /** @nullable */
+  avatarUrl: string | null;
+  /** The connected account's status; anything but active needs a reconnect */
+  status: string;
+}
+
+export interface Automation {
+  id: string;
+  kind: AutomationKind;
+  name: string;
+  sourceUrl: string;
+  status: AutomationStatus;
+  config: AutomationConfig;
+  /** @nullable */
+  lastRunAt: string | null;
+  /**
+     * null unless active
+     * @nullable
+     */
+  nextRunAt: string | null;
+  /**
+     * success, no_new, partial or failed
+     * @nullable
+     */
+  lastStatus: string | null;
+  /** @nullable */
+  lastError: string | null;
+  consecutiveFailures: number;
+  postsCreatedTotal: number;
+  /** The configured accounts that still exist */
+  accounts: AutomationAccount[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AutomationList {
+  automations: Automation[];
+  /** Most automations a workspace can have */
+  limit: number;
+}
+
+export interface AutomationCreateInput {
+  kind: AutomationKind;
+  /** @maxLength 120 */
+  name: string;
+  /**
+     * wordpress: the site's address (a bare domain is fine); rss: the feed's address. http(s) only.
+     * @maxLength 2048
+     */
+  sourceUrl: string;
+  config: AutomationConfigInput;
+}
+
+export interface AutomationUpdateInput {
+  /** @maxLength 120 */
+  name?: string;
+  /** @maxLength 2048 */
+  sourceUrl?: string;
+  config?: AutomationConfigInput;
+}
+
+export type AutomationRunStatus = typeof AutomationRunStatus[keyof typeof AutomationRunStatus];
+
+
+export const AutomationRunStatus = {
+  success: 'success',
+  no_new: 'no_new',
+  partial: 'partial',
+  failed: 'failed',
+} as const;
+
+export interface AutomationRun {
+  id: string;
+  automationId: string;
+  startedAt: string;
+  /** @nullable */
+  finishedAt: string | null;
+  status: AutomationRunStatus;
+  itemsFound: number;
+  itemsNew: number;
+  postsCreated: number;
+  /** @nullable */
+  error: string | null;
+}
+
+export interface AutomationRunList {
+  runs: AutomationRun[];
+}
+
+export interface AutomationRunNow {
+  run: AutomationRun;
+  automation: Automation;
+}
+
+/**
+ * seen = already in the source when the automation started watching it
+ */
+export type AutomationItemStatus = typeof AutomationItemStatus[keyof typeof AutomationItemStatus];
+
+
+export const AutomationItemStatus = {
+  pending: 'pending',
+  posted: 'posted',
+  skipped: 'skipped',
+  failed: 'failed',
+  seen: 'seen',
+} as const;
+
+export interface AutomationItem {
+  id: string;
+  itemKey: string;
+  /** @nullable */
+  title: string | null;
+  /** @nullable */
+  url: string | null;
+  /** @nullable */
+  publishedAt: string | null;
+  /** seen = already in the source when the automation started watching it */
+  status: AutomationItemStatus;
+  /** @nullable */
+  postId: string | null;
+  /**
+     * The post's current status, when it still exists
+     * @nullable
+     */
+  postStatus: string | null;
+  /** @nullable */
+  postScheduledAt: string | null;
+  attempts: number;
+  /**
+     * Why the item failed, or a note such as a queue fallback to draft
+     * @nullable
+     */
+  error: string | null;
+  createdAt: string;
+}
+
+export interface AutomationItemList {
+  items: AutomationItem[];
+}
+
+export interface AutomationSourceTestInput {
+  kind: AutomationKind;
+  /** @maxLength 2048 */
+  url: string;
+}
+
+export interface AutomationSourceItem {
+  title: string;
+  /** @nullable */
+  url: string | null;
+  /** @nullable */
+  publishedAt: string | null;
+  /** @nullable */
+  imageUrl: string | null;
+  excerpt: string;
+}
+
+export interface AutomationSourceTest {
+  ok: boolean;
+  kind: AutomationKind;
+  /** The address as it will be saved */
+  url: string;
+  /** @nullable */
+  sourceTitle: string | null;
+  items: AutomationSourceItem[];
+}
+
+export type BulkImportMode = typeof BulkImportMode[keyof typeof BulkImportMode];
+
+
+export const BulkImportMode = {
+  schedule: 'schedule',
+  queue: 'queue',
+  draft: 'draft',
+} as const;
+
+export interface BulkImportInput {
+  /** The file's text, up to 1 MB and 500 rows. Header row required. Columns (case-insensitive): content (required), scheduled_at, accounts, link, first_comment, tags, image_url */
+  csv: string;
+  /** @maxLength 200 */
+  fileName?: string;
+  /** IANA zone used for scheduled_at values written as YYYY-MM-DD HH:mm. Default UTC */
+  timezone?: string;
+  /** Used for rows whose accounts column is empty */
+  defaultAccountIds?: string[];
+  mode: BulkImportMode;
+}
+
+export interface BulkImportPreviewRow {
+  /** Spreadsheet row number (the header is row 1) */
+  row: number;
+  content: string;
+  /** @nullable */
+  scheduledAt: string | null;
+  accountIds: string[];
+  accountNames: string[];
+  /** @nullable */
+  link: string | null;
+  /** @nullable */
+  firstComment: string | null;
+  tags: string[];
+  /** @nullable */
+  imageUrl: string | null;
+  /** Any entry means the row will not be imported */
+  errors: string[];
+  warnings: string[];
+}
+
+export interface BulkImportPreview {
+  rows: BulkImportPreviewRow[];
+  totalRows: number;
+  validCount: number;
+  errorCount: number;
+  /** About the file as a whole, such as ignored columns */
+  warnings: string[];
+}
+
+export interface BulkImportRowError {
+  row: number;
+  message: string;
+}
+
+export type BulkImportResultStatus = typeof BulkImportResultStatus[keyof typeof BulkImportResultStatus];
+
+
+export const BulkImportResultStatus = {
+  completed: 'completed',
+  partial: 'partial',
+  failed: 'failed',
+} as const;
+
+export interface BulkImportResult {
+  importId: string;
+  status: BulkImportResultStatus;
+  totalRows: number;
+  created: number;
+  failed: number;
+  errors: BulkImportRowError[];
+  postIds: string[];
+}
+
+export type BulkImportRecordStatus = typeof BulkImportRecordStatus[keyof typeof BulkImportRecordStatus];
+
+
+export const BulkImportRecordStatus = {
+  completed: 'completed',
+  partial: 'partial',
+  failed: 'failed',
+} as const;
+
+export interface BulkImportRecord {
+  id: string;
+  fileName: string;
+  totalRows: number;
+  createdCount: number;
+  failedCount: number;
+  status: BulkImportRecordStatus;
+  mode: string;
+  errors: BulkImportRowError[];
+  /** @nullable */
+  createdByUserId: string | null;
+  createdAt: string;
+}
+
+export interface BulkImportList {
+  imports: BulkImportRecord[];
+}
+
 export type GetLinkPreviewParams = {
 /**
  * @maxLength 2048

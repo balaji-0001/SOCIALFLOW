@@ -16,19 +16,20 @@ export type Permission =
   | "inbox:read" | "inbox:reply" | "inbox:manage"
   | "ai:read" | "ai:use" | "ai:manage"
   | "library:read" | "library:write"
-  | "reports:read" | "reports:manage";
+  | "reports:read" | "reports:manage"
+  | "automations:read" | "automations:manage";
 
 export const ALL_PERMISSIONS: Permission[] = [
   "posts:read", "posts:write", "posts:publish", "posts:delete", "media:write", "accounts:read", "accounts:manage",
   "queues:manage", "organize:manage", "analytics:read", "analytics:refresh", "team:read", "team:manage",
   "approvals:read", "approvals:request", "approvals:decide", "approvals:manage", "inbox:read", "inbox:reply", "inbox:manage",
   "ai:read", "ai:use", "ai:manage", "library:read", "library:write",
-  "reports:read", "reports:manage",
+  "reports:read", "reports:manage", "automations:read", "automations:manage",
 ];
 
-const READ: Permission[] = ["posts:read", "accounts:read", "analytics:read", "team:read", "approvals:read", "inbox:read", "ai:read", "library:read", "reports:read"];
+const READ: Permission[] = ["posts:read", "accounts:read", "analytics:read", "team:read", "approvals:read", "inbox:read", "ai:read", "library:read", "reports:read", "automations:read"];
 const EDIT: Permission[] = [...READ, "posts:write", "posts:publish", "posts:delete", "media:write", "queues:manage", "organize:manage", "analytics:refresh",
-  "approvals:request", "inbox:reply", "inbox:manage", "ai:use", "library:write", "reports:manage"];
+  "approvals:request", "inbox:reply", "inbox:manage", "ai:use", "library:write", "reports:manage", "automations:manage"];
 
 export const ROLE_PERMISSIONS: Record<WorkspaceRole, Permission[]> = {
   owner: ALL_PERMISSIONS,

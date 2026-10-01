@@ -17,7 +17,6 @@ import {
 import {
   connectedAccountsTable,
   db,
-  mediaTable,
   postMediaTable,
   postStatuses,
   postTagsTable,
@@ -27,7 +26,7 @@ import {
   type PostStatus,
 } from "@workspace/db";
 import { jsonError } from "../lib/http-errors";
-import { mediaProblemForPlatforms, type RuleMedia } from "../lib/media-rules";
+import { MAX_CONTENT_LENGTH, mediaForRules, validateTargets } from "../lib/post-create";
 import { loadMediaForPosts, pruneUnattachedMedia, serializeMedia, validateMediaIds } from "../lib/media";
 import {
   MAX_FIRST_COMMENT_LENGTH,
@@ -35,7 +34,6 @@ import {
   linkFromRow,
   parsePostLink,
   type PostLink,
-  effectiveContent,
   loadExtrasForPosts,
   parsePlatformContent,
   platformContentProblem,
@@ -51,13 +49,10 @@ import {
   publishClaimedPost,
 } from "../lib/publisher";
 import { nextFreeSlot } from "../lib/queue";
-import type { Platform } from "../lib/oauth/types";
 import { requireAccess } from "../lib/access";
 import type { WorkspaceContext } from "../lib/session";
 
 const router: IRouter = Router();
-
-const MAX_CONTENT_LENGTH = 10_000;
 
 async function requireWorkspace(req: Request, res: Response): Promise<WorkspaceContext | null> {
   return requireAccess(req, res, req.method === "GET" ? "posts:read" : req.method === "DELETE" ? "posts:delete" : req.path.endsWith("/publish") ? "posts:publish" : "posts:write");
@@ -108,40 +103,6 @@ export async function serializePosts(rows: Post[]) {
       updatedAt: row.updatedAt,
     };
   });
-}
-
-/** Kind and type of each file, for checking them against what the selected networks accept. */
-async function mediaForRules(workspaceId: string, ids: string[]): Promise<RuleMedia[]> {
-  if (ids.length === 0) return [];
-  return db.select({ kind: mediaTable.kind, mimeType: mediaTable.mimeType, sizeBytes: mediaTable.sizeBytes }).from(mediaTable).where(and(eq(mediaTable.workspaceId, workspaceId), inArray(mediaTable.id, ids)));
-}
-
-type TargetAccount = { id: string; status: string; name: string; platform: Platform };
-
-async function loadTargetAccounts(workspaceId: string, accountIds: string[]): Promise<TargetAccount[]> {
-  if (accountIds.length === 0) return [];
-  const rows = await db
-    .select({ id: connectedAccountsTable.id, status: connectedAccountsTable.status, name: connectedAccountsTable.displayName, platform: connectedAccountsTable.platform })
-    .from(connectedAccountsTable)
-    .where(and(eq(connectedAccountsTable.workspaceId, workspaceId), inArray(connectedAccountsTable.id, accountIds)));
-  return rows.map((row) => ({ ...row, platform: row.platform as Platform }));
-}
-
-/** Confirms every account exists in this workspace and is usable, and (when publishing) that the networks can take the media and text. */
-async function validateTargets(workspaceId: string, accountIds: string[], forPublishing: boolean, media: RuleMedia[], content: string, platformContent: PlatformContent, hasLinkImage = false): Promise<string | null> {
-  if (accountIds.length === 0) return null;
-  const accounts = await loadTargetAccounts(workspaceId, accountIds);
-  if (accounts.length !== new Set(accountIds).size) return "One or more selected accounts don't exist in this workspace.";
-  const unhealthy = accounts.find((account) => account.status !== "active");
-  if (unhealthy) return `${unhealthy.name} needs to be reconnected before it can be used.`;
-  if (forPublishing) {
-    for (const platform of new Set(accounts.map((account) => account.platform))) {
-      if (effectiveContent(content, platformContent, platform).trim().length === 0) return "Write something before scheduling this post.";
-    }
-    const mediaProblem = mediaProblemForPlatforms(accounts.map((account) => account.platform), media, { hasLinkImage });
-    if (mediaProblem) return mediaProblem;
-  }
-  return null;
 }
 
 /** Rules that only apply once a post is scheduled rather than saved as a draft. */

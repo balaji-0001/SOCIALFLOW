@@ -4,6 +4,7 @@ import { logger } from "./lib/logger";
 import { startAnalytics } from "./lib/analytics";
 import { startInbox } from "./lib/inbox";
 import { startReports } from "./lib/reports";
+import { startAutomations } from "./lib/automations";
 import { startMediaSweeper } from "./lib/media";
 import { startPublisher } from "./lib/publisher";
 
@@ -36,4 +37,5 @@ app.listen(port, (err) => {
   startAnalytics();
   startInbox();
   startReports();
+  startAutomations();
 });

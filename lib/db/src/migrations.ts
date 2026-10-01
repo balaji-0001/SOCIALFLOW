@@ -6,6 +6,7 @@ import { approvalsMigrations } from "./migrations-approvals";
 import { inboxMigrations } from "./migrations-inbox";
 import { aiMigrations } from "./migrations-ai";
 import { libraryMigrations } from "./migrations-library";
+import { automationsMigrations } from "./migrations-automations";
 /*
  * Schema migrations, applied in order by `runMigrations()` (lib/db/src/migrate.ts) when the API starts and before
  * the test suite runs. Each entry runs once per database; applied names are recorded in `socialflow_migrations`.
@@ -226,4 +227,5 @@ export const migrations: Array<{ name: string; sql: string }> = [
   ...reportsMigrations,
   ...linkMigrations,
   ...dataDeletionMigrations,
+  ...automationsMigrations,
 ];

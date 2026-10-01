@@ -97,7 +97,7 @@ export type UploadInput = {
   durationMs: number | null;
 };
 
-async function workspaceUsage(workspaceId: string): Promise<number> {
+export async function workspaceUsage(workspaceId: string): Promise<number> {
   const [row] = await db
     .select({ total: sql<number>`coalesce(sum(${mediaTable.sizeBytes}), 0)::bigint` })
     .from(mediaTable)

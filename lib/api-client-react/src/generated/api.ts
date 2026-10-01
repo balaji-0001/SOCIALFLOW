@@ -37,9 +37,22 @@ import type {
   ApprovalSettings,
   ApprovalSettingsInput,
   ApprovalWithdrawInput,
+  Automation,
+  AutomationCreateInput,
+  AutomationItemList,
+  AutomationList,
+  AutomationRunList,
+  AutomationRunNow,
+  AutomationSourceTest,
+  AutomationSourceTestInput,
+  AutomationUpdateInput,
   BrandVoice,
   BrandVoiceInput,
   BrandVoiceList,
+  BulkImportInput,
+  BulkImportList,
+  BulkImportPreview,
+  BulkImportResult,
   ConnectedAccount,
   ConnectedAccountList,
   ConnectionProviderList,
@@ -7910,4 +7923,1126 @@ export function useListReportScheduleRuns<TData = Awaited<ReturnType<typeof list
 
 
 
+
+export const getTestAutomationSourceUrl = () => {
+
+
+
+
+  return `/api/automations/test-source`
+}
+
+/**
+ * @summary Fetch a WordPress site or RSS/Atom feed and show its latest 5 items (automations:manage, rate limited). SSRF-safe: public http(s) addresses on ports 80/443 only.
+ */
+export const testAutomationSource = async (automationSourceTestInput: AutomationSourceTestInput, options?: Parameters<typeof customFetch>[1]): Promise<AutomationSourceTest> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AutomationSourceTest>(getTestAutomationSourceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(automationSourceTestInput)
+  }
+);}
+
+
+
+
+
+export const getTestAutomationSourceMutationKey = () => ['testAutomationSource'] as const;
+
+export const getTestAutomationSourceMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testAutomationSource>>, TError,TestAutomationSourceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof testAutomationSource>>, TError,TestAutomationSourceMutationVariables, TContext> => {
+
+const mutationKey = getTestAutomationSourceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof testAutomationSource>>, TestAutomationSourceMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  testAutomationSource(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TestAutomationSourceMutationResult = NonNullable<Awaited<ReturnType<typeof testAutomationSource>>>
+    export type TestAutomationSourceMutationBody = BodyType<AutomationSourceTestInput>
+    export type TestAutomationSourceMutationError = ErrorType<ErrorResponse>
+    export type TestAutomationSourceMutationVariables = {data: BodyType<AutomationSourceTestInput>}
+
+    /**
+ * @summary Fetch a WordPress site or RSS/Atom feed and show its latest 5 items (automations:manage, rate limited). SSRF-safe: public http(s) addresses on ports 80/443 only.
+ */
+export const useTestAutomationSource = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testAutomationSource>>, TError,TestAutomationSourceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof testAutomationSource>>,
+        TError,
+        TestAutomationSourceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getTestAutomationSourceMutationOptions(options));
+    }
+
+export const getListAutomationsUrl = () => {
+
+
+
+
+  return `/api/automations`
+}
+
+/**
+ * @summary The workspace's automations with their last run and accounts (automations:read)
+ */
+export const listAutomations = async ( options?: Parameters<typeof customFetch>[1]): Promise<AutomationList> => {
+
+  return customFetch<AutomationList>(getListAutomationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAutomationsQueryKey = () => {
+    return [
+    `/api/automations`
+    ] as const;
+    }
+
+
+export const getListAutomationsQueryOptions = <TData = Awaited<ReturnType<typeof listAutomations>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutomations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAutomationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAutomations>>> = ({ signal }) => listAutomations({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAutomations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAutomationsQueryResult = NonNullable<Awaited<ReturnType<typeof listAutomations>>>
+export type ListAutomationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The workspace's automations with their last run and accounts (automations:read)
+ */
+
+export function useListAutomations<TData = Awaited<ReturnType<typeof listAutomations>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutomations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAutomationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateAutomationUrl = () => {
+
+
+
+
+  return `/api/automations`
+}
+
+/**
+ * @summary Create an automation (automations:manage). At most 25 per workspace. Its first run records what is already in the source and posts nothing, unless postExistingOnFirstRun.
+ */
+export const createAutomation = async (automationCreateInput: AutomationCreateInput, options?: Parameters<typeof customFetch>[1]): Promise<Automation> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Automation>(getCreateAutomationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(automationCreateInput)
+  }
+);}
+
+
+
+
+
+export const getCreateAutomationMutationKey = () => ['createAutomation'] as const;
+
+export const getCreateAutomationMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAutomation>>, TError,CreateAutomationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createAutomation>>, TError,CreateAutomationMutationVariables, TContext> => {
+
+const mutationKey = getCreateAutomationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAutomation>>, CreateAutomationMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createAutomation(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateAutomationMutationResult = NonNullable<Awaited<ReturnType<typeof createAutomation>>>
+    export type CreateAutomationMutationBody = BodyType<AutomationCreateInput>
+    export type CreateAutomationMutationError = ErrorType<ErrorResponse>
+    export type CreateAutomationMutationVariables = {data: BodyType<AutomationCreateInput>}
+
+    /**
+ * @summary Create an automation (automations:manage). At most 25 per workspace. Its first run records what is already in the source and posts nothing, unless postExistingOnFirstRun.
+ */
+export const useCreateAutomation = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAutomation>>, TError,CreateAutomationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createAutomation>>,
+        TError,
+        CreateAutomationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateAutomationMutationOptions(options));
+    }
+
+export const getGetAutomationUrl = (id: string,) => {
+
+
+
+
+  return `/api/automations/${id}`
+}
+
+/**
+ * @summary One automation (automations:read)
+ */
+export const getAutomation = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<Automation> => {
+
+  return customFetch<Automation>(getGetAutomationUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAutomationQueryKey = (id: string,) => {
+    return [
+    `/api/automations/${id}`
+    ] as const;
+    }
+
+
+export const getGetAutomationQueryOptions = <TData = Awaited<ReturnType<typeof getAutomation>>, TError = ErrorType<ErrorResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAutomation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAutomationQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAutomation>>> = ({ signal }) => getAutomation(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAutomation>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAutomationQueryResult = NonNullable<Awaited<ReturnType<typeof getAutomation>>>
+export type GetAutomationQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary One automation (automations:read)
+ */
+
+export function useGetAutomation<TData = Awaited<ReturnType<typeof getAutomation>>, TError = ErrorType<ErrorResponse>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAutomation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAutomationQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateAutomationUrl = (id: string,) => {
+
+
+
+
+  return `/api/automations/${id}`
+}
+
+/**
+ * @summary Change the name, source address or settings (automations:manage). Config fields that are left out keep their value. A new source address takes a fresh baseline.
+ */
+export const updateAutomation = async (id: string,
+    automationUpdateInput: AutomationUpdateInput, options?: Parameters<typeof customFetch>[1]): Promise<Automation> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Automation>(getUpdateAutomationUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(automationUpdateInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateAutomationMutationKey = () => ['updateAutomation'] as const;
+
+export const getUpdateAutomationMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAutomation>>, TError,UpdateAutomationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAutomation>>, TError,UpdateAutomationMutationVariables, TContext> => {
+
+const mutationKey = getUpdateAutomationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAutomation>>, UpdateAutomationMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateAutomation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAutomationMutationResult = NonNullable<Awaited<ReturnType<typeof updateAutomation>>>
+    export type UpdateAutomationMutationBody = BodyType<AutomationUpdateInput>
+    export type UpdateAutomationMutationError = ErrorType<ErrorResponse>
+    export type UpdateAutomationMutationVariables = {id: string;data: BodyType<AutomationUpdateInput>}
+
+    /**
+ * @summary Change the name, source address or settings (automations:manage). Config fields that are left out keep their value. A new source address takes a fresh baseline.
+ */
+export const useUpdateAutomation = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAutomation>>, TError,UpdateAutomationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAutomation>>,
+        TError,
+        UpdateAutomationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateAutomationMutationOptions(options));
+    }
+
+export const getDeleteAutomationUrl = (id: string,) => {
+
+
+
+
+  return `/api/automations/${id}`
+}
+
+/**
+ * @summary Delete an automation and its history (automations:manage). Posts it created stay.
+ */
+export const deleteAutomation = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteAutomationUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteAutomationMutationKey = () => ['deleteAutomation'] as const;
+
+export const getDeleteAutomationMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAutomation>>, TError,DeleteAutomationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAutomation>>, TError,DeleteAutomationMutationVariables, TContext> => {
+
+const mutationKey = getDeleteAutomationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAutomation>>, DeleteAutomationMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteAutomation(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAutomationMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAutomation>>>
+
+    export type DeleteAutomationMutationError = ErrorType<ErrorResponse>
+    export type DeleteAutomationMutationVariables = {id: string}
+
+    /**
+ * @summary Delete an automation and its history (automations:manage). Posts it created stay.
+ */
+export const useDeleteAutomation = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAutomation>>, TError,DeleteAutomationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAutomation>>,
+        TError,
+        DeleteAutomationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteAutomationMutationOptions(options));
+    }
+
+export const getPauseAutomationUrl = (id: string,) => {
+
+
+
+
+  return `/api/automations/${id}/pause`
+}
+
+/**
+ * @summary Stop checking the source until resumed (automations:manage)
+ */
+export const pauseAutomation = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<Automation> => {
+
+  return customFetch<Automation>(getPauseAutomationUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPauseAutomationMutationKey = () => ['pauseAutomation'] as const;
+
+export const getPauseAutomationMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pauseAutomation>>, TError,PauseAutomationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pauseAutomation>>, TError,PauseAutomationMutationVariables, TContext> => {
+
+const mutationKey = getPauseAutomationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pauseAutomation>>, PauseAutomationMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  pauseAutomation(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PauseAutomationMutationResult = NonNullable<Awaited<ReturnType<typeof pauseAutomation>>>
+
+    export type PauseAutomationMutationError = ErrorType<ErrorResponse>
+    export type PauseAutomationMutationVariables = {id: string}
+
+    /**
+ * @summary Stop checking the source until resumed (automations:manage)
+ */
+export const usePauseAutomation = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pauseAutomation>>, TError,PauseAutomationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof pauseAutomation>>,
+        TError,
+        PauseAutomationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPauseAutomationMutationOptions(options));
+    }
+
+export const getResumeAutomationUrl = (id: string,) => {
+
+
+
+
+  return `/api/automations/${id}/resume`
+}
+
+/**
+ * @summary Resume a paused or errored automation: clears the failure count and checks the source on the next poll (automations:manage)
+ */
+export const resumeAutomation = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<Automation> => {
+
+  return customFetch<Automation>(getResumeAutomationUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResumeAutomationMutationKey = () => ['resumeAutomation'] as const;
+
+export const getResumeAutomationMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resumeAutomation>>, TError,ResumeAutomationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resumeAutomation>>, TError,ResumeAutomationMutationVariables, TContext> => {
+
+const mutationKey = getResumeAutomationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resumeAutomation>>, ResumeAutomationMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  resumeAutomation(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResumeAutomationMutationResult = NonNullable<Awaited<ReturnType<typeof resumeAutomation>>>
+
+    export type ResumeAutomationMutationError = ErrorType<ErrorResponse>
+    export type ResumeAutomationMutationVariables = {id: string}
+
+    /**
+ * @summary Resume a paused or errored automation: clears the failure count and checks the source on the next poll (automations:manage)
+ */
+export const useResumeAutomation = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resumeAutomation>>, TError,ResumeAutomationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resumeAutomation>>,
+        TError,
+        ResumeAutomationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getResumeAutomationMutationOptions(options));
+    }
+
+export const getRunAutomationNowUrl = (id: string,) => {
+
+
+
+
+  return `/api/automations/${id}/run-now`
+}
+
+/**
+ * @summary Check the source now and return the run (automations:manage, rate limited). A failed check is still a 200; see run.status and run.error.
+ */
+export const runAutomationNow = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<AutomationRunNow> => {
+
+  return customFetch<AutomationRunNow>(getRunAutomationNowUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRunAutomationNowMutationKey = () => ['runAutomationNow'] as const;
+
+export const getRunAutomationNowMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runAutomationNow>>, TError,RunAutomationNowMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runAutomationNow>>, TError,RunAutomationNowMutationVariables, TContext> => {
+
+const mutationKey = getRunAutomationNowMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runAutomationNow>>, RunAutomationNowMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  runAutomationNow(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunAutomationNowMutationResult = NonNullable<Awaited<ReturnType<typeof runAutomationNow>>>
+
+    export type RunAutomationNowMutationError = ErrorType<ErrorResponse>
+    export type RunAutomationNowMutationVariables = {id: string}
+
+    /**
+ * @summary Check the source now and return the run (automations:manage, rate limited). A failed check is still a 200; see run.status and run.error.
+ */
+export const useRunAutomationNow = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runAutomationNow>>, TError,RunAutomationNowMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runAutomationNow>>,
+        TError,
+        RunAutomationNowMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRunAutomationNowMutationOptions(options));
+    }
+
+export const getListAutomationRunsUrl = (id: string,) => {
+
+
+
+
+  return `/api/automations/${id}/runs`
+}
+
+/**
+ * @summary Latest 50 runs, newest first (automations:read)
+ */
+export const listAutomationRuns = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<AutomationRunList> => {
+
+  return customFetch<AutomationRunList>(getListAutomationRunsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAutomationRunsQueryKey = (id: string,) => {
+    return [
+    `/api/automations/${id}/runs`
+    ] as const;
+    }
+
+
+export const getListAutomationRunsQueryOptions = <TData = Awaited<ReturnType<typeof listAutomationRuns>>, TError = ErrorType<ErrorResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutomationRuns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAutomationRunsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAutomationRuns>>> = ({ signal }) => listAutomationRuns(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAutomationRuns>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAutomationRunsQueryResult = NonNullable<Awaited<ReturnType<typeof listAutomationRuns>>>
+export type ListAutomationRunsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Latest 50 runs, newest first (automations:read)
+ */
+
+export function useListAutomationRuns<TData = Awaited<ReturnType<typeof listAutomationRuns>>, TError = ErrorType<ErrorResponse>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutomationRuns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAutomationRunsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListAutomationItemsUrl = (id: string,) => {
+
+
+
+
+  return `/api/automations/${id}/items`
+}
+
+/**
+ * @summary Latest 100 source items the automation has recorded, with the post each became (automations:read)
+ */
+export const listAutomationItems = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<AutomationItemList> => {
+
+  return customFetch<AutomationItemList>(getListAutomationItemsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAutomationItemsQueryKey = (id: string,) => {
+    return [
+    `/api/automations/${id}/items`
+    ] as const;
+    }
+
+
+export const getListAutomationItemsQueryOptions = <TData = Awaited<ReturnType<typeof listAutomationItems>>, TError = ErrorType<ErrorResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutomationItems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAutomationItemsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAutomationItems>>> = ({ signal }) => listAutomationItems(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAutomationItems>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAutomationItemsQueryResult = NonNullable<Awaited<ReturnType<typeof listAutomationItems>>>
+export type ListAutomationItemsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Latest 100 source items the automation has recorded, with the post each became (automations:read)
+ */
+
+export function useListAutomationItems<TData = Awaited<ReturnType<typeof listAutomationItems>>, TError = ErrorType<ErrorResponse>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutomationItems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAutomationItemsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPreviewBulkImportUrl = () => {
+
+
+
+
+  return `/api/bulk-imports/preview`
+}
+
+/**
+ * @summary Validate a CSV of posts without saving anything (posts:write, rate limited). Up to 500 rows and 1 MB.
+ */
+export const previewBulkImport = async (bulkImportInput: BulkImportInput, options?: Parameters<typeof customFetch>[1]): Promise<BulkImportPreview> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<BulkImportPreview>(getPreviewBulkImportUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(bulkImportInput)
+  }
+);}
+
+
+
+
+
+export const getPreviewBulkImportMutationKey = () => ['previewBulkImport'] as const;
+
+export const getPreviewBulkImportMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewBulkImport>>, TError,PreviewBulkImportMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewBulkImport>>, TError,PreviewBulkImportMutationVariables, TContext> => {
+
+const mutationKey = getPreviewBulkImportMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewBulkImport>>, PreviewBulkImportMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  previewBulkImport(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewBulkImportMutationResult = NonNullable<Awaited<ReturnType<typeof previewBulkImport>>>
+    export type PreviewBulkImportMutationBody = BodyType<BulkImportInput>
+    export type PreviewBulkImportMutationError = ErrorType<ErrorResponse>
+    export type PreviewBulkImportMutationVariables = {data: BodyType<BulkImportInput>}
+
+    /**
+ * @summary Validate a CSV of posts without saving anything (posts:write, rate limited). Up to 500 rows and 1 MB.
+ */
+export const usePreviewBulkImport = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewBulkImport>>, TError,PreviewBulkImportMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof previewBulkImport>>,
+        TError,
+        PreviewBulkImportMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPreviewBulkImportMutationOptions(options));
+    }
+
+export const getListBulkImportsUrl = () => {
+
+
+
+
+  return `/api/bulk-imports`
+}
+
+/**
+ * @summary Latest 20 imports, newest first (posts:read)
+ */
+export const listBulkImports = async ( options?: Parameters<typeof customFetch>[1]): Promise<BulkImportList> => {
+
+  return customFetch<BulkImportList>(getListBulkImportsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBulkImportsQueryKey = () => {
+    return [
+    `/api/bulk-imports`
+    ] as const;
+    }
+
+
+export const getListBulkImportsQueryOptions = <TData = Awaited<ReturnType<typeof listBulkImports>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBulkImports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBulkImportsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBulkImports>>> = ({ signal }) => listBulkImports({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBulkImports>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBulkImportsQueryResult = NonNullable<Awaited<ReturnType<typeof listBulkImports>>>
+export type ListBulkImportsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Latest 20 imports, newest first (posts:read)
+ */
+
+export function useListBulkImports<TData = Awaited<ReturnType<typeof listBulkImports>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBulkImports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBulkImportsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateBulkImportUrl = () => {
+
+
+
+
+  return `/api/bulk-imports`
+}
+
+/**
+ * @summary Import a CSV (posts:write, rate limited). The file is validated again on the server; valid rows become posts and the rest are reported per row.
+ */
+export const createBulkImport = async (bulkImportInput: BulkImportInput, options?: Parameters<typeof customFetch>[1]): Promise<BulkImportResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<BulkImportResult>(getCreateBulkImportUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(bulkImportInput)
+  }
+);}
+
+
+
+
+
+export const getCreateBulkImportMutationKey = () => ['createBulkImport'] as const;
+
+export const getCreateBulkImportMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBulkImport>>, TError,CreateBulkImportMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createBulkImport>>, TError,CreateBulkImportMutationVariables, TContext> => {
+
+const mutationKey = getCreateBulkImportMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBulkImport>>, CreateBulkImportMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createBulkImport(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateBulkImportMutationResult = NonNullable<Awaited<ReturnType<typeof createBulkImport>>>
+    export type CreateBulkImportMutationBody = BodyType<BulkImportInput>
+    export type CreateBulkImportMutationError = ErrorType<ErrorResponse>
+    export type CreateBulkImportMutationVariables = {data: BodyType<BulkImportInput>}
+
+    /**
+ * @summary Import a CSV (posts:write, rate limited). The file is validated again on the server; valid rows become posts and the rest are reported per row.
+ */
+export const useCreateBulkImport = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBulkImport>>, TError,CreateBulkImportMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createBulkImport>>,
+        TError,
+        CreateBulkImportMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateBulkImportMutationOptions(options));
+    }
 

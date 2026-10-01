@@ -42,7 +42,7 @@ Add it to the `Permission` type and `ALL_PERMISSIONS` in `lib/permissions.ts`, t
 Append a migration to `lib/db/src/migrations.ts` (or a `migrations-<name>.ts` file imported and spread there). Additive only. Update the Drizzle schema in `lib/db/src/schema` and export it from `schema/index.ts`. Then run `pnpm run typecheck:libs`.
 
 ### Add a background worker
-Follow `lib/analytics.ts` (`startX` / `stopX`, interval env var, `*_DISABLED` switch), and call `startX()` from `src/index.ts`.
+Follow `lib/analytics.ts` (`startX` / `stopX`, interval env var, `*_DISABLED` switch), and call `startX()` from `src/index.ts`. A worker that claims rows (reports, automations) uses `FOR UPDATE SKIP LOCKED` and moves the row's next run time in the same transaction.
 
 ### Add a network capability
 Extend the adapter in `lib/oauth/providers/<network>.ts` behind a scope flag if the permission needs app review, and return an honest unavailable state when the scope isn't granted.
@@ -83,3 +83,35 @@ Browser scripts sign up a temporary `@socialflow.test` user, exercise the UI, sc
 **Fresh databases.** The first tables were created by a schema-push tool before the migrations began, so migrations `0001` onward can't build a database from nothing. `lib/db/src/baseline.ts` holds the full schema as of `0017`; `runMigrations()` applies it only to a database with no tables and no recorded migrations, records `0001`–`0017` as applied, and runs any later migrations normally. Existing databases never take that path.
 
 **Deployed on the free tiers (Vercel website, Render API, Supabase database).** The website is on Vercel (`vercel.json` forwards `/api/*` to the Render API); `OAUTH_REDIRECT_BASE_URL` on the API is the Vercel address. The API is the Render service `socialflow-api` (free plan) and the website is `socialflow-web` (static site, forwards `/api/*` to the API). The free plan has no disk, so uploads are lost on each restart or deploy, and the service sleeps after about 15 minutes without traffic, which pauses scheduled posts and the background collectors until the next request. Keep it awake with an uptime pinger on `/api/healthz` (for example UptimeRobot, every 5 minutes). Moving to the paid Starter plan plus a disk (see `render.yaml`) removes both limits.
+
+## 9. Automations and CSV bulk import
+Backend for three ways of creating posts without the composer. The API contract is in `lib/api-spec/openapi.yaml` (tags `automations` and `bulk-imports`).
+
+**Files.** `lib/feeds.ts` (fetching and parsing: RSS 2.0, RSS 1.0, Atom, WordPress REST), `lib/automations.ts` (the runner and poller), `lib/post-create.ts` (the checks and inserts shared with `POST /posts`), `lib/bulk-import.ts` (CSV parsing, validation, import), `routes/automations.ts`, `routes/bulk-imports.ts`. Tables (migration `0019_automations`, `lib/db/src/migrations-automations.ts`): `socialflow_automations`, `socialflow_automation_items`, `socialflow_automation_runs`, `socialflow_bulk_imports`.
+
+**Sources.** A WordPress automation reads `{site}/wp-json/wp/v2/posts?per_page=10&orderby=date&order=desc&_embed=1&status=publish` and falls back to `{site}/feed/` when the REST API is off (404, 401, not JSON). An RSS automation reads the feed address as given. Every request goes through `safeGet` (`lib/link-preview.ts`): http/https, ports 80 and 443, public addresses only on every redirect hop, 10 s timeout, 2 MB cap. Plainly internal addresses are also refused when an automation is saved. XML entity declarations are refused, and entities are decoded by our own code, so a feed can't expand anything.
+
+**Runs.** The poller (`startAutomations()`, called from `src/index.ts`) wakes every minute and claims up to 10 due, active automations with `FOR UPDATE SKIP LOCKED`, moving `next_run_at` forward in the same transaction. WordPress is checked every `WORDPRESS_POLL_MINUTES` (default 15), RSS every `RSS_POLL_MINUTES` (default 60); `AUTOMATIONS_DISABLED=true` stops the poller.
+- The first successful fetch is a baseline: every item already there is recorded as `seen` and nothing is posted. With `postExistingOnFirstRun`, only the newest item is posted. Changing the source address takes a new baseline.
+- Later runs take the items not yet recorded, newest first, up to `maxPostsPerRun` (1 to 10, default 3), and post the older of those first. The rest stay unrecorded and follow on the next run.
+- Duplicate protection: the item row is inserted first (`ON CONFLICT DO NOTHING` on the unique `(automation_id, item_key)`) and only the run that inserted it creates the post. The key is the item's guid or id, else its link, normalised. Concurrent runs create one post.
+- The post is created by `insertPost` after the same `validateTargets` and media rules as the composer. Text comes from the template (`{title} {url} {excerpt} {author} {site}`); the link, title, excerpt and picture go into the post's link columns, so Facebook and LinkedIn publish a link card and Instagram uses the picture as its photo. Mode `publish` schedules the post for now (the publisher sends it on its next pass and the approvals gate still applies), `queue` takes the next free slot (or saves a draft with the reason when there is none), `draft` saves a draft. YouTube channels are refused when saving an automation (a video is required).
+- A failed fetch raises `consecutive_failures` and backs off: interval x 2^failures, at most 24 hours. Five in a row set the status to `error`, which stops polling until the automation is resumed. A failed item (an account that needs reconnecting, a network rule) is retried on later runs, three attempts in all. A successful fetch resets the failure count.
+- The last 50 runs per automation are kept. Create, update, delete, pause and resume are written to the audit log.
+
+**Limits.** 25 automations per workspace; name up to 120 characters; address up to 2,048; template up to 2,000 and it must contain `{title}` or `{url}`; at least one account.
+
+**Permissions.** `automations:read` (every role) and `automations:manage` (owner, admin, editor). Bulk import uses `posts:write`; its history uses `posts:read`.
+
+**CSV bulk import.** `POST /bulk-imports/preview` validates and saves nothing; `POST /bulk-imports` validates again on the server and creates the valid rows, 50 per transaction. The CSV travels as text in the JSON body (1 MB, 500 rows; comma separated; quoted fields may contain commas, quotes and line breaks; BOM and CRLF are fine). Columns, case-insensitive: `content` (required), `scheduled_at`, `accounts`, `link`, `first_comment`, `tags`, `image_url`.
+- `scheduled_at`: `YYYY-MM-DD HH:mm` is read in the request's `timezone`; an ISO date with `Z` or an offset is taken as written. Required and in the future for mode `schedule`; ignored (with a warning) for `queue` and `draft`.
+- `accounts`: names, usernames or IDs separated by `;` or `|`; empty falls back to `defaultAccountIds`.
+- `tags`: existing tag names separated by `;`.
+- `image_url`: downloaded on import through the SSRF-safe fetcher and stored as normal media attached to the post. Instagram's copy is converted to JPG, WebP is converted to JPG for the other networks. A download that fails fails only that row. Workspace media quota applies.
+- Row checks: content present and within each selected network's character limit, at least one usable account, no duplicate of an earlier row (same content, accounts and time), Instagram needs an `image_url` (no page is fetched for `link`, so the link has no picture), YouTube is refused (a CSV can't attach a video).
+- Row numbers are spreadsheet rows: the header is row 1.
+- Each import is recorded in `socialflow_bulk_imports` with its counts and per-row errors (`GET /bulk-imports` returns the latest 20) and in the audit log.
+
+**Rate limits** (per address, 10-minute window, overridable): run now 10 (`AUTOMATION_RUN_RATE_LIMIT`), test source 30 (`AUTOMATION_TEST_RATE_LIMIT`), import 10 (`BULK_IMPORT_RATE_LIMIT`), preview 60 (`BULK_IMPORT_PREVIEW_RATE_LIMIT`).
+
+**Tests.** `src/lib/automations.test.ts`, `src/routes/automations.test.ts`, `src/routes/bulk-imports.test.ts`. Websites are stubbed at `linkPreviewDeps.request` / `lookup`; no test reaches the network.
