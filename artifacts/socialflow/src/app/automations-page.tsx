@@ -1078,14 +1078,23 @@ function browserZone(): string {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; }
 }
 
-/** Every IANA zone the browser knows, or a short list on older engines. Always includes UTC and `current`. */
+/** Some browsers still list these zones under their old names. Only the label changes; the value sent is the browser's own. */
+const ZONE_RENAMED: Record<string, string> = {
+  'Asia/Calcutta': 'Asia/Kolkata', 'Asia/Katmandu': 'Asia/Kathmandu', 'Asia/Rangoon': 'Asia/Yangon', 'Asia/Saigon': 'Asia/Ho_Chi_Minh',
+  'Europe/Kiev': 'Europe/Kyiv', 'Atlantic/Faeroe': 'Atlantic/Faroe', 'Pacific/Truk': 'Pacific/Chuuk', 'Pacific/Ponape': 'Pacific/Pohnpei',
+};
+const zoneLabel = (zone: string): string => (ZONE_RENAMED[zone] ?? zone).replace(/_/g, ' ');
+
+/** Every IANA zone the browser knows, or a short list on older engines, in the order of their labels. Always includes UTC and `current`. */
 function timeZones(current: string): string[] {
   let zones: string[] = FALLBACK_ZONES;
   try {
     if (typeof Intl.supportedValuesOf === 'function') zones = Intl.supportedValuesOf('timeZone');
   } catch { /* keep the fallback list */ }
-  const withUtc = zones.includes('UTC') ? zones : ['UTC', ...zones];
-  return current && !withUtc.includes(current) ? [current, ...withUtc] : withUtc;
+  const all = new Set(zones);
+  if (current) all.add(current);
+  all.delete('UTC');
+  return ['UTC', ...[...all].sort((a, b) => zoneLabel(a).localeCompare(zoneLabel(b)))];
 }
 
 function downloadTemplate() {
@@ -1308,11 +1317,11 @@ function ImportPanel({ hidden, canImport, canSeeImports, accounts, accountsLoadi
     });
   };
 
-  const importLabel = fresh && data ? `Import ${plural(data.validCount, 'post')}` : 'Import posts';
+  const importLabel = fresh && data && data.validCount > 0 ? `Import ${plural(data.validCount, 'post')}` : 'Import posts';
   const importStatus = importing ? 'Importing… Rows with pictures take a little longer.'
     : preview.loading ? 'Checking the file…'
     : !fresh || !data ? ''
-    : data.validCount === 0 ? 'No rows can be imported. Fix the problems in the file and choose it again.'
+    : data.validCount === 0 ? 'No rows can be imported yet. Fix the problems shown above: change the options in step 2, or correct the file and choose it again.'
     : data.errorCount > 0 ? `${plural(data.errorCount, 'row')} with problems will be skipped.`
     : 'Every row is ready.';
 
@@ -1406,7 +1415,7 @@ function ImportPanel({ hidden, canImport, canSeeImports, accounts, accountsLoadi
           <div className="sfa-field sfa-auto-tz">
             <label htmlFor={`${uid}-tz`}>Time zone</label>
             <select id={`${uid}-tz`} className="sfa-select" value={timezone} disabled={importing} aria-describedby={`${uid}-tz-help`} onChange={(event) => setTimezone(event.target.value)} data-testid="select-csv-timezone">
-              {zones.map((zone) => <option key={zone} value={zone}>{zone.replace(/_/g, ' ')}</option>)}
+              {zones.map((zone) => <option key={zone} value={zone}>{zoneLabel(zone)}</option>)}
             </select>
             <span id={`${uid}-tz-help`} className="sfa-field__hint">Used to read scheduled_at values written as YYYY-MM-DD HH:mm. ISO dates with Z or an offset are taken as written.</span>
           </div>
