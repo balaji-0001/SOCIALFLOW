@@ -14,6 +14,9 @@ if (Number.isNaN(port) || port <= 0) {
 
 const basePath = process.env.BASE_PATH ?? "/";
 
+// Where the dev server forwards /api: the API's address. Set API_PROXY_TARGET when the API isn't on port 5000.
+const apiTarget = process.env.API_PROXY_TARGET ?? 'http://localhost:5000';
+
 export default defineConfig({
   base: basePath,
   plugins: [
@@ -61,7 +64,7 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: apiTarget,
         changeOrigin: true,
       },
     },

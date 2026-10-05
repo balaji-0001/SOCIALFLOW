@@ -225,7 +225,7 @@ export function DashboardPage() {
 
   const loaded = !isLoading && !accountsLoading;
   const steps = [
-    { done: accounts.length > 0, title: 'Connect your first account', body: 'Link a Facebook Page, Instagram, LinkedIn or YouTube account so you can start scheduling posts.', action: <a className="sfa-btn sfa-btn--primary sfa-btn--sm" href="/workspace" onClick={go('/workspace')}>Connect accounts</a> },
+    { done: accounts.length > 0, title: 'Connect your first account', body: 'Link a Facebook Page, Instagram, LinkedIn, YouTube or X account so you can start scheduling posts.', action: <a className="sfa-btn sfa-btn--primary sfa-btn--sm" href="/workspace" onClick={go('/workspace')}>Connect accounts</a> },
     { done: posts.length > 0, title: 'Write your first post', body: 'Draft something now and finish it later, or schedule it straight away.', action: <Button size="sm" variant="secondary" onClick={() => composer.open()}>Create Post</Button> },
     { done: posts.some((post) => post.status === 'scheduled' || post.status === 'published'), title: 'Put a post on the calendar', body: 'Pick accounts, a date and a time. You can drag it to another day later.', action: <a className="sfa-btn sfa-btn--secondary sfa-btn--sm" href="/calendar" onClick={go('/calendar')}>Open calendar</a> },
   ];

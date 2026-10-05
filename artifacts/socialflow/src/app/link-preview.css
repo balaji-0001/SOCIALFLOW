@@ -1,6 +1,4 @@
 .sfa-linkprev { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
-.sfa-linkprev-head { align-items: center; display: flex; justify-content: space-between; gap: var(--space-2); }
-.sfa-linkprev-label { color: hsl(var(--muted-foreground)); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 .sfa-linkprev-actions { display: inline-flex; gap: var(--space-2); }
 .sfa-linkprev-icon { align-items: center; background: transparent; border: 0; border-radius: 8px; color: hsl(var(--muted-foreground)); cursor: pointer; display: inline-flex; height: 30px; justify-content: center; width: 30px; }
 .sfa-linkprev-icon:hover, .sfa-linkprev-icon[aria-pressed="true"] { background: hsl(var(--surface-3)); color: hsl(var(--foreground)); }

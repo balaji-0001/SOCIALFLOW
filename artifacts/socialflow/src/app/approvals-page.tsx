@@ -225,5 +225,3 @@ export function ApprovalsPage() {
     {open && <Detail key={open.id} approval={open} canDecide={canDecide} myId={myId} onClose={() => setOpenId(null)} />}
   </div>;
 }
-
-export default ApprovalsPage;

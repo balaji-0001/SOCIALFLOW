@@ -153,5 +153,3 @@ export function AcceptInvitePage() {
       : <AuthForm token={token} info={info} />}
   </Shell>;
 }
-
-export default AcceptInvitePage;

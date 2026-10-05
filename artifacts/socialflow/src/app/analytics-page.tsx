@@ -440,5 +440,3 @@ export function AnalyticsPage() {
     <ReportSchedules />
   </div>;
 }
-
-export default AnalyticsPage;

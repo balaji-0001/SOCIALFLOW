@@ -62,6 +62,7 @@ import { insertAt } from './composer-utils';
 import { useConfirm } from './confirm';
 import { useLinkImage } from './link-preview-card';
 import { AccountAvatar, PLATFORM_META, PlatformBadge, STATUS_LABEL } from './platforms';
+import { postLength } from './twitter-text';
 import { Button, EmptyState, ErrorState, IconButton, PageHeader, Skeleton } from './ui';
 import './automations.css';
 
@@ -581,11 +582,13 @@ function AutomationDialog({ target, accounts, accountsLoading, accountsFailed, o
   const sample = tested?.result?.items[0] ?? null;
   const site = tested?.result?.sourceTitle?.trim() || hostOf(tested?.result?.url ?? url) || form.name.trim();
   const rendered = sample ? renderTemplate(form.template, sample, site) : null;
-  const renderedLength = rendered === null ? 0 : rendered.split(AUTHOR_MARK).join('').length;
-  const tightest = chosenAccounts.reduce<{ name: string; limit: number } | null>((lowest, account) => {
+  const tightest = chosenAccounts.reduce<{ name: string; limit: number; platform: ConnectedAccount['platform'] } | null>((lowest, account) => {
     const platform = PLATFORM_META[account.platform];
-    return platform && (lowest === null || platform.charLimit < lowest.limit) ? { name: platform.name, limit: platform.charLimit } : lowest;
+    return platform && (lowest === null || platform.charLimit < lowest.limit) ? { name: platform.name, limit: platform.charLimit, platform: account.platform } : lowest;
   }, null);
+  // Counted the way the tightest network counts (on X a link is 23 characters, an emoji 2).
+  const renderedText = rendered === null ? '' : rendered.split(AUTHOR_MARK).join('');
+  const renderedLength = tightest ? postLength(tightest.platform, renderedText) : renderedText.length;
   const sourceChanged = editing !== null && !plugin && url !== '' && url !== editing.sourceUrl;
   const footHint = attempted && hasErrors ? 'Check the highlighted fields.' : plugin ? (editing ? '' : 'Next: the key that connects the plugin.') : tested?.result && !stale ? '' : 'Tip: test the source before you save.';
   const modes = plugin ? PLUGIN_MODES : AUTOMATION_MODES;
@@ -680,7 +683,7 @@ function AutomationDialog({ target, accounts, accountsLoading, accountsFailed, o
 
           <fieldset className="sfa-auto-fieldset">
             <legend className="sfa-label">Options</legend>
-            <SwitchRow label="Include the article's picture" hint="Facebook and LinkedIn show it on the link card. Instagram posts it as the photo." checked={form.includeImage} onChange={(next) => set('includeImage', next)} disabled={saving} testid="switch-auto-image" />
+            <SwitchRow label="Include the article's picture" hint="Facebook and LinkedIn show it on the link card. Instagram posts it as the photo. X builds its own card from the article." checked={form.includeImage} onChange={(next) => set('includeImage', next)} disabled={saving} testid="switch-auto-image" />
             {hasInstagram && <p className={form.includeImage ? 'sfa-auto-muted' : 'sfa-auto-warn'} role="note">{form.includeImage
               ? "Instagram needs a picture, so an article without one can't be posted to Instagram."
               : 'Instagram needs a picture. With this off, nothing can be posted to the Instagram account you chose.'}</p>}
@@ -1900,5 +1903,3 @@ export function AutomationsPage() {
       onKey={(key) => setSetup((current) => (current ? { ...current, key } : current))} onClose={() => setSetup(null)} onCloseAutoFocus={restoreFocus} />}
   </div>;
 }
-
-export default AutomationsPage;

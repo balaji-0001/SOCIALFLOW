@@ -384,5 +384,3 @@ export function QueuePage() {
       </div>}
   </div>;
 }
-
-export default QueuePage;

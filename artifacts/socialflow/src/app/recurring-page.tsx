@@ -520,5 +520,3 @@ export function RecurringPage() {
     {editing && <EditRecurrenceDialog key={editing.id} recurrence={editing} accounts={accounts} tags={tags} onClose={() => setEditingId(null)} />}
   </div>;
 }
-
-export default RecurringPage;

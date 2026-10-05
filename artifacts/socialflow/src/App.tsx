@@ -4,7 +4,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { formatDistanceToNow } from 'date-fns';
 import { type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { type ConnectedAccount, type Platform, getAuthMeQueryKey, getGetPendingConnectionQueryKey, getListConnectedAccountsQueryKey, getListConnectionProvidersQueryKey, useAuthLogin, useAuthLogout, useAuthMe, useAuthSignup, useCancelPendingConnection, useCompletePendingConnection, useDisconnectAccount, useGetPendingConnection, useListConnectedAccounts, useListConnectionProviders, useVerifyConnectedAccount } from '@workspace/api-client-react';
+import { type ConnectedAccount, type Platform, getAuthMeQueryKey, getGetPendingConnectionQueryKey, getListConnectedAccountsQueryKey, getListConnectionProvidersQueryKey, useAuthLogin, useAuthSignup, useCancelPendingConnection, useCompletePendingConnection, useDisconnectAccount, useGetPendingConnection, useListConnectedAccounts, useListConnectionProviders, useVerifyConnectedAccount } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -51,7 +51,7 @@ function Logo() {
   return <a href="#top" className="sf-logo" data-testid="link-logo"><span className="sf-logo-mark"><Send size={14} strokeWidth={2.5} /></span><span>socialflow</span></a>;
 }
 
-function Header({ onOpen }: { onOpen: (mode: ModalMode) => void }) {
+function Header() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const closeMenu = () => { setOpenMenu(null); setMobileOpen(false); };
@@ -200,14 +200,12 @@ function CTA({ onOpen }: { onOpen: (mode: ModalMode) => void }) {
   return <section className="sf-cta"><div className="sf-container sf-cta__inner"><div><span className="sf-kicker">Your next good week starts here</span><h2 className="sf-display">Make room for momentum.</h2></div><div className="sf-cta__action"><p className="sf-cta__copy">A clear plan, a better rhythm, and more of your best work in the world.</p><button className="sf-button sf-button--coral" onClick={() => onOpen('trial')} data-testid="button-final-trial">Start your free trial <ArrowRight size={15} /></button></div></div></section>;
 }
 
-type ChannelKey = Platform | 'x';
-
-const channelOptions: Array<{ key: ChannelKey; mark: string; name: string; description: string; tone: string }> = [
+const channelOptions: Array<{ key: Platform; mark: string; name: string; description: string; tone: string }> = [
   { key: 'facebook', mark: 'f', name: 'Facebook Pages', description: 'Publish to the Pages you manage and keep every community in step.', tone: 'blue' },
   { key: 'instagram', mark: '◎', name: 'Instagram', description: 'Plan your grid, reels, and stories in one visual rhythm.', tone: 'coral' },
   { key: 'linkedin', mark: 'in', name: 'LinkedIn', description: 'Turn your team expertise into a consistent point of view.', tone: 'blue' },
   { key: 'youtube', mark: '▶', name: 'YouTube', description: 'Give bigger stories a clear runway and publishing cadence.', tone: 'red' },
-  { key: 'x', mark: 'X', name: 'X', description: 'Keep short-form ideas moving from draft to conversation.', tone: 'ink' },
+  { key: 'twitter', mark: 'X', name: 'X (Twitter)', description: 'Keep short-form ideas moving from draft to conversation.', tone: 'ink' },
 ];
 
 const connectionErrorCopy: Record<string, string> = {
@@ -234,8 +232,8 @@ const statusCopy: Record<ConnectedAccount['status'], string> = {
   error: 'Check failed',
 };
 
-const platformNames: Record<Platform, string> = { facebook: 'Facebook', instagram: 'Instagram', linkedin: 'LinkedIn', youtube: 'YouTube' };
-const accountNouns: Record<Platform, string> = { facebook: 'Facebook Pages', instagram: 'Instagram accounts', linkedin: 'LinkedIn profiles and pages', youtube: 'YouTube channels' };
+const platformNames: Record<Platform, string> = { facebook: 'Facebook', instagram: 'Instagram', linkedin: 'LinkedIn', youtube: 'YouTube', twitter: 'X' };
+const accountNouns: Record<Platform, string> = { facebook: 'Facebook Pages', instagram: 'Instagram accounts', linkedin: 'LinkedIn profiles and pages', youtube: 'YouTube channels', twitter: 'X accounts' };
 
 type Notice = { tone: 'success' | 'error'; text: string };
 
@@ -297,6 +295,7 @@ function useConnecting<T>() {
 const ACCOUNT_TYPE_LABEL: Record<string, string> = {
   facebook_page: 'Facebook Page', instagram_business: 'Business account', instagram_creator: 'Creator account',
   linkedin_member: 'Personal profile', linkedin_organization: 'Organization page', youtube_channel: 'YouTube channel',
+  twitter_account: 'X account',
 };
 
 function AccountRow({ account, busy, checking, onVerify, onDisconnect }: { account: ConnectedAccount; busy: boolean; checking: boolean; onVerify: () => void; onDisconnect: () => void }) {
@@ -335,7 +334,7 @@ function AccountPicker({ pendingId, onDone, onClose }: { pendingId: string; onDo
       <DialogPrimitive.Content className="sfa-dialog sfa-picker" aria-describedby={undefined} data-testid="dialog-picker"
         onOpenAutoFocus={(event) => { event.preventDefault(); (event.currentTarget as HTMLElement).focus(); }}>
         <DialogPrimitive.Close asChild><button className="sfa-iconbtn sfa-dialog__close" aria-label="Close dialog" data-testid="button-close-picker"><X size={18} /></button></DialogPrimitive.Close>
-        {data && <span className="sfa-mark sfa-mark--lg" style={{ background: PLATFORM_META[data.platform].color }} aria-hidden="true">{(() => { const Icon = PLATFORM_META[data.platform].Icon; return <Icon size={22} />; })()}</span>}
+        {data && <span className="sfa-mark sfa-mark--lg" data-platform={data.platform} style={{ background: PLATFORM_META[data.platform].color }} aria-hidden="true">{(() => { const Icon = PLATFORM_META[data.platform].Icon; return <Icon size={22} />; })()}</span>}
         <span className="sfa-eyebrow">Choose accounts</span>
         <DialogPrimitive.Title className="sfa-dialog__title">Which {data ? accountNouns[data.platform] : 'accounts'} should Socialflow manage?</DialogPrimitive.Title>
         {isLoading && <>
@@ -611,7 +610,7 @@ function AccountsContent() {
   const confirm = useConfirm();
   const { toast } = useToast();
   const { notice, setNotice, pendingId, clearPending } = useConnectionResult();
-  const [connecting, setConnecting] = useConnecting<ChannelKey>();
+  const [connecting, setConnecting] = useConnecting<Platform>();
 
   const { data: providerData } = useListConnectionProviders({ query: { queryKey: getListConnectionProvidersQueryKey() } });
   const { data: accountData, isLoading } = useListConnectedAccounts({ query: { queryKey: getListConnectedAccountsQueryKey() } });
@@ -665,30 +664,30 @@ function AccountsContent() {
       </div>
       <div className="sfa-channels">
         {channelOptions.map((channel) => {
-          const provider = channel.key === 'x' ? undefined : providers.get(channel.key);
+          const provider = providers.get(channel.key);
           const own = accounts.filter((account) => account.platform === channel.key);
           const ready = Boolean(provider?.configured);
           let label = 'Not available yet';
           if (provider?.implemented && !ready) label = 'Setup required';
           if (ready) label = own.length > 0 ? 'Add another' : 'Connect account';
           if (isLoading && ready) label = 'Checking…';
-          const meta = channel.key === 'x' ? null : PLATFORM_META[channel.key];
-          const Icon = meta?.Icon;
+          const meta = PLATFORM_META[channel.key];
+          const Icon = meta.Icon;
           const isConnecting = connecting === channel.key;
           return <article className={`sfa-channel ${own.length > 0 ? 'is-connected' : ''}`} key={channel.key} data-testid={`card-account-${channel.key}`}>
             <div className="sfa-channel__top">
-              <span className="sfa-mark" style={{ background: meta?.color ?? 'hsl(240 8% 22%)' }} aria-hidden="true">{Icon ? <Icon size={20} /> : channel.mark}</span>
+              <span className="sfa-mark" data-platform={channel.key} style={{ background: meta.color }} aria-hidden="true"><Icon size={20} /></span>
               <div className="sfa-channel__copy">
                 <div className="sfa-channel__title">
                   <h3>{channel.name}</h3>
                   {own.length > 0 && <span className="sfa-pill sfa-pill--success">{own.length} connected</span>}
                   {provider?.implemented && !ready && <span className="sfa-pill sfa-pill--warning">Setup required</span>}
-                  {(channel.key === 'x' || (provider && !provider.implemented)) && <span className="sfa-pill sfa-pill--draft">Coming soon</span>}
+                  {provider && !provider.implemented && <span className="sfa-pill sfa-pill--draft">Coming soon</span>}
                 </div>
                 <p>{channel.description}</p>
               </div>
             </div>
-            {provider?.implemented && !ready && <p className="sfa-channel__setup">Server setup needed: {provider.missingConfiguration.join(', ')}. See docs/oauth-setup.md.</p>}
+            {provider?.implemented && !ready && <p className="sfa-channel__setup">Server setup needed: {provider.missingConfiguration.join(', ')}. See {channel.key === 'twitter' ? 'docs/twitter-setup.md' : 'docs/oauth-setup.md'}.</p>}
             {provider && !provider.implemented && <p className="sfa-channel__setup">Coming next — the connection architecture is ready for this platform.</p>}
             {own.length > 0 && <ul className="sfa-connlist">
               {own.map((account) => <AccountRow key={account.id} account={account} busy={busy}
@@ -700,7 +699,7 @@ function AccountsContent() {
             </ul>}
             <Button variant={own.length > 0 ? 'secondary' : 'primary'} className="sfa-channel__cta" disabled={!ready || isLoading} loading={isConnecting || (isLoading && ready)}
               icon={own.length > 0 && ready && !isConnecting && !isLoading ? <Plus size={14} /> : undefined}
-              onClick={() => { setConnecting(channel.key); startConnection(channel.key as Platform); }} data-testid={`button-account-${channel.key}`}>
+              onClick={() => { setConnecting(channel.key); startConnection(channel.key); }} data-testid={`button-account-${channel.key}`}>
               {isConnecting ? 'Connecting…' : label} {own.length === 0 && ready && !isConnecting && !isLoading ? <ArrowRight size={14} /> : null}
             </Button>
           </article>;
@@ -734,7 +733,7 @@ function Footer() {
 
 function Home() {
   const [modal, setModal] = useState<ModalMode | null>(null);
-  return <div className="sf-page"><Header onOpen={setModal} /><main><Hero onOpen={setModal} /><ProofStrip /><ProductStory /><Platforms /><Results /><Pricing onOpen={setModal} /><Testimonials /><FAQ /><CTA onOpen={setModal} /></main><Footer />{modal && <SignupModal mode={modal} onClose={() => setModal(null)} />}</div>;
+  return <div className="sf-page"><Header /><main><Hero onOpen={setModal} /><ProofStrip /><ProductStory /><Platforms /><Results /><Pricing onOpen={setModal} /><Testimonials /><FAQ /><CTA onOpen={setModal} /></main><Footer />{modal && <SignupModal mode={modal} onClose={() => setModal(null)} />}</div>;
 }
 
 function Router() {

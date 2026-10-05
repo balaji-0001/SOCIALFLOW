@@ -51,6 +51,7 @@ import { CustomFieldsForm, FirstCommentField, MentionGroupsTool, NetworkTabs, Re
 import { MediaUploader, type MediaUploaderHandle } from './media-uploader';
 import { useMediaConfig, useMediaItems } from './media-upload';
 import { mediaProblemForPlatforms } from './media-rules';
+import { postLength } from './twitter-text';
 import { Button } from './ui';
 import { LinkPreviewSection, normalizeLink, useLinkPreview } from './link-preview-card';
 import './composer.css';
@@ -177,12 +178,15 @@ function ComposerModal({ request, onClose }: { request: ComposerRequest; onClose
   const platformChecks = useMemo(() => computePlatformChecks(selectedAccounts, textOf, hashtags.length, readyMedia, Boolean(cardLink?.imageUrl)), [selectedAccounts, content, platformContent, customizing, hashtags.length, media.items, cardLink]);
   const charLimit = selectedAccounts.length > 0 ? Math.min(...selectedAccounts.map((account) => PLATFORM_META[account.platform].charLimit)) : null;
   // The base text counts against the tightest limit of the networks still using it; customized networks check their own text.
-  const overPlatforms = selectedPlatforms.filter((platform) => textOf(platform).length > PLATFORM_META[platform].charLimit);
+  const overPlatforms = selectedPlatforms.filter((platform) => postLength(platform, textOf(platform)) > PLATFORM_META[platform].charLimit);
   const overLimit = overPlatforms.length > 0;
   const emptyFor = selectedPlatforms.filter((platform) => textOf(platform).trim().length === 0);
   const activeText = activeTab === 'base' ? content : (platformContent[activeTab] ?? '');
   const activeLimit = activeTab === 'base' ? charLimit : PLATFORM_META[activeTab].charLimit;
-  const activeOver = activeTab === 'base' ? (customizing ? selectedPlatforms.some((platform) => !(platformContent[platform] ?? '').trim() && content.length > PLATFORM_META[platform].charLimit) : overLimit) : activeText.length > (activeLimit ?? Infinity);
+  // The counter shows the length as the network with the tightest limit counts it (X counts a link as 23 and an emoji as 2).
+  const tightest = selectedPlatforms.length > 0 ? selectedPlatforms.reduce((a, b) => (PLATFORM_META[b].charLimit < PLATFORM_META[a].charLimit ? b : a)) : null;
+  const activeLength = activeTab === 'base' ? (tightest ? postLength(tightest, activeText) : activeText.length) : postLength(activeTab, activeText);
+  const activeOver = activeTab === 'base' ? (customizing ? selectedPlatforms.some((platform) => !(platformContent[platform] ?? '').trim() && postLength(platform, content) > PLATFORM_META[platform].charLimit) : overLimit) : activeLength > (activeLimit ?? Infinity);
   const scheduledAt = new Date(`${date}T${time}`);
   const scheduleValid = date !== '' && time !== '' && !Number.isNaN(scheduledAt.getTime());
   const inPast = scheduleValid && scheduledAt.getTime() <= Date.now();
@@ -317,7 +321,7 @@ function ComposerModal({ request, onClose }: { request: ComposerRequest; onClose
   const firstMedia = media.items.find((item) => item.status === 'done');
   const previewMedia = firstMedia ? { kind: firstMedia.kind, src: firstMedia.src, poster: firstMedia.poster, count: media.readyIds.length } : null;
   const previewWhen = readOnly || !scheduleValid ? null : scheduledAt;
-  const usage = activeLimit ? Math.min(activeText.length / activeLimit, 1) : 0;
+  const usage = activeLimit ? Math.min(activeLength / activeLimit, 1) : 0;
   const statusLine = editing ? null : savedAt ? `Autosaved on this device · ${format(savedAt, 'h:mm a')}` : 'Autosaves on this device as you type';
 
   return <DialogPrimitive.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -368,11 +372,11 @@ function ComposerModal({ request, onClose }: { request: ComposerRequest; onClose
                     <MentionGroupsTool disabled={locked} onInsert={(text) => edit((value, start, end) => insertAt(value, start, end, (start > 0 && !/\s$/.test(value.slice(0, start)) ? ' ' : '') + text + ' '))} />
                     <MediaTool count={media.items.length} disabled={locked} onClick={() => uploaderRef.current?.openPicker()} />
                     <button type="button" className="sfa-tool" aria-label="Insert from content library" title="Insert from content library" disabled={locked} onClick={() => setLibraryOpen(true)} data-testid="tool-library"><Library size={17} /></button>
-                    {!locked && <AiAssistPopover currentText={activeText} platforms={selectedPlatforms as never} onInsert={(text) => edit((value, start, end) => insertAt(value, start, end, text))} />}
+                    {!locked && <AiAssistPopover currentText={activeText} platforms={selectedPlatforms.map((platform) => (platform === 'twitter' ? 'x' : platform))} onInsert={(text) => edit((value, start, end) => insertAt(value, start, end, text))} />}
                   </div>
                   <span className={`sfa-counter ${activeOver ? 'is-over' : ''}`} data-testid="text-char-count">
                     {activeLimit !== null && <span className="sfa-meter" aria-hidden="true"><span style={{ width: `${usage * 100}%` }} /></span>}
-                    {activeText.length}{activeLimit !== null ? ` / ${activeLimit.toLocaleString()}` : ''}
+                    {activeLength}{activeLimit !== null ? ` / ${activeLimit.toLocaleString()}` : ''}
                   </span>
                 </div>
               </div>
@@ -405,7 +409,7 @@ function ComposerModal({ request, onClose }: { request: ComposerRequest; onClose
             <PreviewPanel accounts={selectedAccounts} content={textOf} when={previewWhen} media={previewMedia} link={cardLink} />
             <h3 className="sfa-label sfa-label--spaced">Network checks</h3>
             <ChecksPanel results={platformChecks} />
-            <details className="sfa-notes"><summary><Info size={14} aria-hidden /> How each network handles media</summary><p className="sfa-muted">Scheduled posts are sent automatically at their time while Socialflow is running. Facebook Pages and LinkedIn take text posts. Images and video are uploaded to Facebook Pages, Instagram (JPG, MP4 or MOV; Instagram must be able to reach this site over https) and LinkedIn. YouTube takes one video per post (add one photo and it becomes the video’s thumbnail; YouTube can’t post a photo on its own); the first line of the text is its title, and it uploads as private until you make it public in YouTube Studio.</p></details>
+            <details className="sfa-notes"><summary><Info size={14} aria-hidden /> How each network handles media</summary><p className="sfa-muted">Scheduled posts are sent automatically at their time while Socialflow is running. Facebook Pages and LinkedIn take text posts. Images and video are uploaded to Facebook Pages, Instagram (JPG, MP4 or MOV; Instagram must be able to reach this site over https) and LinkedIn. YouTube takes one video per post (add one photo and it becomes the video’s thumbnail; YouTube can’t post a photo on its own); the first line of the text is its title, and it uploads as private until you make it public in YouTube Studio. X takes text up to 280 characters as X counts them, with up to 4 photos, or one GIF, or one video (MP4 or MOV); a first comment is posted as a reply.</p></details>
           </aside>
 
           <aside className="sfa-composer__col sfa-composer__settings" aria-label="Accounts and scheduling">

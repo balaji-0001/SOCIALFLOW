@@ -113,7 +113,6 @@ a { color: inherit; text-decoration: none; }
 .sf-page { overflow: hidden; background: hsl(var(--background)); }
 .sf-container { width: min(1160px, calc(100% - 48px)); margin: 0 auto; }
 .sf-display { font-family: var(--app-font-display); letter-spacing: -0.04em; font-weight: 700; }
-.sf-mono { font-family: var(--app-font-mono); }
 .sf-kicker {
   color: hsl(var(--primary));
   font: 600 0.72rem/1 var(--app-font-sans);
@@ -127,7 +126,6 @@ a { color: inherit; text-decoration: none; }
 }
 .sf-eyebrow::before { content: ''; width: 22px; height: 1px; background: currentColor; }
 .sf-section { padding: 120px 0; position: relative; }
-.sf-section--tight { padding: 84px 0; }
 .sf-button {
   align-items: center; border: 0; border-radius: 10px; display: inline-flex;
   font-size: .85rem; font-weight: 600; gap: 10px; justify-content: center;
@@ -250,7 +248,7 @@ a { color: inherit; text-decoration: none; }
   .sf-feature-grid, .sf-pricing__inner, .sf-faq__grid { gap: 35px; grid-template-columns: 1fr; }.sf-platform-grid { grid-template-columns: repeat(2, 1fr); }.sf-platform:nth-child(2), .sf-platform:nth-child(4) { margin-top: 0; }.sf-metric-band__inner { grid-template-columns: 1fr; }.sf-metric-band__quote { border-left: 0; border-top: 1px solid hsl(225 33% 13% / .25); padding: 28px 0 0; }.sf-testimonial-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 680px) {
-  .sf-container { width: min(100% - 32px, 1160px); }.sf-section { padding: 78px 0; }.sf-section--tight { padding: 56px 0; }
+  .sf-container { width: min(100% - 32px, 1160px); }.sf-section { padding: 78px 0; }
   .sf-nav, .sf-header__actions { display: none; }.sf-menu-toggle { display: block; }.sf-mobile-nav { background: hsl(var(--background)); border-top: 1px solid hsl(var(--border)); display: grid; gap: 2px; padding: 12px 16px 18px; }.sf-mobile-nav a, .sf-mobile-nav button { background: transparent; border: 0; border-radius: 7px; font-size: .78rem; font-weight: 700; padding: 12px; text-align: left; }.sf-mobile-nav a:hover, .sf-mobile-nav button:hover { background: hsl(var(--secondary)); }
   .sf-mobile-nav__links { display: grid; padding-left: 12px; }.sf-hero { padding-top: 47px; }.sf-hero h1 { font-size: clamp(3rem, 15vw, 4.55rem); }.sf-hero__visual { margin-top: 20px; }.sf-dashboard__body { grid-template-columns: 73px 1fr; }.sf-dashboard__side-item { font-size: .48rem; gap: 4px; padding: 8px 4px; }.sf-dashboard__main { padding: 11px; }.sf-dashboard__side { padding: 12px 6px; }.sf-calendar__cell { min-height: 62px; }.sf-post { font-size: .37rem; }.sf-floating-note { bottom: -23px; right: 3px; }.sf-hero__sticker { left: -8px; top: 6%; }
   .sf-proof__inner, .sf-platforms__head, .sf-story__top, .sf-testimonials__head, .sf-cta__inner, .sf-footer__top { align-items: start; flex-direction: column; gap: 24px; }.sf-proof__brands { flex-wrap: wrap; gap: 18px 27px; justify-content: start; }.sf-proof__label { max-width: none; }.sf-story h2 { font-size: 3rem; }.sf-feature-card--large, .sf-feature-card--side { min-height: 300px; }.sf-mini-chart { right: 12px; width: 73%; }.sf-platform-grid { gap: 10px; }.sf-platform { min-height: 175px; padding: 16px; }.sf-platform h3 { margin-top: 22px; }.sf-stat-row { gap: 10px; }.sf-stat strong { font-size: 1.25rem; }.sf-pricing-card { padding: 21px; }.sf-pricing-card__list { grid-template-columns: 1fr; }.sf-testimonial blockquote { font-size: 1.25rem; }.sf-faq__grid { gap: 28px; }.sf-cta { padding: 74px 0; }.sf-cta h2 { font-size: 3.55rem; }.sf-footer__links { flex-wrap: wrap; gap: 32px; justify-content: space-between; width: 100%; }.sf-footer__bottom { flex-direction: column; gap: 9px; }

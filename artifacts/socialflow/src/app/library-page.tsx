@@ -357,5 +357,3 @@ export function LibraryPage() {
     <FolderDialog editing={folderEditing} onClose={() => setFolderEditing(null)} />
   </div>;
 }
-
-export default LibraryPage;

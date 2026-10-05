@@ -84,7 +84,7 @@ export function PublishingTab() {
           <PlatformBadge platform={account.platform} size={16} /><span>{account.displayName}</span>
           <em className={`is-${account.firstComment}`}>{FIRST_COMMENT_LABEL[account.firstComment]}</em>
         </li>)}</ul>}
-      <p className="sfa-muted">Commenting needs an extra permission on Facebook, Instagram and YouTube. The server operator enables it once (see docs/publishing-features.md), then each account is reconnected.</p>
+      <p className="sfa-muted">Commenting needs an extra permission on Facebook, Instagram and YouTube. The server operator enables it once (see docs/publishing-features.md), then each account is reconnected. On X the first comment is a reply under the post and needs nothing extra.</p>
     </Section>
   </div>;
 }

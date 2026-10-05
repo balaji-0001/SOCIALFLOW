@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { AtSign, Check, CircleAlert, Info, MessageSquareText, Plus, Repeat, Tag as TagIcon, X } from 'lucide-react';
+import { AtSign, Check, Info, MessageSquareText, Plus, Repeat } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getListTagsQueryKey,
@@ -17,6 +17,7 @@ import {
 } from '@workspace/api-client-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PLATFORM_META, PlatformBadge } from './platforms';
+import { postLength } from './twitter-text';
 import { Button } from './ui';
 
 /* Composer sections added in Phase 1: per-network text tabs, first comment, tags, custom fields, mention groups, repeat. */
@@ -43,7 +44,7 @@ export function NetworkTabs({ platforms, active, platformContent, customizing, o
     <button type="button" role="tab" aria-selected={active === 'base'} className={active === 'base' ? 'is-on' : ''} onClick={() => onPick('base')} data-testid="nettab-base">All networks</button>
     {platforms.map((platform) => {
       const own = (platformContent[platform] ?? '').trim().length > 0;
-      const over = textFor(base, platformContent, platform).length > PLATFORM_META[platform].charLimit;
+      const over = postLength(platform, textFor(base, platformContent, platform)) > PLATFORM_META[platform].charLimit;
       return <button key={platform} type="button" role="tab" aria-selected={active === platform} className={`${active === platform ? 'is-on' : ''} ${over ? 'is-over' : ''}`} onClick={() => onPick(platform)} data-testid={`nettab-${platform}`}>
         <PlatformBadge platform={platform} size={14} /> {PLATFORM_META[platform].name}{own && <span className="sfa-nettabs__dot" title="Has its own text" aria-label="customized" />}
       </button>;
@@ -242,15 +243,3 @@ export function RepeatSection({ repeat, onChange, date, time, timezone, disabled
     </ul>}
   </section>;
 }
-
-/* ---------- Small helpers used by the composer ---------- */
-
-export function SectionNote({ children, tone = 'info' }: { children: ReactNode; tone?: 'info' | 'warn' }) {
-  return <p className={`sfa-note ${tone === 'warn' ? 'sfa-note--warn' : ''}`}>{tone === 'warn' ? <CircleAlert size={14} /> : <Info size={14} />} <span>{children}</span></p>;
-}
-
-export const TagChip = ({ tag, onRemove }: { tag: { id: string; name: string; color: string }; onRemove?: () => void }) => (
-  <span className="sfa-tagchip sfa-tagchip--tag" style={{ ['--tag' as string]: tag.color }} data-testid={`post-tag-${tag.id}`}>
-    <TagIcon size={11} aria-hidden /> {tag.name}{onRemove && <button type="button" onClick={onRemove} aria-label={`Remove ${tag.name}`}><X size={11} /></button>}
-  </span>
-);

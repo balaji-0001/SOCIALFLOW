@@ -639,5 +639,3 @@ export function SettingsPage() {
     </div>
   </div>;
 }
-
-export default SettingsPage;

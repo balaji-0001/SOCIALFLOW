@@ -74,6 +74,9 @@ export const PostTargetFirstCommentStatus = {
   unsupported: 'unsupported',
 } as const;
 
+/**
+ * twitter is X (formerly Twitter).
+ */
 export type Platform = typeof Platform[keyof typeof Platform];
 
 
@@ -82,6 +85,7 @@ export const Platform = {
   instagram: 'instagram',
   linkedin: 'linkedin',
   youtube: 'youtube',
+  twitter: 'twitter',
 } as const;
 
 export interface PostTarget {
@@ -141,6 +145,7 @@ export interface PlatformContent {
   instagram?: string;
   linkedin?: string;
   youtube?: string;
+  twitter?: string;
 }
 
 export interface Tag {
@@ -2322,6 +2327,7 @@ export const ListInboxPlatform = {
   instagram: 'instagram',
   linkedin: 'linkedin',
   youtube: 'youtube',
+  twitter: 'twitter',
 } as const;
 
 export type ListInboxAssigned = typeof ListInboxAssigned[keyof typeof ListInboxAssigned];

@@ -274,5 +274,3 @@ export function ReportSchedules() {
     {dialog && <ScheduleDialog key={dialog.schedule?.id ?? 'new'} schedule={dialog.schedule} onClose={() => setDialog(null)} />}
   </section>;
 }
-
-export default ReportSchedules;

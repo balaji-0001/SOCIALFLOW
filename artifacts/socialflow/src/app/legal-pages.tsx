@@ -32,7 +32,7 @@ export function PrivacyPage() {
     <H>What we collect</H>
     <ul>
       <li><strong>Your account:</strong> your email address, your name if you give one, and a password (stored only as a one-way hash, never in readable form).</li>
-      <li><strong>Connected social accounts:</strong> when you connect Facebook Pages, Instagram, LinkedIn or YouTube we receive the account's name, ID, profile picture and an access token that lets SocialFlow act for that account. Tokens are stored encrypted.</li>
+      <li><strong>Connected social accounts:</strong> when you connect Facebook Pages, Instagram, LinkedIn, YouTube or X we receive the account's name, ID, profile picture and an access token that lets SocialFlow act for that account. Tokens are stored encrypted.</li>
       <li><strong>Your content:</strong> the posts, drafts, schedules, photos and videos you create, the tags and library items you save, and the team members you invite.</li>
       <li><strong>Data from the networks, only for accounts you connect:</strong> post results, follower and engagement numbers (analytics), and, where you enable and the network allows it, comments and messages sent to your accounts so you can read and answer them in the Inbox.</li>
       <li><strong>Technical data:</strong> a sign-in cookie, and standard server logs (such as request time and status) used to keep the service working and secure.</li>
@@ -51,7 +51,7 @@ export function PrivacyPage() {
     <p>Access tokens are encrypted, passwords are hashed, connections use HTTPS, and each workspace can only see its own data. No system is perfectly secure, so please use a strong, unique password.</p>
     <H>Your choices</H>
     <ul>
-      <li>Disconnect any social account in <em>Connected accounts</em>; you can also remove SocialFlow's access from inside Facebook, Instagram, LinkedIn or Google settings.</li>
+      <li>Disconnect any social account in <em>Connected accounts</em>; you can also remove SocialFlow's access from inside Facebook, Instagram, LinkedIn, Google or X settings.</li>
       <li>Ask us to see, correct or delete your information by writing to the email below.</li>
       <li>SocialFlow is not intended for children under 13, and we do not knowingly collect their information.</li>
     </ul>
@@ -72,7 +72,7 @@ export function TermsPage() {
     <H>Your content and conduct</H>
     <ul>
       <li>You own your content. You allow us to store it and send it to the networks you choose, only so the service can work.</li>
-      <li>You are responsible for your posts and must follow the law and the rules of each network (Meta, LinkedIn, Google/YouTube). Do not post anything unlawful, deceptive, infringing or harmful, and do not use SocialFlow to send spam.</li>
+      <li>You are responsible for your posts and must follow the law and the rules of each network (Meta, LinkedIn, Google/YouTube, X). Do not post anything unlawful, deceptive, infringing or harmful, and do not use SocialFlow to send spam.</li>
       <li>Do not try to break, overload or gain unauthorised access to the service.</li>
     </ul>
     <H>Social networks</H>
@@ -119,16 +119,16 @@ export function DataDeletionPage() {
     <H>1. Remove a social account yourself (immediate)</H>
     <ol>
       <li>Sign in to SocialFlow and open <a href="/workspace">Connected accounts</a>.</li>
-      <li>Choose the account (Facebook Page, Instagram, LinkedIn or YouTube) and select <strong>Disconnect</strong>.</li>
+      <li>Choose the account (Facebook Page, Instagram, LinkedIn, YouTube or X) and select <strong>Disconnect</strong>.</li>
       <li>SocialFlow deletes that account's stored access token and its post records straight away, and can no longer act for it.</li>
     </ol>
-    <p>You can also remove SocialFlow from the network itself: in Facebook go to <em>Settings → Business integrations</em> (or <em>Apps and websites</em>) and remove SocialFlow; in Instagram, <em>Settings → Website permissions → Apps and websites</em>; in LinkedIn, <em>Settings → Data privacy → Permitted services</em>; in Google, <em>Security → Third-party access</em>.</p>
+    <p>You can also remove SocialFlow from the network itself: in Facebook go to <em>Settings → Business integrations</em> (or <em>Apps and websites</em>) and remove SocialFlow; in Instagram, <em>Settings → Website permissions → Apps and websites</em>; in LinkedIn, <em>Settings → Data privacy → Permitted services</em>; in Google, <em>Security → Third-party access</em>; in X, <em>Settings → Security and account access → Apps and sessions → Connected apps</em>.</p>
     <H>2. Remove SocialFlow from Facebook or Instagram (automatic)</H>
     <p>If you remove SocialFlow in your Facebook or Instagram settings and choose to delete your data, Facebook or Instagram tells us and we automatically delete the connected accounts you authorised, with their access tokens and post records. You are given a confirmation code, and you can check it on this page at any time.</p>
     <H>3. Ask us to delete your account and all data</H>
     <p>Email <a href={`mailto:${CONTACT_EMAIL}?subject=Delete%20my%20SocialFlow%20data`}>{CONTACT_EMAIL}</a> from the address you signed up with, with the subject <strong>Delete my SocialFlow data</strong>. If you signed in with Facebook or Instagram, mention that too. We will confirm the request and delete your account and everything linked to it.</p>
     <p>What is deleted: your sign-in details, your workspace and its posts, drafts, schedules, uploaded files, library items, tags, saved analytics numbers, inbox items, team invitations and connected-account tokens. Copies held in our hosting providers' routine backups are removed as those backups expire. We keep nothing that identifies you beyond what the law requires us to keep.</p>
     <H>4. What is not deleted</H>
-    <p>Posts already published on Facebook, Instagram, LinkedIn or YouTube belong to those networks and to you. Deleting your SocialFlow data does not remove them; delete them on the network itself if you want them gone.</p>
+    <p>Posts already published on Facebook, Instagram, LinkedIn, YouTube or X belong to those networks and to you. Deleting your SocialFlow data does not remove them; delete them on the network itself if you want them gone.</p>
   </LegalShell>;
 }

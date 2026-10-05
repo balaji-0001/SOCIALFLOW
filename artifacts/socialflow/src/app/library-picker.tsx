@@ -140,5 +140,3 @@ export function LibraryPicker({ open, onClose, onPick, kinds }: LibraryPickerPro
     </DialogPrimitive.Portal>
   </DialogPrimitive.Root>;
 }
-
-export default LibraryPicker;

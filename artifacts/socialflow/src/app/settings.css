@@ -97,13 +97,11 @@
 
 /* Inline edit form */
 .sfa-set-editgrid { display: grid; gap: var(--space-3); grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.sfa-set-editgrid .sfa-field--wide { grid-column: 1 / -1; }
 .sfa-set-editgrid .sfa-field .sfa-input, .sfa-set-editgrid .sfa-field .sfa-select { min-height: 36px; }
 
 @media (max-width: 900px) {
   .sfa-set-formrow, .sfa-set-formrow--fields, .sfa-set-formrow--groups { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .sfa-set-formrow .sfa-set-actions { grid-column: 1 / -1; }
-  .sfa-set-formrow .sfa-field--wide { grid-column: 1 / -1; }
 }
 
 @media (max-width: 640px) {

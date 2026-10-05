@@ -217,5 +217,6 @@ export function linkNotes(platforms: Platform[], hasMedia: boolean, domain: stri
   }
   if (platforms.includes('instagram')) notes.push('Instagram captions can’t hold a clickable link.');
   if (platforms.includes('youtube')) notes.push('YouTube can’t attach a link card to a video.');
+  if (platforms.includes('twitter')) notes.push('X builds its own card from the website’s tags, as long as the link is in the text. X also charges more for a post that contains a link.');
   return notes;
 }

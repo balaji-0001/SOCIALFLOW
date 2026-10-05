@@ -26,7 +26,7 @@ import { Button, EmptyState, ErrorState, PageHeader, Skeleton } from './ui';
 import { CharCount, PLATFORM_LABELS, TASK_LABELS, aiErrorMessage } from './ai-assist';
 import './ai.css';
 
-const PLATFORMS: AiPlatform[] = ['facebook', 'instagram', 'linkedin', 'youtube'];
+const PLATFORMS: AiPlatform[] = ['facebook', 'instagram', 'linkedin', 'youtube', 'x'];
 const TONES = ['Friendly', 'Professional', 'Playful', 'Bold', 'Inspirational', 'Informative', 'Empathetic'];
 const TASK_HELP: Record<AiTask, string> = {
   caption: 'Write a new post from a topic.',
@@ -350,5 +350,3 @@ export function AiStudioPage() {
     </>}
   </div>;
 }
-
-export default AiStudioPage;

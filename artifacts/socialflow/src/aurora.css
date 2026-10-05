@@ -157,7 +157,6 @@ html[data-theme='aurora'] .sfa-tagchip--tag { background: color-mix(in srgb, var
 html[data-theme='aurora'] .sfa-tabs button.is-on,
 html[data-theme='aurora'] .sfa-seg button.is-on { color: hsl(258 95% 84%); }
 html[data-theme='aurora'] .sfa-note { background: hsl(var(--info) / .1); color: hsl(var(--info)); border: 1px solid hsl(var(--info) / .2); }
-html[data-theme='aurora'] .sfa-note--warn { background: hsl(var(--warning) / .1); color: hsl(var(--warning)); border-color: hsl(var(--warning) / .22); }
 
 /* ---------- Calendar and lists ---------- */
 html[data-theme='aurora'] .sfa-day { background: transparent; border-color: hsl(0 0% 100% / .06); }

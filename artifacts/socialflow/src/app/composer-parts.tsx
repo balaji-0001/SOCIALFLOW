@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { AccountAvatar, PLATFORM_META, PlatformBadge } from './platforms';
 import { addUtm, tokenizeForPreview, type UtmParams } from './composer-utils';
 import { mediaProblemForPlatform, type RuleMedia } from './media-rules';
+import { postLength } from './twitter-text';
 import { Button } from './ui';
 
 /* ------------------------------------------------------------------ */
@@ -164,11 +165,12 @@ export function computePlatformChecks(accounts: ConnectedAccount[], text: TextBy
   return platforms.map((platform) => {
     const meta = PLATFORM_META[platform];
     const content = resolveText(text, platform);
-    const used = content.length;
+    const used = postLength(platform, content);
     const checks: Check[] = [];
     if (used > meta.charLimit) checks.push({ level: 'error', text: `${(used - meta.charLimit).toLocaleString()} characters over the ${meta.charLimit.toLocaleString()} limit.` });
     else if (used > meta.charLimit * 0.9) checks.push({ level: 'warn', text: `Close to the ${meta.charLimit.toLocaleString()} character limit.` });
     else if (used > 0) checks.push({ level: 'ok', text: 'Length is within the limit.' });
+    if (platform === 'twitter' && used !== content.length) checks.push({ level: 'info', text: 'X counts every link as 23 characters and an emoji as 2, so its count differs from the number of characters typed.' });
     if (platform === 'youtube' && /[<>]/.test(content)) checks.push({ level: 'error', text: 'YouTube doesn’t allow < or > in a title or description.' });
     if (platform === 'youtube' && content.trim()) checks.push({ level: 'info', text: 'The first line becomes the video title (up to 100 characters); the whole text is the description. Videos upload as private until you make them public in YouTube Studio.' });
     const mediaProblem = mediaProblemForPlatform(platform, media, { hasLinkImage });
@@ -273,6 +275,17 @@ function InstagramPreview({ account, text, media, link }: { account: ConnectedAc
   </article>;
 }
 
+function TwitterPreview({ account, text, when, media, link }: { account: ConnectedAccount; text: string; when: string; media: PreviewMediaItem | null; link?: PostLink | null }) {
+  return <article className="sfa-pv sfa-pv--twitter" data-testid="preview-twitter">
+    <header><AccountAvatar account={account} size={40} /><div><strong>{account.displayName}</strong><span>{account.username ? `@${account.username} · ` : ''}{when}</span></div></header>
+    <PreviewText text={text} placeholder="Your post will appear here." />
+    {media && <PreviewMedia media={media} />}
+    {/* X builds the card from the page the link points to; this shows the composer's version of it. */}
+    {!media && link && <LinkCardView link={link} />}
+    <footer><span><MessageCircle size={15} /> Reply</span><span><Repeat2 size={15} /> Repost</span><span><Heart size={15} /> Like</span><span><Bookmark size={15} /> Bookmark</span></footer>
+  </article>;
+}
+
 function YouTubePreview({ account, text, media }: { account: ConnectedAccount; text: string; media: PreviewMediaItem | null }) {
   return <article className="sfa-pv sfa-pv--youtube" data-testid="preview-youtube">
     <NeedsMediaBox platform="youtube" media={media} />
@@ -303,6 +316,7 @@ export function PreviewPanel({ accounts, content: text, when, media = null, link
       {active === 'linkedin' && <LinkedInPreview account={account} text={content} when={whenLabel} media={media} link={link} />}
       {active === 'instagram' && <InstagramPreview account={account} text={content} media={media} link={link} />}
       {active === 'youtube' && <YouTubePreview account={account} text={content} media={media} />}
+      {active === 'twitter' && <TwitterPreview account={account} text={content} when={whenLabel} media={media} link={link} />}
     </div>
     <p className="sfa-muted sfa-pvpanel__note"><TrendingUp size={12} aria-hidden /> Approximate. Each network may render your post slightly differently.{sameNetwork > 1 ? ` Showing ${account.displayName}; the same text goes to ${sameNetwork} ${PLATFORM_META[active].name} accounts.` : ''}</p>
   </div>;
