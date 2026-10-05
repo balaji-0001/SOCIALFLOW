@@ -4,6 +4,7 @@ Status of the work. Update it as things change.
 
 ## Done
 - [x] Accounts: Facebook Pages, Instagram, LinkedIn, YouTube (OAuth, token encryption, reconnect states)
+- [x] X (Twitter): connect, publish and schedule text, photos, a GIF or a video, first comment as a reply, 280 limit counted X's way; tested against a stand-in for X's API, not yet against X itself (see docs/twitter-setup.md)
 - [x] Composer: per-network text, media upload (image and video), emoji, hashtags, mention groups, UTM, tags, custom fields, first comment, network checks, previews
 - [x] Scheduling: drafts, schedule, queues (with quick-start times), recurring posts, calendar, Manage Posts, publisher with missed-post handling
 - [x] YouTube video upload
@@ -28,6 +29,7 @@ Status of the work. Update it as things change.
 - [ ] Turn on `COMMENT_SCOPES_ENABLED`, `ANALYTICS_SCOPES_ENABLED` and `MESSAGING_SCOPES_ENABLED` once the matching permissions are enabled on each network's app; then reconnect accounts.
 - [ ] Meta app review (comments, insights, messaging), LinkedIn products, Google verification for YouTube, needed before non-tester users can use these features.
 - [ ] Add each new tunnel URL as a redirect URI in every network's developer console.
+- [ ] X (Twitter): create a developer app with credits, set `TWITTER_CLIENT_ID` and `TWITTER_CLIENT_SECRET`, then connect an account and publish one real post to confirm it against X (docs/twitter-setup.md). X charges per post.
 - [ ] Production still runs the PostgreSQL version (`main`, Supabase). To move it to MySQL: choose a MySQL 8 host, then follow "Moving an existing PostgreSQL installation" in `docs/mysql.md`.
 
 ## Next
@@ -42,7 +44,8 @@ Status of the work. Update it as things change.
 - [ ] Notifications (bell is a placeholder).
 - [ ] Billing, plans and seat limits.
 - [ ] White labelling and client portals.
-- [ ] More networks: X, TikTok, Pinterest, Threads, Google Business Profile.
+- [ ] More networks: TikTok, Pinterest, Threads, Google Business Profile.
+- [ ] X: reading replies, mentions and messages into the Inbox; longer posts for X Premium accounts; threads.
 - [ ] Load testing, monitoring and abuse controls before a public launch.
 - [ ] Fix a flaky browser check in the phase-1 suite ("settings shows the tag" sometimes fails on timing).
 - [ ] Docs cleanup: fold `docs/team-inbox-approvals-ai-library.md` into feature docs when stable.

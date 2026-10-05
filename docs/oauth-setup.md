@@ -310,6 +310,9 @@ Google's OAuth 2.0 web-server flow with PKCE (S256) plus the YouTube Data API v3
 
 ---
 
+## 6b. X (Twitter) (implemented)
+Set up and cost are in `twitter-setup.md`: X has no free API plan, the app must be a "Web App, Automated App or Bot" with "Read and write" permissions, and the secrets are `TWITTER_CLIENT_ID` and `TWITTER_CLIENT_SECRET` (the OAuth 2.0 client, not the API key). Callback: `<base>/api/connections/twitter/callback`.
+
 ## 7. Testing with your own accounts
 
 ### Automated tests
@@ -394,16 +397,10 @@ Development mode for a non-role user.
 
 ## 8. Known gaps / before production
 
-- **One workspace per user.** Each user gets exactly one workspace at
-  sign-up; there's no team invite flow, workspace switcher, or way to add a
-  second member to `socialflow_workspace_members` yet, though the schema and
-  route-level checks already support multiple members per workspace.
-- **No password reset / email verification.** Signing up only checks the
-  email is well-formed, not that it's reachable. Losing a password currently
-  means losing the account — no reset-by-email flow exists yet.
-- **Meta data deletion callback** (`/api/connections/facebook/data-deletion`) is
-  not implemented yet and is required for App Review, for both Facebook and
-  Instagram.
+- **No email verification, and no way to change an account's email.** Signing
+  up only checks the email is well-formed, not that it's reachable, so a
+  mistyped address can't receive password-reset emails (`password-reset.md`)
+  and has to be corrected in the database.
 - **Disconnect doesn't revoke on the provider's side** for any platform (Meta,
   LinkedIn or Google). Revoking `DELETE /me/permissions` on Meta, for example,
   would revoke the app for that user across *all* their Pages/accounts and
@@ -418,5 +415,8 @@ Development mode for a non-role user.
 - **No background health checks.** Status is checked on demand (**Check**).
   A scheduled job calling `verifyConnectedAccount` would catch revocations
   proactively.
-- **No publishing yet.** This phase covers user accounts and connections
-  only, for all four platforms.
+
+Built since this list was first written, and described elsewhere: publishing
+and scheduling (`publishing-features.md`, `media.md`), team invitations and
+several workspaces per user, password reset by email (`password-reset.md`), and
+Meta's data deletion callback (`POST /api/data-deletion/meta`, `meta-setup.md`).

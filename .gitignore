@@ -62,6 +62,26 @@ local-mysql/
 # uploaded media (local dev storage; see docs/media.md)
 .data/
 
+# logs
+*.log
+logs/
+
+# database dumps and copies: they hold users, password hashes and encrypted tokens
+*.sql
+*.sql.gz
+*.dump
+*.sqlite
+*.sqlite3
+
+# key and certificate files
+*.pem
+*.key
+*.p12
+*.pfx
+
+# left behind by a headless browser run
+.config/
+
 # the WordPress plugin's zip, packed from wordpress-plugin/ before the dev server and every build
 artifacts/socialflow/public/downloads/
 

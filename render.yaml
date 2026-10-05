@@ -47,6 +47,10 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+      - key: TWITTER_CLIENT_ID       # X (Twitter): OAuth 2.0 client of your app in the X developer console (docs/twitter-setup.md)
+        sync: false
+      - key: TWITTER_CLIENT_SECRET
+        sync: false
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT

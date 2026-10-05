@@ -42,7 +42,7 @@ Add it to the `Permission` type and `ALL_PERMISSIONS` in `lib/permissions.ts`, t
 Append a migration to `lib/db/src/migrations.ts`: a name and a list of single MySQL statements (the comment at the top of the file has an example and the column types to use). Additive only. Update the Drizzle schema in `lib/db/src/schema` and export it from `schema/index.ts`. Then run `pnpm run typecheck:libs`. Write queries with Drizzle where possible; `mysql.md` lists what to use instead of PostgreSQL habits (`returning()`, upserts, `ilike`, arrays, NULL ordering).
 
 ### Add a background worker
-Follow `lib/analytics.ts` (`startX` / `stopX`, interval env var, `*_DISABLED` switch), and call `startX()` from `src/index.ts`. A worker that claims rows (reports, automations) uses `FOR UPDATE SKIP LOCKED` and moves the row's next run time in the same transaction.
+Follow `lib/analytics.ts` (`startX`, interval env var, `*_DISABLED` switch), and call `startX()` from `src/index.ts`. A worker that claims rows (reports, automations) uses `FOR UPDATE SKIP LOCKED` and moves the row's next run time in the same transaction.
 
 ### Add a network capability
 Extend the adapter in `lib/oauth/providers/<network>.ts` behind a scope flag if the permission needs app review, and return an honest unavailable state when the scope isn't granted.
