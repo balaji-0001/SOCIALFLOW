@@ -1,4 +1,4 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CreateAutomationResponse, ListAutomationItemsResponse, ListAutomationRunsResponse, ListAutomationsResponse, PauseAutomationResponse, RunAutomationNowResponse, TestAutomationSourceResponse } from "@workspace/api-zod";

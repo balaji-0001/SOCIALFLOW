@@ -3,7 +3,7 @@ import express from "express";
 import { eq, inArray, sql } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { db, pool, usersTable, workspaceMembersTable, workspacesTable } from "@workspace/db";
+import { db, usersTable, workspaceMembersTable, workspacesTable } from "@workspace/db";
 import { aiUsageTable, brandVoicesTable } from "@workspace/db";
 import app from "../app";
 import { buildSystemPrompt, buildUserPrompt, parseGenerateInput, parseOutputs } from "../lib/ai";

@@ -3,7 +3,7 @@ import cookieParser from "cookie-parser";
 import express from "express";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db, mediaTable, pool, usersTable, workspaceMembersTable, workspacesTable } from "@workspace/db";
+import { db, mediaTable, usersTable, workspaceMembersTable, workspacesTable } from "@workspace/db";
 import app from "../app";
 import { placeholdersOf, renderTemplate } from "../lib/library";
 import libraryRouter from "./library";

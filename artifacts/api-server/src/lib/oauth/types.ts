@@ -1,6 +1,6 @@
 import type { ConnectionStatus } from "@workspace/db";
 
-export const platforms = ["facebook", "instagram", "linkedin", "youtube"] as const;
+export const platforms = ["facebook", "instagram", "linkedin", "youtube", "twitter"] as const;
 export type Platform = (typeof platforms)[number];
 
 export function isPlatform(value: unknown): value is Platform {
@@ -90,7 +90,7 @@ export interface PublishInput {
   /**
    * Only acted on when the post has no media. Facebook and LinkedIn turn it into a clickable link card; Instagram
    * (which has no such card and can't publish text alone) uses its imageUrl as the post's photo instead. YouTube
-   * ignores it.
+   * ignores it. X builds its own card from the link in the text, so only the address is used there.
    */
   link?: PublishLink | null;
 }
@@ -161,8 +161,10 @@ export interface OAuthProviderAdapter {
   buildAuthorizationUrl(input: BuildAuthorizationUrlInput): string;
   handleCallback(input: HandleCallbackInput): Promise<AuthorizationResult>;
   verifyAccount(account: StoredAccountCredentials): Promise<VerificationResult>;
-  /** Present for providers that issue refresh tokens (Google, LinkedIn). */
+  /** Present for providers that issue refresh tokens (Google, LinkedIn, X). */
   refreshAccessToken?(refreshToken: string): Promise<RefreshedTokens>;
+  /** True when each refresh retires the refresh token it used and returns a new one (X), so refreshes must never overlap. */
+  rotatesRefreshTokens?: boolean;
   /** Present for networks that can publish a post (text, with images or video where the network supports it). Throws OAuthError on failure. */
   publishPost?(account: StoredAccountCredentials, input: PublishInput): Promise<PublishResult>;
   /** Present for networks whose API reports follower and post numbers. Throws OAuthError only for token-level failures. */

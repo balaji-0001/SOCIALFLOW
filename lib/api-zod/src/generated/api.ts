@@ -97,7 +97,7 @@ export const AuthMeResponse = zod.object({
  */
 export const ListConnectionProvidersResponse = zod.object({
   "providers": zod.array(zod.object({
-  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'twitter']).describe('twitter is X (formerly Twitter).'),
   "name": zod.string(),
   "implemented": zod.boolean(),
   "configured": zod.boolean(),
@@ -115,7 +115,7 @@ export const ListConnectionProvidersResponse = zod.object({
 export const ListConnectedAccountsResponse = zod.object({
   "accounts": zod.array(zod.object({
   "id": zod.string().uuid(),
-  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'twitter']).describe('twitter is X (formerly Twitter).'),
   "accountType": zod.string(),
   "externalAccountId": zod.string(),
   "displayName": zod.string(),
@@ -143,7 +143,7 @@ export const GetPendingConnectionParams = zod.object({
 
 export const GetPendingConnectionResponse = zod.object({
   "id": zod.string().uuid(),
-  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'twitter']).describe('twitter is X (formerly Twitter).'),
   "expiresAt": zod.coerce.date(),
   "candidates": zod.array(zod.object({
   "externalAccountId": zod.string(),
@@ -187,7 +187,7 @@ export const CompletePendingConnectionBody = zod.object({
 export const CompletePendingConnectionResponse = zod.object({
   "accounts": zod.array(zod.object({
   "id": zod.string().uuid(),
-  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'twitter']).describe('twitter is X (formerly Twitter).'),
   "accountType": zod.string(),
   "externalAccountId": zod.string(),
   "displayName": zod.string(),
@@ -225,7 +225,7 @@ export const VerifyConnectedAccountParams = zod.object({
 
 export const VerifyConnectedAccountResponse = zod.object({
   "id": zod.string().uuid(),
-  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'twitter']).describe('twitter is X (formerly Twitter).'),
   "accountType": zod.string(),
   "externalAccountId": zod.string(),
   "displayName": zod.string(),
@@ -295,7 +295,7 @@ export const ListPostsResponse = zod.object({
   "publishedAt": zod.coerce.date().nullable(),
   "targets": zod.array(zod.object({
   "connectedAccountId": zod.string().uuid(),
-  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'twitter']).describe('twitter is X (formerly Twitter).'),
   "accountName": zod.string(),
   "avatarUrl": zod.string().nullable(),
   "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
@@ -321,7 +321,8 @@ export const ListPostsResponse = zod.object({
   "facebook": zod.string().optional(),
   "instagram": zod.string().optional(),
   "linkedin": zod.string().optional(),
-  "youtube": zod.string().optional()
+  "youtube": zod.string().optional(),
+  "twitter": zod.string().optional()
 }).describe('Per-network text overrides; a missing key means the base content is used.'),
   "firstComment": zod.string().nullable(),
   "link": zod.union([zod.object({
@@ -370,7 +371,8 @@ export const CreatePostBody = zod.object({
   "facebook": zod.string().optional(),
   "instagram": zod.string().optional(),
   "linkedin": zod.string().optional(),
-  "youtube": zod.string().optional()
+  "youtube": zod.string().optional(),
+  "twitter": zod.string().optional()
 }).optional().describe('Per-network text overrides; a missing key means the base content is used.'),
   "firstComment": zod.string().max(createPostBodyFirstCommentMax).nullish(),
   "link": zod.union([zod.object({
@@ -402,7 +404,7 @@ export const CreatePostResponse = zod.object({
   "publishedAt": zod.coerce.date().nullable(),
   "targets": zod.array(zod.object({
   "connectedAccountId": zod.string().uuid(),
-  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'twitter']).describe('twitter is X (formerly Twitter).'),
   "accountName": zod.string(),
   "avatarUrl": zod.string().nullable(),
   "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
@@ -428,7 +430,8 @@ export const CreatePostResponse = zod.object({
   "facebook": zod.string().optional(),
   "instagram": zod.string().optional(),
   "linkedin": zod.string().optional(),
-  "youtube": zod.string().optional()
+  "youtube": zod.string().optional(),
+  "twitter": zod.string().optional()
 }).describe('Per-network text overrides; a missing key means the base content is used.'),
   "firstComment": zod.string().nullable(),
   "link": zod.union([zod.object({
@@ -474,7 +477,7 @@ export const PublishPostNowResponse = zod.object({
   "publishedAt": zod.coerce.date().nullable(),
   "targets": zod.array(zod.object({
   "connectedAccountId": zod.string().uuid(),
-  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'twitter']).describe('twitter is X (formerly Twitter).'),
   "accountName": zod.string(),
   "avatarUrl": zod.string().nullable(),
   "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
@@ -500,7 +503,8 @@ export const PublishPostNowResponse = zod.object({
   "facebook": zod.string().optional(),
   "instagram": zod.string().optional(),
   "linkedin": zod.string().optional(),
-  "youtube": zod.string().optional()
+  "youtube": zod.string().optional(),
+  "twitter": zod.string().optional()
 }).describe('Per-network text overrides; a missing key means the base content is used.'),
   "firstComment": zod.string().nullable(),
   "link": zod.union([zod.object({
@@ -545,7 +549,7 @@ export const GetPostResponse = zod.object({
   "publishedAt": zod.coerce.date().nullable(),
   "targets": zod.array(zod.object({
   "connectedAccountId": zod.string().uuid(),
-  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'twitter']).describe('twitter is X (formerly Twitter).'),
   "accountName": zod.string(),
   "avatarUrl": zod.string().nullable(),
   "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
@@ -571,7 +575,8 @@ export const GetPostResponse = zod.object({
   "facebook": zod.string().optional(),
   "instagram": zod.string().optional(),
   "linkedin": zod.string().optional(),
-  "youtube": zod.string().optional()
+  "youtube": zod.string().optional(),
+  "twitter": zod.string().optional()
 }).describe('Per-network text overrides; a missing key means the base content is used.'),
   "firstComment": zod.string().nullable(),
   "link": zod.union([zod.object({
@@ -623,7 +628,8 @@ export const UpdatePostBody = zod.object({
   "facebook": zod.string().optional(),
   "instagram": zod.string().optional(),
   "linkedin": zod.string().optional(),
-  "youtube": zod.string().optional()
+  "youtube": zod.string().optional(),
+  "twitter": zod.string().optional()
 }).optional().describe('Per-network text overrides; a missing key means the base content is used.'),
   "firstComment": zod.string().max(updatePostBodyFirstCommentMax).nullish(),
   "link": zod.union([zod.object({
@@ -655,7 +661,7 @@ export const UpdatePostResponse = zod.object({
   "publishedAt": zod.coerce.date().nullable(),
   "targets": zod.array(zod.object({
   "connectedAccountId": zod.string().uuid(),
-  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'twitter']).describe('twitter is X (formerly Twitter).'),
   "accountName": zod.string(),
   "avatarUrl": zod.string().nullable(),
   "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
@@ -681,7 +687,8 @@ export const UpdatePostResponse = zod.object({
   "facebook": zod.string().optional(),
   "instagram": zod.string().optional(),
   "linkedin": zod.string().optional(),
-  "youtube": zod.string().optional()
+  "youtube": zod.string().optional(),
+  "twitter": zod.string().optional()
 }).describe('Per-network text overrides; a missing key means the base content is used.'),
   "firstComment": zod.string().nullable(),
   "link": zod.union([zod.object({
@@ -1041,7 +1048,7 @@ export const ListQueuedPostsResponse = zod.object({
   "publishedAt": zod.coerce.date().nullable(),
   "targets": zod.array(zod.object({
   "connectedAccountId": zod.string().uuid(),
-  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'twitter']).describe('twitter is X (formerly Twitter).'),
   "accountName": zod.string(),
   "avatarUrl": zod.string().nullable(),
   "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
@@ -1067,7 +1074,8 @@ export const ListQueuedPostsResponse = zod.object({
   "facebook": zod.string().optional(),
   "instagram": zod.string().optional(),
   "linkedin": zod.string().optional(),
-  "youtube": zod.string().optional()
+  "youtube": zod.string().optional(),
+  "twitter": zod.string().optional()
 }).describe('Per-network text overrides; a missing key means the base content is used.'),
   "firstComment": zod.string().nullable(),
   "link": zod.union([zod.object({
@@ -1118,7 +1126,7 @@ export const ReorderQueueResponse = zod.object({
   "publishedAt": zod.coerce.date().nullable(),
   "targets": zod.array(zod.object({
   "connectedAccountId": zod.string().uuid(),
-  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'twitter']).describe('twitter is X (formerly Twitter).'),
   "accountName": zod.string(),
   "avatarUrl": zod.string().nullable(),
   "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
@@ -1144,7 +1152,8 @@ export const ReorderQueueResponse = zod.object({
   "facebook": zod.string().optional(),
   "instagram": zod.string().optional(),
   "linkedin": zod.string().optional(),
-  "youtube": zod.string().optional()
+  "youtube": zod.string().optional(),
+  "twitter": zod.string().optional()
 }).describe('Per-network text overrides; a missing key means the base content is used.'),
   "firstComment": zod.string().nullable(),
   "link": zod.union([zod.object({
@@ -1190,7 +1199,8 @@ export const ListRecurrencesResponse = zod.object({
   "facebook": zod.string().optional(),
   "instagram": zod.string().optional(),
   "linkedin": zod.string().optional(),
-  "youtube": zod.string().optional()
+  "youtube": zod.string().optional(),
+  "twitter": zod.string().optional()
 }).describe('Per-network text overrides; a missing key means the base content is used.'),
   "connectedAccountIds": zod.array(zod.string().uuid()),
   "mediaIds": zod.array(zod.string().uuid()),
@@ -1231,7 +1241,8 @@ export const CreateRecurrenceBody = zod.object({
   "facebook": zod.string().optional(),
   "instagram": zod.string().optional(),
   "linkedin": zod.string().optional(),
-  "youtube": zod.string().optional()
+  "youtube": zod.string().optional(),
+  "twitter": zod.string().optional()
 }).optional().describe('Per-network text overrides; a missing key means the base content is used.'),
   "connectedAccountIds": zod.array(zod.string().uuid()).optional(),
   "mediaIds": zod.array(zod.string().uuid()).optional(),
@@ -1259,7 +1270,8 @@ export const CreateRecurrenceResponse = zod.object({
   "facebook": zod.string().optional(),
   "instagram": zod.string().optional(),
   "linkedin": zod.string().optional(),
-  "youtube": zod.string().optional()
+  "youtube": zod.string().optional(),
+  "twitter": zod.string().optional()
 }).describe('Per-network text overrides; a missing key means the base content is used.'),
   "connectedAccountIds": zod.array(zod.string().uuid()),
   "mediaIds": zod.array(zod.string().uuid()),
@@ -1299,7 +1311,8 @@ export const PreviewRecurrenceBody = zod.object({
   "facebook": zod.string().optional(),
   "instagram": zod.string().optional(),
   "linkedin": zod.string().optional(),
-  "youtube": zod.string().optional()
+  "youtube": zod.string().optional(),
+  "twitter": zod.string().optional()
 }).optional().describe('Per-network text overrides; a missing key means the base content is used.'),
   "connectedAccountIds": zod.array(zod.string().uuid()).optional(),
   "mediaIds": zod.array(zod.string().uuid()).optional(),
@@ -1349,7 +1362,8 @@ export const GetRecurrenceResponse = zod.object({
   "facebook": zod.string().optional(),
   "instagram": zod.string().optional(),
   "linkedin": zod.string().optional(),
-  "youtube": zod.string().optional()
+  "youtube": zod.string().optional(),
+  "twitter": zod.string().optional()
 }).describe('Per-network text overrides; a missing key means the base content is used.'),
   "connectedAccountIds": zod.array(zod.string().uuid()),
   "mediaIds": zod.array(zod.string().uuid()),
@@ -1366,7 +1380,7 @@ export const GetRecurrenceResponse = zod.object({
   "publishedAt": zod.coerce.date().nullable(),
   "targets": zod.array(zod.object({
   "connectedAccountId": zod.string().uuid(),
-  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'twitter']).describe('twitter is X (formerly Twitter).'),
   "accountName": zod.string(),
   "avatarUrl": zod.string().nullable(),
   "status": zod.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']),
@@ -1392,7 +1406,8 @@ export const GetRecurrenceResponse = zod.object({
   "facebook": zod.string().optional(),
   "instagram": zod.string().optional(),
   "linkedin": zod.string().optional(),
-  "youtube": zod.string().optional()
+  "youtube": zod.string().optional(),
+  "twitter": zod.string().optional()
 }).describe('Per-network text overrides; a missing key means the base content is used.'),
   "firstComment": zod.string().nullable(),
   "link": zod.union([zod.object({
@@ -1446,7 +1461,8 @@ export const UpdateRecurrenceBody = zod.object({
   "facebook": zod.string().optional(),
   "instagram": zod.string().optional(),
   "linkedin": zod.string().optional(),
-  "youtube": zod.string().optional()
+  "youtube": zod.string().optional(),
+  "twitter": zod.string().optional()
 }).optional().describe('Per-network text overrides; a missing key means the base content is used.'),
   "connectedAccountIds": zod.array(zod.string().uuid()).optional(),
   "mediaIds": zod.array(zod.string().uuid()).optional(),
@@ -1474,7 +1490,8 @@ export const UpdateRecurrenceResponse = zod.object({
   "facebook": zod.string().optional(),
   "instagram": zod.string().optional(),
   "linkedin": zod.string().optional(),
-  "youtube": zod.string().optional()
+  "youtube": zod.string().optional(),
+  "twitter": zod.string().optional()
 }).describe('Per-network text overrides; a missing key means the base content is used.'),
   "connectedAccountIds": zod.array(zod.string().uuid()),
   "mediaIds": zod.array(zod.string().uuid()),
@@ -1699,7 +1716,7 @@ export const GetAnalyticsResponse = zod.object({
   "lastCollectedAt": zod.coerce.date().nullable(),
   "accounts": zod.array(zod.object({
   "id": zod.string().uuid(),
-  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'twitter']).describe('twitter is X (formerly Twitter).'),
   "displayName": zod.string(),
   "status": zod.string(),
   "followers": zod.number().int().nullable(),
@@ -1799,7 +1816,7 @@ export const GetAnalyticsResponse = zod.object({
 }))
 }),
   "platforms": zod.array(zod.object({
-  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'twitter']).describe('twitter is X (formerly Twitter).'),
   "accounts": zod.number().int(),
   "followers": zod.number().int().nullable(),
   "posts": zod.number().int(),
@@ -1815,7 +1832,7 @@ export const GetAnalyticsResponse = zod.object({
   "topPosts": zod.array(zod.object({
   "postId": zod.string().uuid(),
   "content": zod.string(),
-  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'twitter']).describe('twitter is X (formerly Twitter).'),
   "accountName": zod.string(),
   "publishedAt": zod.coerce.date(),
   "postUrl": zod.string().nullable(),
@@ -2127,7 +2144,7 @@ export const listInboxQueryLimitMax = 100;
 export const ListInboxQueryParams = zod.object({
   "kind": zod.enum(['comment', 'message', 'mention']).optional(),
   "status": zod.enum(['open', 'resolved']).optional(),
-  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube']).optional(),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin', 'youtube', 'twitter']).optional(),
   "accountId": zod.coerce.string().uuid().optional(),
   "assigned": zod.enum(['me']).optional(),
   "unread": zod.coerce.boolean().optional(),

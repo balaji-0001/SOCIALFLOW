@@ -1,7 +1,6 @@
 import { and, eq, gte, sql } from "drizzle-orm";
 import type { Request, Response } from "express";
 import { db } from "@workspace/db";
-// Relative import so this works before the integrator exports ./ai from lib/db/src/schema/index.ts; switch to "@workspace/db" afterwards.
 import { aiUsageTable, brandVoicesTable, type BrandVoice } from "@workspace/db";
 import { requireAccess } from "./access";
 import { jsonError } from "./http-errors";

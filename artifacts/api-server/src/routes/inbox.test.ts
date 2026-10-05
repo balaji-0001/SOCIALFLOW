@@ -3,7 +3,7 @@ import { eq, inArray } from "drizzle-orm";
 import express from "express";
 import request from "supertest";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { connectedAccountsTable, db, pool, postTargetsTable, postsTable, usersTable, workspacesTable } from "@workspace/db";
+import { connectedAccountsTable, db, postTargetsTable, postsTable, usersTable, workspacesTable } from "@workspace/db";
 import { collectWorkspace, inboxItemsTable, inboxRepliesTable } from "../lib/inbox";
 import { saveConnectedAccount } from "../lib/oauth/accounts";
 import { fetchComments, inboxSupport, replyToComment } from "../lib/oauth/inbox-adapters";
@@ -20,19 +20,11 @@ const { default: app } = await import("../app");
 const { default: inboxRouter } = await import("./inbox");
 
 // The inbox router is mounted on its own small app (same session cookie handling as the real one), so these tests run
-// whether or not the integrator has registered it in routes/index.ts yet. The migration is idempotent.
+// whether or not it is registered in routes/index.ts.
 const mini = express();
 mini.use(cookieParser(process.env.SESSION_SECRET));
 mini.use(express.json());
 mini.use("/api", inboxRouter);
-
-const dbReady = await (async () => {
-  try {
-    return true;
-  } catch {
-    return false;
-  }
-})();
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 afterEach(() => vi.unstubAllGlobals());
@@ -172,7 +164,7 @@ async function published(workspaceId: string, accountId: string, externalPostId:
 
 const comment = (id: string, minutesAgo: number, extra: Record<string, unknown> = {}) => ({ id, message: `text ${id}`, created_time: new Date(Date.now() - minutesAgo * 60_000).toISOString(), from: { id: `user-${id}`, name: `Person ${id}` }, ...extra });
 
-describe.skipIf(!dbReady)("Inbox (database)", () => {
+describe("Inbox (database)", () => {
   beforeEach(() => { sent.length = 0; });
   afterAll(async () => {
     if (createdWorkspaceIds.size) await db.delete(workspacesTable).where(inArray(workspacesTable.id, [...createdWorkspaceIds]));

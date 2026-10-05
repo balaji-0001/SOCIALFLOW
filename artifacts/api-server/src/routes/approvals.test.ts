@@ -1,16 +1,12 @@
 import cookieParser from "cookie-parser";
-import { inArray, sql } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import express from "express";
 import pinoHttp from "pino-http";
 import request from "supertest";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { db, pool, postsTable, tableExists, usersTable, workspacesTable } from "@workspace/db";
+import { afterAll, describe, expect, it, vi } from "vitest";
+import { db, postsTable, tableExists, usersTable, workspacesTable } from "@workspace/db";
 
-// Approvals workflow. Self-contained: applies its own migration and mounts the routers it needs on a small app, and adds
-// the approvals:* permissions in memory when the integrator hasn't added them to lib/permissions.ts yet.
-
-// Until lib/db/src/schema/index.ts re-exports ./approvals, splice the tables into @workspace/db for the code under test.
-vi.mock("@workspace/db", async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), ...(await import("../../../../lib/db/src/schema/approvals")) }));
+// Approvals workflow, with the routers it needs mounted on a small app.
 
 const sent: Array<{ to: string; subject: string; text: string }> = [];
 vi.mock("../lib/mail", () => ({
@@ -20,20 +16,6 @@ vi.mock("../lib/mail", () => ({
     sent.push(message);
   },
 }));
-
-const { ROLE_PERMISSIONS } = await import("../lib/permissions");
-const grants: Record<string, string[]> = {
-  owner: ["approvals:read", "approvals:request", "approvals:decide", "approvals:manage"],
-  admin: ["approvals:read", "approvals:request", "approvals:decide", "approvals:manage"],
-  editor: ["approvals:read", "approvals:request"],
-  approver: ["approvals:read", "approvals:decide"],
-  viewer: ["approvals:read"],
-};
-for (const [role, perms] of Object.entries(grants)) {
-  const list = (ROLE_PERMISSIONS as Record<string, string[]>)[role]!;
-  // owner and admin may share one array; only push what is missing.
-  for (const p of perms) if (!list.includes(p)) list.push(p);
-}
 
 const { default: authRouter } = await import("./auth");
 const { default: teamRouter } = await import("./team");
@@ -76,9 +58,6 @@ async function newPost(workspaceId: string, userId: string, status: "draft" | "s
   return post!.id;
 }
 
-beforeAll(async () => {
-  if (!baseTablesExist) return;
-});
 afterAll(async () => {
   if (workspaceIds.size) await db.delete(workspacesTable).where(inArray(workspacesTable.id, [...workspaceIds]));
   if (userIds.size) await db.delete(usersTable).where(inArray(usersTable.id, [...userIds]));

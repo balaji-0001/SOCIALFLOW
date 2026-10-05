@@ -157,8 +157,3 @@ export function startReports(): void {
   logger.info({ intervalMinutes: minutes }, "Report scheduler started");
 }
 
-export function stopReports(): void {
-  if (timer) clearInterval(timer);
-  timer = null;
-}
-

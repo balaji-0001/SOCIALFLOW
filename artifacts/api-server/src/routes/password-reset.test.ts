@@ -113,7 +113,9 @@ describe.skipIf(!tablesExist)("Password reset (database)", () => {
     mail.mode = "smtp";
     mail.fail = true;
     const failed = await request(app).post("/api/auth/forgot-password").send({ email });
-    expect(failed.status).toBe(502);
+    expect(failed.status).toBe(503); // not 502: a proxy in front may replace a 502 answer and lose the message
+    expect(failed.body.error).toBe("email_failed");
+    expect(failed.body.message).toMatch(/couldn't send the email/);
     const left = await db.select().from(passwordResetsTable).where(sql`${passwordResetsTable.userId} = ${userId}`);
     expect(left).toHaveLength(0);
   });

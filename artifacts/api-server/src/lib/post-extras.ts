@@ -11,6 +11,7 @@ import {
   type Tag,
 } from "@workspace/db";
 import { PLATFORM_CHAR_LIMITS } from "./publisher";
+import { postLength } from "./twitter-text";
 import { platforms, type Platform } from "./oauth/types";
 
 /*
@@ -52,7 +53,7 @@ export function parsePlatformContent(value: unknown): PlatformContent | null {
 /** Why a per-network text can't be used, or null. */
 export function platformContentProblem(platformContent: PlatformContent): string | null {
   for (const [platform, text] of Object.entries(platformContent) as Array<[Platform, string]>) {
-    if (text.length > PLATFORM_CHAR_LIMITS[platform]) return `The ${platform === "linkedin" ? "LinkedIn" : platform === "youtube" ? "YouTube" : platform[0]!.toUpperCase() + platform.slice(1)} version is over its ${PLATFORM_CHAR_LIMITS[platform].toLocaleString()} character limit.`;
+    if (postLength(platform, text) > PLATFORM_CHAR_LIMITS[platform]) return `The ${platform === "linkedin" ? "LinkedIn" : platform === "youtube" ? "YouTube" : platform === "twitter" ? "X" : platform[0]!.toUpperCase() + platform.slice(1)} version is over its ${PLATFORM_CHAR_LIMITS[platform].toLocaleString()} character limit.`;
   }
   return null;
 }

@@ -159,7 +159,9 @@ router.post("/auth/forgot-password", forgotLimiter, async (req, res): Promise<vo
     // The link was never delivered, so it is worthless: remove it and tell the user honestly.
     await db.delete(passwordResetsTable).where(eq(passwordResetsTable.tokenHash, sha256(token)));
     req.log.error({ err: error, userId: user.id }, "Sending the password reset email failed");
-    return jsonError(res, 502, "email_failed", "We couldn't send the email right now. Try again in a few minutes.");
+    // 503, not 502: Cloudflare (the dev tunnel, and the edge in front of most hosts) replaces a 502 or 504 answer with
+    // its own error page, so the message below would never reach the form.
+    return jsonError(res, 503, "email_failed", "We couldn't send the email right now. Try again in a few minutes.");
   }
   req.log.info({ userId: user.id }, "Password reset requested");
   res.json(generic);

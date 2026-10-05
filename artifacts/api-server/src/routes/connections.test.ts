@@ -1,4 +1,4 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
@@ -78,11 +78,11 @@ describe.skipIf(!tablesExist)("OAuth connection routes (database)", () => {
     }
   });
 
-  it("reports all four platforms as implemented and configured in the test environment", async () => {
+  it("reports every platform as implemented and configured in the test environment", async () => {
     const res = await request(app).get("/api/connections/providers");
     expect(res.status).toBe(200);
-    expect(res.body.providers).toHaveLength(4);
-    for (const platform of ["facebook", "instagram", "linkedin", "youtube"]) {
+    expect(res.body.providers).toHaveLength(5);
+    for (const platform of ["facebook", "instagram", "linkedin", "youtube", "twitter"]) {
       const provider = res.body.providers.find((p: { platform: string }) => p.platform === platform);
       expect(provider).toMatchObject({
         platform,
@@ -93,7 +93,7 @@ describe.skipIf(!tablesExist)("OAuth connection routes (database)", () => {
       });
     }
     const body = JSON.stringify(res.body);
-    for (const secret of ["test-app-secret", "test-ig-app-secret", "test-linkedin-secret", "test-google-secret"]) {
+    for (const secret of ["test-app-secret", "test-ig-app-secret", "test-linkedin-secret", "test-google-secret", "test-twitter-secret"]) {
       expect(body).not.toContain(secret);
     }
   });

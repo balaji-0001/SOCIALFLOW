@@ -384,11 +384,6 @@ export function startAutomations(): void {
   logger.info({ wordpressMinutes: pollMinutes("wordpress"), rssMinutes: pollMinutes("rss") }, "Automation poller started");
 }
 
-export function stopAutomations(): void {
-  if (timer) clearInterval(timer);
-  timer = null;
-}
-
 /* ---------- reads for the API ---------- */
 
 export async function automationStats(ids: string[]): Promise<Map<string, { postsCreatedTotal: number }>> {

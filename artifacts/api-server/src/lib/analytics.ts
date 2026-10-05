@@ -3,6 +3,7 @@ import { accountMetricsTable, connectedAccountsTable, db, postMetricsTable, post
 import { logger } from "./logger";
 import { ensureFreshToken, markAccountStatus, readCredentials } from "./oauth/accounts";
 import { OAuthError } from "./oauth/errors";
+import { twitterAnalyticsEnabled } from "./oauth/config";
 import { getAdapter } from "./oauth/registry";
 import type { MetricsResult, Platform } from "./oauth/types";
 
@@ -33,6 +34,13 @@ export function metricSupport(platform: Platform, scopes: string[]): Record<"fol
   }
   if (platform === "youtube") {
     return { followers: yes, likes: yes, comments: yes, shares: no("YouTube doesn't report shares in its Data API."), views: yes, impressions: no("Impressions need the YouTube Analytics API, which isn't connected."), reach: no("YouTube doesn't report reach."), saves: no("YouTube doesn't report saves.") };
+  }
+  if (platform === "twitter") {
+    if (!twitterAnalyticsEnabled()) {
+      const off = no("Numbers from X aren't collected: X charges for every reading. The server operator can turn this on with TWITTER_ANALYTICS_ENABLED=true.");
+      return { followers: off, likes: off, comments: off, shares: off, views: off, impressions: off, reach: off, saves: off };
+    }
+    return { followers: yes, likes: yes, comments: yes, shares: yes, views: no("X reports views as impressions."), impressions: yes, reach: no("X doesn't report reach."), saves: yes };
   }
   const closed = no("LinkedIn shares statistics only with approved partner apps.");
   return { followers: closed, likes: closed, comments: closed, shares: closed, views: closed, impressions: closed, reach: closed, saves: closed };
@@ -153,9 +161,4 @@ export function startAnalytics(): void {
   // First reading a minute after start, so a restart doesn't hit the networks before the server is settled.
   setTimeout(tick, 60_000).unref();
   logger.info({ everyHours: interval / 3600_000 }, "Analytics collector started");
-}
-
-export function stopAnalytics(): void {
-  if (timer) clearInterval(timer);
-  timer = null;
 }

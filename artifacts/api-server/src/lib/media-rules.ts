@@ -10,11 +10,13 @@ import type { Platform } from "./oauth/types";
 
 export type RuleMedia = { kind: "image" | "video"; mimeType: string; sizeBytes?: number };
 
-const NAMES: Record<Platform, string> = { facebook: "Facebook", instagram: "Instagram", linkedin: "LinkedIn", youtube: "YouTube" };
+const NAMES: Record<Platform, string> = { facebook: "Facebook", instagram: "Instagram", linkedin: "LinkedIn", youtube: "YouTube", twitter: "X" };
 
 const isJpeg = (m: RuleMedia) => m.mimeType === "image/jpeg";
 const isPngJpeg = (m: RuleMedia) => m.mimeType === "image/jpeg" || m.mimeType === "image/png";
 const isMp4OrMov = (m: RuleMedia) => m.mimeType === "video/mp4" || m.mimeType === "video/quicktime";
+const isGif = (m: RuleMedia) => m.mimeType === "image/gif";
+const MB = 1024 * 1024;
 
 export type MediaRuleOptions = {
   /** The post has a link whose preview has a picture Instagram can use as the post's photo instead of an upload. */
@@ -57,6 +59,19 @@ export function mediaProblemForPlatform(platform: Platform, media: RuleMedia[], 
     if (images.length > 10) return "Facebook allows up to 10 photos in one post.";
     if (images.some((m) => m.mimeType === "image/webp")) return "Facebook accepts JPG, PNG and GIF images here. Convert WebP files first.";
     if (images.length > 1 && images.some((m) => m.mimeType === "image/gif")) return "A GIF has to be posted on its own on Facebook.";
+    return null;
+  }
+
+  if (platform === "twitter") {
+    // X: up to four photos, or one GIF, or one video. Photos up to 5 MB, a GIF up to 15 MB.
+    if (videos.length > 0 && images.length > 0) return "X posts can have photos or one video, not both.";
+    if (videos.length > 1) return "X posts can have one video.";
+    if (videos.some((m) => !isMp4OrMov(m))) return "X accepts MP4 and MOV video only.";
+    if (images.some(isGif) && images.length > 1) return "A GIF has to be posted on its own on X.";
+    if (images.length > 4) return "X allows up to 4 photos in one post.";
+    if (images.some((m) => !isPngJpeg(m) && !isGif(m) && m.mimeType !== "image/webp")) return "X accepts JPG, PNG, WebP and GIF images.";
+    if (images.some((m) => !isGif(m) && typeof m.sizeBytes === "number" && m.sizeBytes > 5 * MB)) return "A photo on X can be up to 5 MB.";
+    if (images.some((m) => isGif(m) && typeof m.sizeBytes === "number" && m.sizeBytes > 15 * MB)) return "A GIF on X can be up to 15 MB.";
     return null;
   }
 

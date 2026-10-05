@@ -14,4 +14,5 @@ export interface PlatformContent {
   instagram?: string;
   linkedin?: string;
   youtube?: string;
+  twitter?: string;
 }

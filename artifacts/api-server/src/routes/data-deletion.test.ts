@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import { eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { connectedAccountsTable, dataDeletionsTable, db, tableExists, usersTable, workspacesTable } from "@workspace/db";

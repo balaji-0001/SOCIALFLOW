@@ -56,6 +56,14 @@ export function analyticsScopesEnabled(env: NodeJS.ProcessEnv = process.env): bo
   return /^(1|true)$/i.test(env.ANALYTICS_SCOPES_ENABLED?.trim() ?? "");
 }
 
+/**
+ * X charges for every read of its API (see docs/twitter-setup.md), so follower and post numbers are only collected
+ * from X when TWITTER_ANALYTICS_ENABLED=true. Posting never depends on this.
+ */
+export function twitterAnalyticsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return /^(1|true)$/i.test(env.TWITTER_ANALYTICS_ENABLED?.trim() ?? "");
+}
+
 /** Where the browser is sent after the OAuth flow finishes (relative path). */
 export const WORKSPACE_PATH = "/workspace";
 

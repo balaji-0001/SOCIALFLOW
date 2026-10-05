@@ -10,9 +10,7 @@
   },
   "dependencies": {
     "drizzle-orm": "catalog:",
-    "drizzle-zod": "^0.8.3",
-    "mysql2": "^3.24.5",
-    "zod": "catalog:"
+    "mysql2": "^3.24.5"
   },
   "devDependencies": {
     "@types/node": "catalog:",

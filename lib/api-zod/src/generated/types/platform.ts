@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * twitter is X (formerly Twitter).
+ */
 export type Platform = typeof Platform[keyof typeof Platform];
 
 
@@ -14,4 +17,5 @@ export const Platform = {
   instagram: 'instagram',
   linkedin: 'linkedin',
   youtube: 'youtube',
+  twitter: 'twitter',
 } as const;

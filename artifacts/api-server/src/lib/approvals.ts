@@ -1,4 +1,4 @@
-import { and, eq, sql, type SQL } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db, postApprovalsTable, approvalSettingsTable, usersTable, workspaceMembersTable } from "@workspace/db";
 import { logger } from "./logger";
 import { getRedirectBaseUrl } from "./oauth/config";
@@ -22,9 +22,6 @@ export function publishBlockedSql(postAlias = "socialflow_posts"): string {
   return `(exists (select 1 from socialflow_approval_settings s where s.workspace_id = ${postAlias}.workspace_id and s.required)
     and not exists (select 1 from socialflow_post_approvals a where a.post_id = ${postAlias}.id and a.status = 'approved'))`;
 }
-
-/** Drizzle-friendly form of publishBlockedSql. */
-export const publishBlockedCondition = (postAlias = "socialflow_posts"): SQL => sql.raw(publishBlockedSql(postAlias));
 
 export async function isPublishBlockedByApproval(postId: string): Promise<boolean> {
   const result = await db.execute(sql`select ${sql.raw(publishBlockedSql("p"))} as blocked from socialflow_posts p where p.id = ${postId}`);

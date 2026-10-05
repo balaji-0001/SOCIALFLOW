@@ -14,6 +14,7 @@ import { logger } from "./logger";
 import { loadMediaForPosts, signedPublicMediaUrl, storedFilePath } from "./media";
 import { mediaProblemForPlatform } from "./media-rules";
 import { effectiveContent, linkFromRow, linkNoteForPlatform, loadPlatformContent, type PostLink } from "./post-extras";
+import { postLength, TWITTER_CHAR_LIMIT } from "./twitter-text";
 import { materializeDueRecurrences } from "./recurrence";
 import { ensureFreshToken, markAccountStatus, readCredentials } from "./oauth/accounts";
 import { OAuthError, type OAuthErrorCode } from "./oauth/errors";
@@ -32,22 +33,16 @@ import type { OAuthProviderAdapter, Platform, PublishMedia } from "./oauth/types
  * Automatically retrying could publish the same post twice.
  */
 
-/** Networks that can't take a text-only post. */
-export const MEDIA_REQUIRED_PLATFORMS: readonly Platform[] = ["instagram", "youtube"];
-
 export const PLATFORM_CHAR_LIMITS: Record<Platform, number> = {
   facebook: 63_206,
   instagram: 2_200,
   linkedin: 3_000,
   youtube: 5_000,
+  // Counted the way X counts: a link is 23, an emoji 2 (see twitter-text.ts).
+  twitter: TWITTER_CHAR_LIMIT,
 };
 
-export function mediaRequiredMessage(platforms: Platform[]): string {
-  const names = [...new Set(platforms)].map((p) => (p === "instagram" ? "Instagram" : "YouTube"));
-  return `${names.join(" and ")} posts need an image or video.`;
-}
-
-const PLATFORM_NAMES: Record<Platform, string> = { facebook: "Facebook", instagram: "Instagram", linkedin: "LinkedIn", youtube: "YouTube" };
+const PLATFORM_NAMES: Record<Platform, string> = { facebook: "Facebook", instagram: "Instagram", linkedin: "LinkedIn", youtube: "YouTube", twitter: "X" };
 
 /** A link to the published post on the network, when we can build one. */
 export function postUrl(platform: string, externalPostId: string | null): string | null {
@@ -55,6 +50,7 @@ export function postUrl(platform: string, externalPostId: string | null): string
   if (platform === "facebook") return `https://www.facebook.com/${encodeURIComponent(externalPostId)}`;
   if (platform === "linkedin") return `https://www.linkedin.com/feed/update/${encodeURIComponent(externalPostId)}`;
   if (platform === "youtube") return `https://www.youtube.com/watch?v=${encodeURIComponent(externalPostId)}`;
+  if (platform === "twitter") return `https://x.com/i/web/status/${encodeURIComponent(externalPostId)}`;
   return null;
 }
 
@@ -101,7 +97,7 @@ async function publishToAccount(account: ConnectedAccount, content: string, medi
   const mediaProblem = mediaProblemForPlatform(platform, media, { hasLinkImage: Boolean(link?.imageUrl) });
   if (mediaProblem) return fail(mediaProblem);
   if (platform === "youtube" && /[<>]/.test(content)) return fail("YouTube doesn't allow < or > in a title or description.");
-  if (content.length > PLATFORM_CHAR_LIMITS[platform]) {
+  if (postLength(platform, content) > PLATFORM_CHAR_LIMITS[platform]) {
     return fail(`This post is too long for ${PLATFORM_NAMES[platform]} (limit ${PLATFORM_CHAR_LIMITS[platform].toLocaleString()} characters).`);
   }
   if (account.status !== "active") {
@@ -392,9 +388,4 @@ export function startPublisher(): void {
   timer.unref();
   tick();
   logger.info({ intervalMs: interval }, "Publisher started");
-}
-
-export function stopPublisher(): void {
-  if (timer) clearInterval(timer);
-  timer = null;
 }

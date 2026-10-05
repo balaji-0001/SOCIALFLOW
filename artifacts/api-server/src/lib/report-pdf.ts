@@ -21,7 +21,7 @@ const LABELS: Record<string, string> = {
   views: "Views", impressions: "Impressions", reach: "Reach", engagement: "Engagement",
 };
 const KPI_ORDER = ["followers", "posts", "engagement", "likes", "comments", "shares", "saves", "views", "impressions", "reach"] as const;
-const PLATFORM_LABELS: Record<string, string> = { facebook: "Facebook", instagram: "Instagram", linkedin: "LinkedIn", youtube: "YouTube" };
+const PLATFORM_LABELS: Record<string, string> = { facebook: "Facebook", instagram: "Instagram", linkedin: "LinkedIn", youtube: "YouTube", twitter: "X" };
 
 /** Built-in PDF fonts only cover Latin-1; anything else would print as garbage, so it becomes "?". */
 const safe = (text: string) => text.replace(/[\r\n\t]+/g, " ").replace(/[^\x20-\x7e\xa1-\xff]/gu, "?");

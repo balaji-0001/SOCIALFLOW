@@ -110,12 +110,35 @@ export async function markAccountStatus(accountId: string, status: ConnectionSta
 
 const REFRESH_MARGIN_MS = 5 * 60 * 1000;
 
+// Refreshes in progress, by account id, for networks whose refresh tokens can be used once.
+const refreshing = new Map<string, Promise<ConnectedAccount>>();
+
 /**
  * Refreshes the access token if it is about to expire and the provider
  * supports refresh tokens. Facebook Page tokens don't expire, so this is a
- * no-op for Facebook; LinkedIn and Google adapters will use it.
+ * no-op for Facebook; LinkedIn, Google and X adapters use it.
+ *
+ * X retires a refresh token the moment it is used. Two refreshes of one account at the same time (the publisher
+ * and a collector, say) would send the same token twice, and the second would be refused and look like a revoked
+ * account. So for such networks there is one refresh per account at a time, started from the stored row, not from
+ * the caller's copy, which may be older than the last refresh. (This holds within one API process.)
  */
 export async function ensureFreshToken(
+  account: ConnectedAccount,
+  adapter: OAuthProviderAdapter,
+): Promise<ConnectedAccount> {
+  if (!adapter.rotatesRefreshTokens) return refreshIfNeeded(account, adapter);
+  const running = refreshing.get(account.id);
+  if (running) return running;
+  const work = (async () => {
+    const [stored] = await db.select().from(connectedAccountsTable).where(eq(connectedAccountsTable.id, account.id)).limit(1);
+    return refreshIfNeeded(stored ?? account, adapter);
+  })().finally(() => refreshing.delete(account.id));
+  refreshing.set(account.id, work);
+  return work;
+}
+
+async function refreshIfNeeded(
   account: ConnectedAccount,
   adapter: OAuthProviderAdapter,
 ): Promise<ConnectedAccount> {

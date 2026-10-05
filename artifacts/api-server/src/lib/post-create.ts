@@ -4,6 +4,7 @@ import { mediaProblemForPlatforms, type RuleMedia } from "./media-rules";
 import type { Platform } from "./oauth/types";
 import { effectiveContent, linkColumns, writePostExtras, type PlatformContent, type PostLink } from "./post-extras";
 import { PLATFORM_CHAR_LIMITS } from "./publisher";
+import { postLength } from "./twitter-text";
 
 /*
  * The checks and inserts behind creating a post, shared by POST /posts (routes/posts.ts), automations
@@ -14,7 +15,7 @@ export const MAX_CONTENT_LENGTH = 10_000;
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-export const PLATFORM_LABELS: Record<Platform, string> = { facebook: "Facebook", instagram: "Instagram", linkedin: "LinkedIn", youtube: "YouTube" };
+export const PLATFORM_LABELS: Record<Platform, string> = { facebook: "Facebook", instagram: "Instagram", linkedin: "LinkedIn", youtube: "YouTube", twitter: "X" };
 
 /** Kind and type of each file, for checking them against what the selected networks accept. */
 export async function mediaForRules(workspaceId: string, ids: string[]): Promise<RuleMedia[]> {
@@ -46,6 +47,12 @@ export async function validateTargets(workspaceId: string, accountIds: string[],
     }
     const mediaProblem = mediaProblemForPlatforms(accounts.map((account) => account.platform), media, { hasLinkImage });
     if (mediaProblem) return mediaProblem;
+    // X's limit is short and counted its own way (a link is 23, an emoji 2), so a post that can't fit is refused here
+    // instead of failing later at its scheduled time.
+    if (accounts.some((account) => account.platform === "twitter")) {
+      const length = postLength("twitter", effectiveContent(content, platformContent, "twitter"));
+      if (length > PLATFORM_CHAR_LIMITS.twitter) return `The text is ${length} characters the way X counts it, and X allows ${PLATFORM_CHAR_LIMITS.twitter}. Shorten it, or write a shorter version for X.`;
+    }
   }
   return null;
 }
@@ -53,7 +60,7 @@ export async function validateTargets(workspaceId: string, accountIds: string[],
 /** The first network whose character limit the text goes over, as a message, or null. */
 export function charLimitProblem(content: string, platformList: Platform[]): string | null {
   for (const platform of new Set(platformList)) {
-    if (content.length > PLATFORM_CHAR_LIMITS[platform]) return `The text is over ${PLATFORM_LABELS[platform]}'s ${PLATFORM_CHAR_LIMITS[platform].toLocaleString()} character limit.`;
+    if (postLength(platform, content) > PLATFORM_CHAR_LIMITS[platform]) return `The text is over ${PLATFORM_LABELS[platform]}'s ${PLATFORM_CHAR_LIMITS[platform].toLocaleString()} character limit.`;
   }
   return null;
 }

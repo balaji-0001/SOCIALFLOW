@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { connectedAccountsTable, db, postsTable, postTargetsTable, recurrencesTable, tableExists, usersTable, workspacesTable } from "@workspace/db";

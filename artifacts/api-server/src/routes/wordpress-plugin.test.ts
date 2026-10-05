@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { CreateAutomationResponse, ListAutomationsResponse, ReplaceAutomationPluginKeyResponse, WordpressPluginConnectResponse, WordpressPluginPostResponse, WordpressPluginStatusResponse } from "@workspace/api-zod";

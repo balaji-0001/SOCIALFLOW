@@ -14,4 +14,5 @@ export const ListInboxPlatform = {
   instagram: 'instagram',
   linkedin: 'linkedin',
   youtube: 'youtube',
+  twitter: 'twitter',
 } as const;

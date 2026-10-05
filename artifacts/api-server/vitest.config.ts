@@ -23,6 +23,8 @@ export default defineConfig({
       LINKEDIN_CLIENT_SECRET: "test-linkedin-secret",
       GOOGLE_CLIENT_ID: "test-google-id",
       GOOGLE_CLIENT_SECRET: "test-google-secret",
+      TWITTER_CLIENT_ID: "test-twitter-id",
+      TWITTER_CLIENT_SECRET: "test-twitter-secret",
       // High enough that no test file's own signup/login volume trips it.
       AUTH_LOGIN_RATE_LIMIT: "10000",
       AUTH_SIGNUP_RATE_LIMIT: "10000",

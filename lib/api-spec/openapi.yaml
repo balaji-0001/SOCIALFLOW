@@ -1953,7 +1953,7 @@ paths:
       parameters:
         - { name: kind, in: query, required: false, schema: { type: string, enum: [comment, message, mention] } }
         - { name: status, in: query, required: false, schema: { type: string, enum: [open, resolved] } }
-        - { name: platform, in: query, required: false, schema: { type: string, enum: [facebook, instagram, linkedin, youtube] } }
+        - { name: platform, in: query, required: false, schema: { type: string, enum: [facebook, instagram, linkedin, youtube, twitter] } }
         - { name: accountId, in: query, required: false, schema: { type: string, format: uuid } }
         - { name: assigned, in: query, required: false, schema: { type: string, enum: [me] } }
         - { name: unread, in: query, required: false, schema: { type: boolean } }
@@ -3630,7 +3630,8 @@ components:
       required: [user, workspaceId, workspace, role, permissions, workspaces]
     Platform:
       type: string
-      enum: [facebook, instagram, linkedin, youtube]
+      description: twitter is X (formerly Twitter).
+      enum: [facebook, instagram, linkedin, youtube, twitter]
     ConnectionStatus:
       type: string
       enum: [active, expired, revoked, missing_permissions, error]
@@ -3780,6 +3781,7 @@ components:
         instagram: { type: string }
         linkedin: { type: string }
         youtube: { type: string }
+        twitter: { type: string }
     Tag:
       type: object
       properties:

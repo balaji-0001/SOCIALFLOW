@@ -1,8 +1,6 @@
 import { and, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
 import { connectedAccountsTable, db, excluded, postTargetsTable, postsTable, type ConnectedAccount } from "@workspace/db";
-// Until the integrator exports the inbox schema from @workspace/db (see docs/integration/inbox.md), import it by path.
-// After that, these can come from "@workspace/db" and this line can go.
-import { inboxItemsTable, inboxRepliesTable, inboxSyncTable, type InboxItem, type InboxReply } from "@workspace/db";
+import { inboxItemsTable, inboxRepliesTable, inboxSyncTable, type InboxReply } from "@workspace/db";
 import { logger } from "./logger";
 import { ensureFreshToken, markAccountStatus, readCredentials } from "./oauth/accounts";
 import { commentScopesEnabled, messagingScopesEnabled } from "./oauth/config";
@@ -15,7 +13,7 @@ import { getAdapter } from "./oauth/registry";
 import type { Platform } from "./oauth/types";
 
 export { inboxItemsTable, inboxRepliesTable, inboxSyncTable };
-export type { InboxItem, InboxReply };
+export type { InboxReply };
 
 /*
  * The comment inbox. For each account that was connected with the network's comment permission, the collector reads the
@@ -258,7 +256,7 @@ async function saveExtrasSync(accountId: string, values: { messagesError: string
   await db.insert(inboxSyncTable).values({ connectedAccountId: accountId, ...set }).onConflictDoUpdate({ target: inboxSyncTable.connectedAccountId, set });
 }
 
-function permissionReason(error: OAuthError, what: string): string {
+function permissionReason(what: string): string {
   return `The network refused to share ${what}: reconnect this account and make sure the app has been approved for the ${what} permission.`;
 }
 
@@ -334,7 +332,7 @@ async function collectExtras(account: ConnectedAccount, now: Date): Promise<Extr
       } catch (error) {
         const failure = describeFailure(error, account.id);
         if (failure.error) await noteFailure(account, failure.error);
-        outcome.messagesReason = failure.error?.code === "insufficient_permissions" ? permissionReason(failure.error, "messaging (pages_messaging / instagram_business_manage_messages)") : failure.message;
+        outcome.messagesReason = failure.error?.code === "insufficient_permissions" ? permissionReason("messaging (pages_messaging / instagram_business_manage_messages)") : failure.message;
       }
     }
 
@@ -368,7 +366,7 @@ async function collectExtras(account: ConnectedAccount, now: Date): Promise<Extr
       } catch (error) {
         const failure = describeFailure(error, account.id);
         if (failure.error) await noteFailure(account, failure.error);
-        outcome.mentionsReason = failure.error?.code === "insufficient_permissions" ? permissionReason(failure.error, "mentions (pages_read_engagement / instagram_business_basic)") : failure.message;
+        outcome.mentionsReason = failure.error?.code === "insufficient_permissions" ? permissionReason("mentions (pages_read_engagement / instagram_business_basic)") : failure.message;
       }
     }
   } catch (error) {
@@ -427,7 +425,6 @@ export async function runInboxCycle(now = new Date()): Promise<number> {
 }
 
 let timer: NodeJS.Timeout | null = null;
-let firstTick: NodeJS.Timeout | null = null;
 
 /** Starts the background collector (every INBOX_POLL_MINUTES, default 10, minimum 1). Off with INBOX_DISABLED=true. */
 export function startInbox(): void {
@@ -437,16 +434,8 @@ export function startInbox(): void {
   const tick = () => { runInboxCycle().catch((error) => logger.error({ err: error }, "Inbox cycle failed")); };
   timer = setInterval(tick, interval);
   timer.unref();
-  firstTick = setTimeout(tick, 90_000);
-  firstTick.unref();
+  setTimeout(tick, 90_000).unref();
   logger.info({ everyMinutes: interval / 60_000 }, "Inbox collector started");
-}
-
-export function stopInbox(): void {
-  if (timer) clearInterval(timer);
-  if (firstTick) clearTimeout(firstTick);
-  timer = null;
-  firstTick = null;
 }
 
 // ------------------------------------------------------------------------------------------------------- Replies

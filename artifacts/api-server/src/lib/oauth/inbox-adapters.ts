@@ -37,13 +37,19 @@ export interface NetworkComment {
 export const MAX_COMMENTS_PER_POST = 50;
 
 /** Longest reply each network takes. */
-export const REPLY_MAX_LENGTH: Record<Platform, number> = { facebook: 8000, instagram: 2200, youtube: 10000, linkedin: 0 };
+export const REPLY_MAX_LENGTH: Record<Platform, number> = { facebook: 8000, instagram: 2200, youtube: 10000, linkedin: 0, twitter: 0 };
 
 const COMMENT_SCOPE: Record<Platform, string | null> = {
   facebook: FACEBOOK_COMMENT_SCOPE,
   instagram: INSTAGRAM_COMMENT_SCOPE,
   youtube: YOUTUBE_COMMENT_SCOPE,
   linkedin: null,
+  twitter: null,
+};
+
+/** Why a network's comments, messages or mentions are not read at all. */
+const NOT_READ: Partial<Record<Platform, string>> = {
+  twitter: "SocialFlow doesn't read replies, messages or mentions from X yet (X charges for every reading), so there is nothing from X here.",
 };
 
 export function inboxCommentScope(platform: Platform): string | null {
@@ -58,7 +64,7 @@ export type InboxSupport =
 /** Whether an account can be read and answered, from what the network offers and the permissions it was connected with. */
 export function inboxSupport(platform: Platform, scopes: string[], commentScopesOnServer: boolean): InboxSupport {
   const scope = COMMENT_SCOPE[platform];
-  if (!scope) return { state: "unavailable", reason: "LinkedIn doesn't give this app access to comments, so they can't be read or answered here." };
+  if (!scope) return { state: "unavailable", reason: NOT_READ[platform] ?? "LinkedIn doesn't give this app access to comments, so they can't be read or answered here." };
   if (scopes.includes(scope)) return { state: "available", reason: null };
   return {
     state: "permission_needed",
@@ -274,7 +280,7 @@ export async function fetchComments(platform: Platform, creds: InboxCredentials,
   if (platform === "facebook") return fetchFacebookComments(creds, input.externalPostId, limit);
   if (platform === "instagram") return fetchInstagramComments(creds, input.externalPostId, limit);
   if (platform === "youtube") return fetchYouTubeComments(creds, input.externalPostId, limit);
-  throw new OAuthError("publish_unsupported", "LinkedIn doesn't give this app access to comments.");
+  throw new OAuthError("publish_unsupported", NOT_READ[platform] ?? "LinkedIn doesn't give this app access to comments.");
 }
 
 /**
@@ -285,7 +291,7 @@ export async function replyToComment(platform: Platform, creds: InboxCredentials
   if (platform === "facebook") return { externalId: await replyFacebook(creds, input.externalCommentId, input.text) };
   if (platform === "instagram") return { externalId: await replyInstagram(creds, input.externalCommentId, input.text) };
   if (platform === "youtube") return { externalId: await replyYouTube(creds, input.externalCommentId, input.text) };
-  throw new OAuthError("publish_unsupported", "LinkedIn doesn't give this app access to comments.");
+  throw new OAuthError("publish_unsupported", NOT_READ[platform] ?? "LinkedIn doesn't give this app access to comments.");
 }
 
 // ================================================================================ Direct messages and mentions
@@ -296,7 +302,7 @@ export const MAX_CONVERSATIONS_PER_ACCOUNT = 20;
 export const MAX_MESSAGES_PER_CONVERSATION = 25;
 export const MAX_MENTIONS_PER_ACCOUNT = 25;
 /** Longest direct message each network takes (Messenger 2000, Instagram 1000 characters of text). */
-export const MESSAGE_MAX_LENGTH: Record<Platform, number> = { facebook: 2000, instagram: 1000, youtube: 0, linkedin: 0 };
+export const MESSAGE_MAX_LENGTH: Record<Platform, number> = { facebook: 2000, instagram: 1000, youtube: 0, linkedin: 0, twitter: 0 };
 
 export interface NetworkMessage {
   externalId: string;
@@ -343,6 +349,7 @@ const MESSAGING_SCOPES: Record<Platform, string[] | null> = {
   instagram: [INSTAGRAM_MESSAGING_SCOPE],
   youtube: null,
   linkedin: null,
+  twitter: null,
 };
 
 export function inboxMessagingScopes(platform: Platform): string[] | null {
@@ -353,7 +360,7 @@ export function inboxMessagingScopes(platform: Platform): string[] | null {
 export function messagingSupport(platform: Platform, scopes: string[], flagOn: boolean): InboxSupport {
   const needed = MESSAGING_SCOPES[platform];
   if (!needed) {
-    return { state: "unavailable", reason: platform === "youtube" ? "YouTube has no direct message API, so there are no messages to read or answer." : "LinkedIn doesn't give this app access to messages." };
+    return { state: "unavailable", reason: NOT_READ[platform] ?? (platform === "youtube" ? "YouTube has no direct message API, so there are no messages to read or answer." : "LinkedIn doesn't give this app access to messages.") };
   }
   if (!flagOn) {
     return { state: "permission_needed", reason: `Messaging permissions (${needed.join(", ")}) aren't enabled on this server. Set MESSAGING_SCOPES_ENABLED=true once the app has passed Meta's review for them, then reconnect the account.` };
@@ -371,6 +378,7 @@ export function messagingSupport(platform: Platform, scopes: string[], flagOn: b
 export function mentionsSupport(platform: Platform, scopes: string[], flagOn: boolean): InboxSupport {
   if (platform === "youtube") return { state: "unavailable", reason: "YouTube has no mentions API, so mentions of this channel can't be read." };
   if (platform === "linkedin") return { state: "unavailable", reason: "LinkedIn doesn't give this app access to mentions." };
+  if (platform === "twitter") return { state: "unavailable", reason: NOT_READ.twitter! };
   const scope = platform === "facebook" ? "pages_read_engagement" : "instagram_business_basic";
   if (!flagOn) return { state: "permission_needed", reason: "Mentions are collected only when MESSAGING_SCOPES_ENABLED=true on this server." };
   if (!scopes.includes(scope)) return { state: "permission_needed", reason: `Reconnect this account and allow the ${scope} permission to read mentions.` };

@@ -4,19 +4,20 @@ import { OAuthError } from "./errors";
 import { facebookProvider } from "./providers/facebook";
 import { instagramProvider } from "./providers/instagram";
 import { linkedinProvider } from "./providers/linkedin";
+import { twitterProvider } from "./providers/twitter";
 import { youtubeProvider } from "./providers/youtube";
 import type { OAuthProviderAdapter, Platform, ProviderDefinition } from "./types";
 
 // A platform not yet implemented would be registered here as a placeholder
 // with `implemented: false`, so the UI and setup checks can report it
-// honestly instead of mocking it. All four platforms currently ship an
+// honestly instead of mocking it. Every platform currently ships an
 // adapter; this stays exported for the next platform that doesn't.
 function notImplemented(platform: Platform): never {
   throw new OAuthError("not_configured", `${platform} connections are not implemented yet.`);
 }
 
 const definitions: Record<Platform, ProviderDefinition> = Object.fromEntries(
-  [facebookProvider, instagramProvider, linkedinProvider, youtubeProvider].map((d) => [d.platform, d]),
+  [facebookProvider, instagramProvider, linkedinProvider, youtubeProvider, twitterProvider].map((d) => [d.platform, d]),
 ) as Record<Platform, ProviderDefinition>;
 
 export function getProviderDefinition(platform: Platform): ProviderDefinition {

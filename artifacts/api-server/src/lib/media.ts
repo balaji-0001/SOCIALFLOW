@@ -394,8 +394,3 @@ export function startMediaSweeper(): void {
   sweepTimer.unref();
   run();
 }
-
-export function stopMediaSweeper(): void {
-  if (sweepTimer) clearInterval(sweepTimer);
-  sweepTimer = null;
-}

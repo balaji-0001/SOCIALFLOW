@@ -92,6 +92,6 @@ export async function tableExists(name: string): Promise<boolean> {
 }
 
 export * from "./schema";
-export { alphabetical, excluded, isUniqueViolation, mysqlErrno, nullsFirst, nullsLast } from "./compat";
-export type { Database, ExecuteResult, WriteResult } from "./compat";
+export { alphabetical, excluded, isUniqueViolation, nullsFirst, nullsLast } from "./compat";
+export type { Database } from "./compat";
 export { runMigrations } from "./migrate";

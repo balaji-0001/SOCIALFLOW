@@ -2,7 +2,6 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { connectedAccountsTable, db, postsTable, recurrenceFrequencies, recurrencesTable, type Recurrence, type RecurrenceFrequency } from "@workspace/db";
 import { jsonError } from "../lib/http-errors";
-import { validateMediaIds } from "../lib/media";
 import { mediaProblemForPlatforms } from "../lib/media-rules";
 import { mediaTable } from "@workspace/db";
 import { MAX_FIRST_COMMENT_LENGTH, parsePlatformContent, platformContentProblem, validateTagIds, type PlatformContent } from "../lib/post-extras";
