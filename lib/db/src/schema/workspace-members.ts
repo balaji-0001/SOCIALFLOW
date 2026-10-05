@@ -1,4 +1,5 @@
-import { index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { index, mysqlTable, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { timestamptz, uuid, uuidPk } from "./_columns";
 import { usersTable } from "./users";
 import { workspacesTable } from "./workspaces";
 
@@ -11,18 +12,18 @@ export type WorkspaceRole = (typeof workspaceRoles)[number];
 // created per user at sign-up. Every workspace-scoped route resolves the
 // caller's workspace through this table, never by workspace ID alone, so one
 // user can never read or modify another user's connections.
-export const workspaceMembersTable = pgTable(
+export const workspaceMembersTable = mysqlTable(
   "socialflow_workspace_members",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuidPk("id"),
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspacesTable.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
-    role: text("role").$type<WorkspaceRole>().notNull().default("owner"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    role: varchar("role", { length: 64 }).$type<WorkspaceRole>().notNull().default("owner"),
+    createdAt: timestamptz("created_at").notNull().$defaultFn(() => new Date()),
   },
   (table) => [
     uniqueIndex("socialflow_workspace_members_unique_idx").on(table.workspaceId, table.userId),

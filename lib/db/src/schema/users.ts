@@ -1,20 +1,21 @@
-import { pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { mediumtext, mysqlTable, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { timestamptz, uuidPk } from "./_columns";
 
 // A registered Socialflow user. Email is stored lowercase; uniqueness is
 // enforced case-insensitively by normalizing before every write and read.
-export const usersTable = pgTable(
+export const usersTable = mysqlTable(
   "socialflow_users",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    email: text("email").notNull(),
+    id: uuidPk("id"),
+    email: varchar("email", { length: 320 }).notNull(),
     // scrypt password hash, see api-server/src/lib/password.ts. Never a
     // plaintext password, and never logged.
-    passwordHash: text("password_hash").notNull(),
-    displayName: text("display_name"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
+    passwordHash: mediumtext("password_hash").notNull(),
+    displayName: mediumtext("display_name"),
+    createdAt: timestamptz("created_at").notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamptz("updated_at")
       .notNull()
-      .defaultNow()
+      .$defaultFn(() => new Date())
       .$onUpdate(() => new Date()),
   },
   (table) => [uniqueIndex("socialflow_users_email_idx").on(table.email)],

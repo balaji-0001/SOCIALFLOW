@@ -8,15 +8,14 @@ _Replace the heading above with the project's name, and this line with one sente
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run test` — API tests (vitest; route tests skip until the DB schema is pushed)
-- Required env: `DATABASE_URL` — Postgres connection string, `SESSION_SECRET`, `TOKEN_ENCRYPTION_KEY` (32 bytes base64). Platform credentials: see `docs/oauth-setup.md`
+- `pnpm --filter @workspace/api-server run test` — API tests (vitest; set `DATABASE_URL` to a database whose name ends in `_test`)
+- Required env: `DATABASE_URL` — MySQL 8 connection string (`mysql://user:password@host:3306/database`), `SESSION_SECRET`, `TOKEN_ENCRYPTION_KEY` (32 bytes base64). Platform credentials: see `docs/oauth-setup.md`
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
 - API: Express 5
-- DB: PostgreSQL + Drizzle ORM
+- DB: MySQL 8 + Drizzle ORM (`docs/mysql.md`)
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
 - Build: esbuild (CJS bundle)

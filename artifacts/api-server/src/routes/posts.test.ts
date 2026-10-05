@@ -1,14 +1,11 @@
 import { inArray, sql } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, describe, expect, it } from "vitest";
-import { connectedAccountsTable, db, usersTable, workspacesTable } from "@workspace/db";
+import { connectedAccountsTable, db, tableExists, usersTable, workspacesTable } from "@workspace/db";
 import app from "../app";
 import { encryptSecret } from "../lib/crypto";
 
-const tablesExist = await db
-  .execute(sql`select to_regclass('public.socialflow_posts') as t`)
-  .then((r) => Boolean((r.rows[0] as { t: string | null }).t))
-  .catch(() => false);
+const tablesExist = await tableExists("socialflow_posts").catch(() => false);
 
 type Agent = ReturnType<typeof request.agent>;
 const createdUserIds = new Set<string>();

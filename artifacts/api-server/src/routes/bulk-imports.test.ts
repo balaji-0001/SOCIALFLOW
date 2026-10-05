@@ -3,7 +3,7 @@ import sharp from "sharp";
 import request from "supertest";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CreateBulkImportResponse, ListBulkImportsResponse, PreviewBulkImportResponse } from "@workspace/api-zod";
-import { auditLogTable, bulkImportsTable, connectedAccountsTable, db, mediaTable, postMediaTable, postTagsTable, postTargetsTable, postsTable, usersTable, workspacesTable } from "@workspace/db";
+import { auditLogTable, bulkImportsTable, connectedAccountsTable, db, mediaTable, postMediaTable, postsTable, postTagsTable, postTargetsTable, tableExists, usersTable, workspacesTable } from "@workspace/db";
 import { parseCsv, parseScheduledAt } from "../lib/bulk-import";
 import { linkPreviewDeps, type HopResponse } from "../lib/link-preview";
 import { saveConnectedAccount } from "../lib/oauth/accounts";
@@ -69,7 +69,7 @@ describe("parseScheduledAt", () => {
   });
 });
 
-const tablesExist = await db.execute(sql`select to_regclass('public.socialflow_bulk_imports') as t`).then((r) => Boolean((r.rows[0] as { t: string | null }).t)).catch(() => false);
+const tablesExist = await tableExists("socialflow_bulk_imports").catch(() => false);
 const createdUserIds = new Set<string>();
 const createdWorkspaceIds = new Set<string>();
 let counter = 0;
@@ -337,7 +337,7 @@ describe.skipIf(!tablesExist)("bulk import API (test DB only)", () => {
     const res = await w.agent.post("/api/bulk-imports").send({ csv: csvOf("content", ...rows), mode: "draft", defaultAccountIds: [w.fb.id, w.li.id] });
     expect(res.body).toMatchObject({ status: "completed", created: 120, failed: 0 });
     expect(new Set(res.body.postIds).size).toBe(120);
-    const count = await db.execute(sql`select count(*)::int as posts, (select count(*)::int from socialflow_post_targets t join socialflow_posts p on p.id = t.post_id where p.workspace_id = ${w.workspaceId}) as targets from socialflow_posts where workspace_id = ${w.workspaceId}`);
+    const count = await db.execute(sql`select count(*) as posts, (select count(*) from socialflow_post_targets t join socialflow_posts p on p.id = t.post_id where p.workspace_id = ${w.workspaceId}) as targets from socialflow_posts where workspace_id = ${w.workspaceId}`);
     expect(count.rows[0]).toEqual({ posts: 120, targets: 240 });
   });
 

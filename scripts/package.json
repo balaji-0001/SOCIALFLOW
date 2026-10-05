@@ -5,10 +5,15 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "copy-postgres-to-mysql": "tsx ./src/copy-postgres-to-mysql.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@types/pg": "^8.23.1",
+    "@workspace/db": "workspace:*",
+    "mysql2": "^3.24.5",
+    "pg": "^8.23.0",
     "tsx": "catalog:"
   }
 }

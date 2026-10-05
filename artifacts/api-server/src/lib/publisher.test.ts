@@ -1,7 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { connectedAccountsTable, db, postTargetsTable, postsTable, usersTable, workspacesTable } from "@workspace/db";
+import { connectedAccountsTable, db, postsTable, postTargetsTable, tableExists, usersTable, workspacesTable } from "@workspace/db";
 import app from "../app";
 import { installFakeGraph } from "../test/fake-graph";
 import { saveConnectedAccount } from "./oauth/accounts";
@@ -14,9 +14,8 @@ import { claimDuePosts, runPublishCycle } from "./publisher";
 // job), and these tests deliberately create due, overdue and stuck posts. Running
 // them against a database with real users' data would publish, fail or rewrite
 // those posts. So they only run against a database whose name ends in "_test":
-//   createdb socialflow_test
-//   DATABASE_URL=postgresql://.../socialflow_test pnpm --filter @workspace/db run push
-//   DATABASE_URL=postgresql://.../socialflow_test pnpm --filter @workspace/api-server run test
+//   CREATE DATABASE socialflow_test CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;   (the test setup creates the tables)
+//   DATABASE_URL=mysql://.../socialflow_test pnpm --filter @workspace/api-server run test
 const isolatedTestDb = (() => {
   try {
     return new URL(process.env.DATABASE_URL ?? "").pathname.replace("/", "").endsWith("_test");
@@ -25,10 +24,7 @@ const isolatedTestDb = (() => {
   }
 })();
 
-const tablesExist = isolatedTestDb && await db
-  .execute(sql`select to_regclass('public.socialflow_posts') as t`)
-  .then((r) => Boolean((r.rows[0] as { t: string | null }).t))
-  .catch(() => false);
+const tablesExist = isolatedTestDb && await tableExists("socialflow_posts").catch(() => false);
 
 type Agent = ReturnType<typeof request.agent>;
 const createdUserIds = new Set<string>();

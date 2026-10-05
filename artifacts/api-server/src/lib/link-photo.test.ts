@@ -5,7 +5,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import sharp from "sharp";
 import request from "supertest";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { db, mediaTable, postsTable, usersTable, workspacesTable } from "@workspace/db";
+import { db, mediaTable, postsTable, tableExists, usersTable, workspacesTable } from "@workspace/db";
 import app from "../app";
 import { instagramJpegFromUrl } from "./link-photo";
 import { linkPreviewDeps, type HopResponse } from "./link-preview";
@@ -68,7 +68,7 @@ describe("instagramJpegFromUrl", () => {
   });
 });
 
-const tablesExist = await db.execute(sql`select to_regclass('public.socialflow_posts') as t`).then((r) => Boolean((r.rows[0] as { t: string | null }).t)).catch(() => false);
+const tablesExist = await tableExists("socialflow_posts").catch(() => false);
 const createdUserIds = new Set<string>();
 const createdWorkspaceIds = new Set<string>();
 

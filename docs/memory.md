@@ -6,7 +6,8 @@ Context that isn't obvious from the code. Read this first when picking the proje
 - Repo root: `C:\BALAJI\SocialFlow-Manager\SocialFlow-Manager` (nested; the outer `C:\BALAJI\SocialFlow-Manager` also has an old `.env`). The API reads the `.env` inside the inner folder (`--env-file-if-exists=.env` and `../../.env` relative to `artifacts/api-server`). Keep the inner one authoritative.
 - Shell is Git Bash or PowerShell. Python isn't installed. Large inline `node -e` or heredocs with quotes tend to break; write `.cjs` files instead.
 - vitest can't run natively on some Windows setups (Linux-only native binaries); the API tests do run here via `pnpm --filter @workspace/api-server run test`.
-- Postgres 18 cluster in `.postgres_data`, port **5433**. Start: `pg_ctl -D .postgres_data -o "-p 5433" start`. After an unclean shutdown it needs about 20 s to recover; if `postmaster.pid` is stale, delete it first.
+- MySQL 8.4 in `local-mysql\` (server unpacked from the official Windows ZIP in `server\`, data in `data\`; not in git), port **3307**, user `root` without a password (local only). `run-dev.ps1` starts it. The data folder's name must not start with a dot or InnoDB refuses to start.
+- The old PostgreSQL 18 cluster in `.postgres_data` (port **5433**, `pg_ctl -D .postgres_data -o "-p 5433" start`) holds the data from before the move to MySQL. Keep it until the MySQL copy has been in use for a while.
 - Databases: `socialflow` (real data) and `socialflow_test` (tests only). `DATABASE_URL` is not set globally; pass it per command.
 - Ports: API 5000, Vite 3000 (proxies `/api`). The API dev script builds then starts, so restart it after backend changes and expect about 45 s.
 - Public URL: Cloudflare quick tunnel (`cloudflared tunnel --url http://localhost:3000`). The URL changes every time it restarts; update `OAUTH_REDIRECT_BASE_URL` in `.env` and the redirect URIs in each network's console. A Microsoft dev tunnel also works but shows a consent page first.
@@ -32,7 +33,7 @@ The dev database holds two real user accounts and a real connected Facebook Page
 - No fake or demo data, ever; document unsupported things instead.
 - Don't break working OAuth or code; never expose secrets.
 - Work autonomously and test after each phase; ask only when blocked on credentials or access.
-- The user tends to say "run project" or "give website link": start Postgres, API, Vite (and the tunnel if asked) and report the URL.
+- The user tends to say "run project" or "give website link": start MySQL, API, Vite (and the tunnel if asked) and report the URL.
 
 ## Where things are documented
 `PRD.md` (what), `architecture.md` (how it fits), `TRD.md` (technical requirements), `implementation.md` (how to build, run and test), `Rules.md`, `design.md` and `design-system.md`, `task.md` (status), plus feature docs `composer.md`, `media.md`, `oauth-setup.md`, `meta-setup.md`, `password-reset.md`, `publishing-features.md`, `team-inbox-approvals-ai-library.md`.

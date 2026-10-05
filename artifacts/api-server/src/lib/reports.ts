@@ -1,5 +1,5 @@
-import { eq, sql } from "drizzle-orm";
-import { db, workspacesTable } from "@workspace/db";
+import { and, asc, eq, isNotNull, lte } from "drizzle-orm";
+import { db, reportRunsTable, reportSchedulesTable, workspacesTable } from "@workspace/db";
 import { buildReport, resolveRange } from "./analytics-report";
 import { logger } from "./logger";
 import { mailMode, sendMail } from "./mail";
@@ -10,7 +10,6 @@ import { addDays, isValidTimeZone, zonedParts, zonedToUtc } from "./time";
 /*
  * Scheduled analytics reports: a schedule says "every Monday 09:00 in Asia/Kolkata, last 7 days, to these people".
  * The poller claims due schedules (FOR UPDATE SKIP LOCKED, like the publisher), emails the PDF and records the run.
- * SQL is raw so this file works whether or not the drizzle schema has been exported from @workspace/db.
  */
 
 export type Frequency = "weekly" | "monthly";
@@ -55,19 +54,6 @@ export function computeNextRun(schedule: { frequency: Frequency; weekday: number
   }
   throw new Error("Could not compute the next report time.");
 }
-
-type Raw = Record<string, unknown>;
-const toDate = (v: unknown) => (v === null || v === undefined ? null : new Date(v as string));
-export function mapSchedule(r: Raw): ScheduleRow {
-  return {
-    id: r.id as string, workspaceId: r.workspace_id as string, createdBy: (r.created_by as string | null) ?? null, name: r.name as string, frequency: r.frequency as Frequency,
-    weekday: (r.weekday as number | null) ?? null, dayOfMonth: (r.day_of_month as number | null) ?? null, hour: r.hour as number, timezone: r.timezone as string,
-    rangeKey: r.range_key as ScheduleRangeKey, platform: (r.platform as string | null) ?? null, accountId: (r.account_id as string | null) ?? null,
-    recipients: r.recipients as string[], enabled: r.enabled as boolean, lastRunAt: toDate(r.last_run_at), lastStatus: (r.last_status as string | null) ?? null,
-    lastError: (r.last_error as string | null) ?? null, nextRunAt: toDate(r.next_run_at), createdAt: new Date(r.created_at as string),
-  };
-}
-export const mapRun = (r: Raw): RunRow => ({ id: r.id as string, scheduleId: r.schedule_id as string, ranAt: new Date(r.ran_at as string), status: r.status as "sent" | "failed", error: (r.error as string | null) ?? null, recipientCount: r.recipient_count as number });
 
 /** Builds the PDF a schedule would send now, or null if the workspace is gone. */
 export async function buildSchedulePdf(schedule: ScheduleRow, now = new Date()): Promise<{ pdf: Buffer; fileName: string; workspaceName: string; periodLabel: string } | null> {
@@ -114,9 +100,9 @@ export async function runSchedule(schedule: ScheduleRow, now = new Date()): Prom
     error = (err instanceof Error ? err.message : "The report could not be built.").slice(0, 1000);
     logger.error({ err, scheduleId: schedule.id }, "Building a scheduled report failed");
   }
-  const inserted = await db.execute(sql`insert into socialflow_report_runs (schedule_id, ran_at, status, error, recipient_count) values (${schedule.id}, ${now.toISOString()}::timestamptz, ${status}, ${error}, ${sent}) returning *`);
-  await db.execute(sql`update socialflow_report_schedules set last_run_at = ${now.toISOString()}::timestamptz, last_status = ${status}, last_error = ${error} where id = ${schedule.id}`);
-  return mapRun(inserted.rows[0] as Raw);
+  const [run] = await db.insert(reportRunsTable).values({ scheduleId: schedule.id, ranAt: now, status, error, recipientCount: sent }).returning();
+  await db.update(reportSchedulesTable).set({ lastRunAt: now, lastStatus: status, lastError: error }).where(eq(reportSchedulesTable.id, schedule.id));
+  return run!;
 }
 
 /**
@@ -125,12 +111,17 @@ export async function runSchedule(schedule: ScheduleRow, now = new Date()): Prom
  */
 export async function claimDueSchedules(limit = 10, now = new Date()): Promise<ScheduleRow[]> {
   return db.transaction(async (tx) => {
-    const due = await tx.execute(sql`select * from socialflow_report_schedules where enabled and next_run_at is not null and next_run_at <= ${now.toISOString()}::timestamptz order by next_run_at asc limit ${limit} for update skip locked`);
+    const due = await tx
+      .select()
+      .from(reportSchedulesTable)
+      .where(and(eq(reportSchedulesTable.enabled, true), isNotNull(reportSchedulesTable.nextRunAt), lte(reportSchedulesTable.nextRunAt, now)))
+      .orderBy(asc(reportSchedulesTable.nextRunAt))
+      .limit(limit)
+      .for("update", { skipLocked: true });
     const claimed: ScheduleRow[] = [];
-    for (const raw of due.rows as Raw[]) {
-      const schedule = mapSchedule(raw);
+    for (const schedule of due) {
       const next = computeNextRun(schedule, now);
-      await tx.execute(sql`update socialflow_report_schedules set next_run_at = ${next.toISOString()}::timestamptz where id = ${schedule.id}`);
+      await tx.update(reportSchedulesTable).set({ nextRunAt: next }).where(eq(reportSchedulesTable.id, schedule.id));
       claimed.push({ ...schedule, nextRunAt: next });
     }
     return claimed;

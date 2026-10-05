@@ -1,22 +1,23 @@
-import { boolean, index, pgTable, smallint, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, mysqlTable, smallint, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { timestamptz, uuid, uuidPk } from "./_columns";
 import { connectedAccountsTable } from "./connected-accounts";
 
 // A posting queue per connected account: the time zone the slots are expressed
 // in, and whether "Add to queue" is currently taking new posts.
-export const accountQueuesTable = pgTable("socialflow_account_queues", {
+export const accountQueuesTable = mysqlTable("socialflow_account_queues", {
   connectedAccountId: uuid("connected_account_id")
     .primaryKey()
     .references(() => connectedAccountsTable.id, { onDelete: "cascade" }),
-  timezone: text("timezone").notNull(),
+  timezone: varchar("timezone", { length: 64 }).notNull(),
   paused: boolean("paused").notNull().default(false),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamptz("updated_at").notNull().$defaultFn(() => new Date()),
 });
 
 // One row per weekly posting slot, e.g. Monday 09:00 (weekday 1, minute 540).
-export const queueSlotsTable = pgTable(
+export const queueSlotsTable = mysqlTable(
   "socialflow_queue_slots",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuidPk("id"),
     connectedAccountId: uuid("connected_account_id")
       .notNull()
       .references(() => connectedAccountsTable.id, { onDelete: "cascade" }),

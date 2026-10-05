@@ -174,4 +174,5 @@ export async function deleteFutureOccurrences(recurrenceId: string): Promise<num
   return rows.length;
 }
 
-export const recurrenceMediaInUse = sql`exists (select 1 from socialflow_recurrences r where ${mediaTable.id} = any(r.media_ids))`;
+// media_ids is a JSON list of ids.
+export const recurrenceMediaInUse = sql`exists (select 1 from socialflow_recurrences r where json_contains(r.media_ids, json_quote(${mediaTable.id})))`;

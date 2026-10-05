@@ -56,6 +56,8 @@ Thumbs.db
 # Local Dev
 .env
 .postgres_data/
+# the portable MySQL server and its data folder (see run-dev.ps1)
+local-mysql/
 
 # uploaded media (local dev storage; see docs/media.md)
 .data/

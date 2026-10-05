@@ -15,7 +15,7 @@ What they share with your other clients: the address, the server and its limits,
 ## Option B: a separate installation for the client
 Use this when the client wants their own address, their own database, or their own developer apps. It is the same repository deployed a second time; do not copy the code.
 
-1. **Database.** Create a new Postgres database (a new Supabase project works). Use the Session pooler connection string (port 5432). The first start creates every table.
+1. **Database.** Create a new MySQL 8 database (`CHARACTER SET utf8mb4 COLLATE utf8mb4_bin`) on any MySQL host; `mysql.md` lists options. The first start creates every table.
 2. **API.** Create a second service from this repository (`render.yaml` describes it). Set its own values, never the first installation's:
    - `DATABASE_URL`: the new database.
    - `SESSION_SECRET` and `TOKEN_ENCRYPTION_KEY`: new random values. Keep a copy of the encryption key; without it the stored social tokens can't be read.

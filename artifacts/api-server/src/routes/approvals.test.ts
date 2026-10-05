@@ -4,7 +4,7 @@ import express from "express";
 import pinoHttp from "pino-http";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { db, pool, postsTable, usersTable, workspacesTable } from "@workspace/db";
+import { db, pool, postsTable, tableExists, usersTable, workspacesTable } from "@workspace/db";
 
 // Approvals workflow. Self-contained: applies its own migration and mounts the routers it needs on a small app, and adds
 // the approvals:* permissions in memory when the integrator hasn't added them to lib/permissions.ts yet.
@@ -46,7 +46,7 @@ app.use(cookieParser(process.env.SESSION_SECRET));
 app.use(express.json());
 app.use("/api", authRouter, teamRouter, approvalsRouter);
 
-const baseTablesExist = await db.execute(sql`select to_regclass('public.socialflow_invitations') as t`).then((r) => Boolean((r.rows[0] as { t: string | null }).t)).catch(() => false);
+const baseTablesExist = await tableExists("socialflow_invitations").catch(() => false);
 
 type Agent = ReturnType<typeof request.agent>;
 const userIds = new Set<string>();

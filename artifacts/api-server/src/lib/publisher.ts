@@ -1,10 +1,11 @@
 import { existsSync } from "node:fs";
 import { and, asc, eq, inArray, lt, ne, sql } from "drizzle-orm";
 import {
+  alphabetical,
   connectedAccountsTable,
   db,
-  postTargetsTable,
   postsTable,
+  postTargetsTable,
   type ConnectedAccount,
 } from "@workspace/db";
 import { publishBlockedSql } from "./approvals";
@@ -150,7 +151,7 @@ export async function publishClaimedPost(postId: string): Promise<void> {
     .innerJoin(postsTable, eq(postsTable.id, postTargetsTable.postId))
     .innerJoin(connectedAccountsTable, eq(connectedAccountsTable.id, postTargetsTable.connectedAccountId))
     .where(and(eq(postTargetsTable.postId, postId), eq(postTargetsTable.status, "publishing")))
-    .orderBy(asc(connectedAccountsTable.platform), asc(connectedAccountsTable.displayName));
+    .orderBy(asc(connectedAccountsTable.platform), alphabetical(connectedAccountsTable.displayName), asc(connectedAccountsTable.displayName));
 
   // The post's files, in the order the user arranged them. A file that has gone missing fails the post rather
   // than publishing it without that file.
@@ -305,7 +306,7 @@ export async function claimDuePosts(limit = BATCH_SIZE, now = new Date()): Promi
   return db.transaction(async (tx) => {
     const due = await tx.execute(sql`
       select id from socialflow_posts
-      where status = 'scheduled' and scheduled_at <= ${now.toISOString()}::timestamptz
+      where status = 'scheduled' and scheduled_at <= ${now}
         and not ${sql.raw(publishBlockedSql("socialflow_posts"))}
       order by scheduled_at asc
       limit ${limit}

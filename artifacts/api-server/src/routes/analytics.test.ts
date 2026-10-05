@@ -1,7 +1,7 @@
 import { eq, inArray, sql } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
-import { accountMetricsTable, db, postMetricsTable, postTargetsTable, postsTable, usersTable, workspacesTable } from "@workspace/db";
+import { accountMetricsTable, db, postMetricsTable, postsTable, postTargetsTable, tableExists, usersTable, workspacesTable } from "@workspace/db";
 import app from "../app";
 import { collectWorkspace, metricSupport } from "../lib/analytics";
 import { resolveRange } from "../lib/analytics-report";
@@ -128,10 +128,7 @@ describe("network adapters", () => {
   });
 });
 
-const tablesExist = await db
-  .execute(sql`select to_regclass('public.socialflow_post_metrics') as t`)
-  .then((r) => Boolean((r.rows[0] as { t: string | null }).t))
-  .catch(() => false);
+const tablesExist = await tableExists("socialflow_post_metrics").catch(() => false);
 
 const createdUserIds = new Set<string>();
 const createdWorkspaceIds = new Set<string>();

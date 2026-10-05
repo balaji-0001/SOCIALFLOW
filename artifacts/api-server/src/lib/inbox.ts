@@ -1,5 +1,5 @@
 import { and, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
-import { connectedAccountsTable, db, postTargetsTable, postsTable, type ConnectedAccount } from "@workspace/db";
+import { connectedAccountsTable, db, excluded, postTargetsTable, postsTable, type ConnectedAccount } from "@workspace/db";
 // Until the integrator exports the inbox schema from @workspace/db (see docs/integration/inbox.md), import it by path.
 // After that, these can come from "@workspace/db" and this line can go.
 import { inboxItemsTable, inboxRepliesTable, inboxSyncTable, type InboxItem, type InboxReply } from "@workspace/db";
@@ -199,7 +199,7 @@ async function collectComments(account: ConnectedAccount, options: { now?: Date 
         .onConflictDoUpdate({
           target: [inboxItemsTable.connectedAccountId, inboxItemsTable.externalId],
           // Only what the network owns is refreshed; status, read mark and assignment stay as people left them.
-          set: { body: sql`excluded.body`, authorName: sql`excluded.author_name`, authorAvatar: sql`excluded.author_avatar`, postTargetId: sql`excluded.post_target_id` },
+          set: { body: excluded(inboxItemsTable.body), authorName: excluded(inboxItemsTable.authorName), authorAvatar: excluded(inboxItemsTable.authorAvatar), postTargetId: excluded(inboxItemsTable.postTargetId) },
         });
       outcome.newItems += wanted.filter((comment) => !known.has(comment.externalId)).length;
     }
@@ -326,7 +326,7 @@ async function collectExtras(account: ConnectedAccount, now: Date): Promise<Extr
           const known = new Set(existing.map((row) => row.externalId));
           await db.insert(inboxItemsTable).values(values).onConflictDoUpdate({
             target: [inboxItemsTable.connectedAccountId, inboxItemsTable.externalId],
-            set: { body: sql`excluded.body`, authorName: sql`excluded.author_name`, threadId: sql`excluded.thread_id`, participantId: sql`excluded.participant_id`, fromPage: sql`excluded.from_page` },
+            set: { body: excluded(inboxItemsTable.body), authorName: excluded(inboxItemsTable.authorName), threadId: excluded(inboxItemsTable.threadId), participantId: excluded(inboxItemsTable.participantId), fromPage: excluded(inboxItemsTable.fromPage) },
           });
           outcome.newMessages = values.filter((row) => !known.has(row.externalId) && !row.fromPage).length;
         }
@@ -360,7 +360,7 @@ async function collectExtras(account: ConnectedAccount, now: Date): Promise<Extr
             createdAtNetwork: mention.createdAt,
           }))).onConflictDoUpdate({
             target: [inboxItemsTable.connectedAccountId, inboxItemsTable.externalId],
-            set: { body: sql`excluded.body`, authorName: sql`excluded.author_name`, authorAvatar: sql`excluded.author_avatar`, permalink: sql`excluded.permalink` },
+            set: { body: excluded(inboxItemsTable.body), authorName: excluded(inboxItemsTable.authorName), authorAvatar: excluded(inboxItemsTable.authorAvatar), permalink: excluded(inboxItemsTable.permalink) },
           });
           outcome.newMentions = unique.filter((m) => !known.has(m.externalId)).length;
         }
@@ -462,7 +462,7 @@ export type ReplyResult =
 /** Time of the person's most recent message in a conversation (the start of the 24-hour window), or null. */
 export async function lastInboundAt(connectedAccountId: string, threadId: string): Promise<Date | null> {
   const [row] = await db
-    .select({ at: sql<string | null>`max(${inboxItemsTable.createdAtNetwork})` })
+    .select({ at: sql<Date | null>`max(${inboxItemsTable.createdAtNetwork})`.mapWith(inboxItemsTable.createdAtNetwork) })
     .from(inboxItemsTable)
     .where(and(eq(inboxItemsTable.connectedAccountId, connectedAccountId), eq(inboxItemsTable.threadId, threadId), eq(inboxItemsTable.kind, "message"), eq(inboxItemsTable.fromPage, false)));
   return row?.at ? new Date(row.at) : null;
@@ -523,7 +523,7 @@ export async function sendReply(input: { workspaceId: string; userId: string; it
         workspaceId: account.workspaceId, connectedAccountId: account.id, platform, kind: "message", externalId, threadId: item.threadId, participantId: item.participantId,
         fromPage: true, authorName: account.displayName.slice(0, 300), body: input.text, createdAtNetwork: new Date(),
       }).onConflictDoNothing();
-      await db.update(inboxItemsTable).set({ replied: true, readAt: sql`coalesce(${inboxItemsTable.readAt}, now())` }).where(and(eq(inboxItemsTable.connectedAccountId, account.id), eq(inboxItemsTable.threadId, item.threadId), eq(inboxItemsTable.fromPage, false)));
+      await db.update(inboxItemsTable).set({ replied: true, readAt: sql`coalesce(${inboxItemsTable.readAt}, now(3))` }).where(and(eq(inboxItemsTable.connectedAccountId, account.id), eq(inboxItemsTable.threadId, item.threadId), eq(inboxItemsTable.fromPage, false)));
     } else {
       await db.update(inboxItemsTable).set({ replied: true, readAt: item.readAt ?? new Date() }).where(eq(inboxItemsTable.id, item.id));
     }

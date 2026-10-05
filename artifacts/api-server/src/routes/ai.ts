@@ -1,6 +1,6 @@
 import { and, asc, eq } from "drizzle-orm";
 import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
+import { alphabetical, db } from "@workspace/db";
 import { brandVoicesTable, type BrandVoice } from "@workspace/db";
 import {
   AiError, AI_PLATFORMS, AI_TASKS, MAX_VARIATIONS, NOT_CONFIGURED_REASON, PLATFORM_LIMITS, YOUTUBE_TITLE_LIMIT,
@@ -126,7 +126,7 @@ function parseVoice(body: unknown): VoiceFields | string {
 router.get("/ai/brand-voices", async (req, res): Promise<void> => {
   const ctx = await requireAiAccess(req, res, "ai:read");
   if (!ctx) return;
-  const rows = await db.select().from(brandVoicesTable).where(eq(brandVoicesTable.workspaceId, ctx.workspaceId)).orderBy(asc(brandVoicesTable.name));
+  const rows = await db.select().from(brandVoicesTable).where(eq(brandVoicesTable.workspaceId, ctx.workspaceId)).orderBy(alphabetical(brandVoicesTable.name), asc(brandVoicesTable.name));
   res.json({ voices: rows.map(serializeVoice) });
 });
 

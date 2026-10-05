@@ -187,7 +187,7 @@ export async function connectionSummary(connection: WordPressConnection, automat
     .from(connectedAccountsTable)
     .where(and(eq(connectedAccountsTable.workspaceId, automation.workspaceId), inArray(connectedAccountsTable.id, config.connectedAccountIds)));
   const [posted] = await db
-    .select({ total: sql<number>`count(*)::int` })
+    .select({ total: sql<number>`count(*)` })
     .from(automationItemsTable)
     .where(and(eq(automationItemsTable.automationId, automation.id), eq(automationItemsTable.status, "posted")));
   const base = getRedirectBaseUrl();
@@ -223,7 +223,7 @@ export async function recentShares(automationId: string, limit = 10) {
 
 export async function postsInLastHour(automationId: string, now = new Date()): Promise<number> {
   const [row] = await db
-    .select({ total: sql<number>`count(*)::int` })
+    .select({ total: sql<number>`count(*)` })
     .from(automationItemsTable)
     .where(and(eq(automationItemsTable.automationId, automationId), gt(automationItemsTable.createdAt, new Date(now.getTime() - 3600_000))));
   return Number(row?.total ?? 0);

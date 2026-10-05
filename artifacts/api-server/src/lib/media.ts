@@ -99,7 +99,7 @@ export type UploadInput = {
 
 export async function workspaceUsage(workspaceId: string): Promise<number> {
   const [row] = await db
-    .select({ total: sql<number>`coalesce(sum(${mediaTable.sizeBytes}), 0)::bigint` })
+    .select({ total: sql<number>`cast(coalesce(sum(${mediaTable.sizeBytes}), 0) as signed)` })
     .from(mediaTable)
     .where(eq(mediaTable.workspaceId, workspaceId));
   return Number(row?.total ?? 0);

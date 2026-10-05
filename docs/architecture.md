@@ -4,7 +4,7 @@
 A pnpm monorepo with one API server, one React single-page app and shared libraries.
 
 ```
-Browser (React SPA, Vite)  --/api-->  Express API  -->  PostgreSQL
+Browser (React SPA, Vite)  --/api-->  Express API  -->  MySQL 8
                                         |  \--> filesystem (uploaded media)
                                         |--> Facebook / Instagram / LinkedIn / YouTube APIs
                                         |--> SMTP (email)
@@ -65,7 +65,7 @@ If the API process stops, none of these run. Scheduled posts wait, then fail as 
 - Library: `library_items`, `library_folders`.
 - Reports: `report_schedules`, `report_runs`.
 
-Migrations are ordered SQL (`0001` to `0017`) recorded in `socialflow_migrations` and applied at API start under an advisory lock. They are additive only.
+A new database gets every table from `lib/db/src/baseline.ts`; later changes are ordered migrations in `lib/db/src/migrations.ts`. Both are recorded in `socialflow_migrations` and applied at API start under a named lock (`GET_LOCK`). They are additive only. `lib/db/src/compat.ts` provides what MySQL lacks (`returning()`, upserts) so the queries read as before; see `mysql.md`.
 
 ## Frontend structure (`artifacts/socialflow/src`)
 - `App.tsx`: marketing site, auth pages and the route table (pages lazy-loaded).
@@ -80,8 +80,8 @@ Migrations are ordered SQL (`0001` to `0017`) recorded in `socialflow_migrations
 - Invitation and reset tokens are stored only as SHA-256 hashes.
 
 ## Local development
-- Postgres 18 on port 5433 (`.postgres_data`), API on 5000, Vite on 3000 (proxies `/api`).
+- MySQL 8.4 on port 3307 (`local-mysql\`), API on 5000, Vite on 3000 (proxies `/api`).
 - A public HTTPS tunnel (Cloudflare quick tunnel or a dev tunnel) is needed for the network logins; its URL goes in `OAUTH_REDIRECT_BASE_URL`.
 
 ## Deployment notes
-Needs an always-on Node process, managed Postgres with backups, persistent storage for uploads, a fixed HTTPS domain, and production secrets. See `PRD.md` section 7 and `TRD.md`.
+Needs an always-on Node process, managed MySQL 8 with backups, persistent storage for uploads, a fixed HTTPS domain, and production secrets. See `PRD.md` section 7 and `TRD.md`.

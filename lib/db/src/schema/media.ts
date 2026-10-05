@@ -1,12 +1,5 @@
-import {
-  index,
-  integer,
-  pgTable,
-  primaryKey,
-  text,
-  timestamp,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { index, int, mediumtext, mysqlTable, primaryKey, varchar } from "drizzle-orm/mysql-core";
+import { timestamptz, uuid, uuidPk } from "./_columns";
 import { postsTable } from "./posts";
 import { usersTable } from "./users";
 import { workspacesTable } from "./workspaces";
@@ -18,34 +11,34 @@ export type MediaKind = (typeof mediaKinds)[number];
 // (see api-server/src/lib/media.ts); this row is the record of them. A file
 // uploaded in the composer exists before the post does, so rows can be
 // unattached for a while and are swept if they never get attached.
-export const mediaTable = pgTable(
+export const mediaTable = mysqlTable(
   "socialflow_media",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuidPk("id"),
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspacesTable.id, { onDelete: "cascade" }),
     uploadedByUserId: uuid("uploaded_by_user_id").references(() => usersTable.id, {
       onDelete: "set null",
     }),
-    kind: text("kind").$type<MediaKind>().notNull(),
+    kind: varchar("kind", { length: 64 }).$type<MediaKind>().notNull(),
     // Detected from the file's own bytes, never trusted from the client.
-    mimeType: text("mime_type").notNull(),
-    originalName: text("original_name").notNull(),
-    sizeBytes: integer("size_bytes").notNull(),
+    mimeType: mediumtext("mime_type").notNull(),
+    originalName: mediumtext("original_name").notNull(),
+    sizeBytes: int("size_bytes").notNull(),
     // Relative path inside the storage directory.
-    storageKey: text("storage_key").notNull(),
+    storageKey: mediumtext("storage_key").notNull(),
     // Display metadata measured by the uploading browser; used for layout only.
-    width: integer("width"),
-    height: integer("height"),
-    durationMs: integer("duration_ms"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    width: int("width"),
+    height: int("height"),
+    durationMs: int("duration_ms"),
+    createdAt: timestamptz("created_at").notNull().$defaultFn(() => new Date()),
   },
   (table) => [index("socialflow_media_workspace_idx").on(table.workspaceId, table.createdAt)],
 );
 
 // Which media a post carries, in display order.
-export const postMediaTable = pgTable(
+export const postMediaTable = mysqlTable(
   "socialflow_post_media",
   {
     postId: uuid("post_id")
@@ -54,7 +47,7 @@ export const postMediaTable = pgTable(
     mediaId: uuid("media_id")
       .notNull()
       .references(() => mediaTable.id, { onDelete: "cascade" }),
-    position: integer("position").notNull(),
+    position: int("position").notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.postId, table.mediaId] }),

@@ -1,14 +1,11 @@
 import { inArray, sql } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { db, usersTable, workspacesTable } from "@workspace/db";
+import { db, tableExists, usersTable, workspacesTable } from "@workspace/db";
 import app from "../app";
 import { clearLinkPreviewCache, linkPreviewDeps, type HopResponse } from "../lib/link-preview";
 
-const tablesExist = await db
-  .execute(sql`select to_regclass('public.socialflow_posts') as t`)
-  .then((r) => Boolean((r.rows[0] as { t: string | null }).t))
-  .catch(() => false);
+const tablesExist = await tableExists("socialflow_posts").catch(() => false);
 
 const realDeps = { ...linkPreviewDeps };
 const createdUserIds = new Set<string>();

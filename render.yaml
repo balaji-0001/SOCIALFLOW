@@ -1,5 +1,5 @@
 # Render Blueprint: the API (always-on Node service with a disk for uploads) and the website (static site that
-# forwards /api to the API, so the browser sees one address). The database is Supabase: set DATABASE_URL below.
+# forwards /api to the API, so the browser sees one address). The database is MySQL 8: set DATABASE_URL below.
 # Secrets are left as `sync: false`, so Render asks for them in its dashboard and they are never stored in git.
 services:
   - type: web
@@ -21,7 +21,7 @@ services:
         value: production
       - key: MEDIA_STORAGE_DIR
         value: /var/data/media
-      - key: DATABASE_URL          # Supabase: Session pooler (port 5432) or Direct connection string
+      - key: DATABASE_URL          # mysql://user:password@host:3306/database (add ?ssl-mode=REQUIRED for a hosted server)
         sync: false
       - key: SESSION_SECRET
         generateValue: true

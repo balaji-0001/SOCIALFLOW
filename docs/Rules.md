@@ -9,15 +9,15 @@ Rules for anyone (people or AI assistants) changing this project. They exist bec
 
 ## Safety
 4. Never print, log, commit or paste secrets or tokens (`.env` values, OAuth tokens, API keys, `TOKEN_ENCRYPTION_KEY`). Report only whether a value is set, or its length.
-5. Never run tests, scripts or experiments against the real dev database `socialflow`. Use `socialflow_test` (`postgresql://postgres@localhost:5433/socialflow_test`).
+5. Never run tests, scripts or experiments against the real dev database `socialflow`. Use `socialflow_test` (`mysql://root@127.0.0.1:3307/socialflow_test`).
 6. The dev database holds real users and real connected accounts. Do not delete, publish, or mutate them. Temporary browser-test users use `@socialflow.test` emails and must be cleaned up afterwards.
 7. Do not break or replace existing OAuth (Facebook, Instagram, LinkedIn, YouTube) or other working code.
 8. Server-side fetching of user-supplied URLs must be SSRF-safe (see `lib/link-preview.ts`).
 
 ## Database
-9. Schema changes are additive migrations in `lib/db/src/migrations*.ts`: new tables, new nullable columns, new indexes. Never drop or rewrite existing data.
+9. Schema changes are additive migrations in `lib/db/src/migrations.ts`: new tables, new nullable columns, new indexes. Never drop or rewrite existing data.
 10. Keep the Drizzle schema in `lib/db/src/schema` in step with the SQL.
-11. `drizzle-kit push` does not work locally; use migrations.
+11. Never use `drizzle-kit push`: it would drop the check constraints and foreign keys it does not know about. Use migrations.
 
 ## API and permissions
 12. `lib/api-spec/openapi.yaml` is the source of truth. Change it, run codegen, then use the generated hooks and zod.

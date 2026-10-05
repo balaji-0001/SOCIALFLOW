@@ -4,7 +4,7 @@ How to set up, run, change and test the project.
 
 ## 1. Prerequisites
 - Node.js 24 and pnpm.
-- PostgreSQL 18 (any 14+ should work).
+- MySQL 8.0.19 or later (developed and tested on 8.4). See `mysql.md` for why and what the code expects of it.
 - Chrome, for the browser test scripts.
 - `cloudflared` (or another tunnel) for testing network logins.
 
@@ -20,12 +20,12 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 Add each network's credentials as you set them up (`oauth-setup.md`, `meta-setup.md`).
 
 ## 3. Running locally
-1. Postgres: `pg_ctl -D .postgres_data -o "-p 5433" start` (create the cluster with `initdb` first if it doesn't exist; create databases `socialflow` and `socialflow_test`).
-2. API: `DATABASE_URL=postgresql://postgres@localhost:5433/socialflow PORT=5000 pnpm --filter @workspace/api-server run dev` (builds, then starts; migrations apply at start).
+1. MySQL on port 3307 with databases `socialflow` and `socialflow_test` (`CREATE DATABASE socialflow CHARACTER SET utf8mb4 COLLATE utf8mb4_bin`). On Windows, `run-dev.ps1` starts the server unpacked in `local-mysql\` (see `mysql.md`).
+2. API: `DATABASE_URL=mysql://root@127.0.0.1:3307/socialflow PORT=5000 pnpm --filter @workspace/api-server run dev` (builds, then starts; the tables are created or updated at start).
 3. Frontend: `pnpm --filter @workspace/socialflow run dev` (Vite on 3000, proxies `/api` to 5000).
 4. Optional public URL: `cloudflared tunnel --url http://localhost:3000`, then put the printed URL in `OAUTH_REDIRECT_BASE_URL` and restart the API. Add `<url>/api/connections/<platform>/callback` as a redirect URI in each network's console (`facebook`, `instagram`, `linkedin`, `youtube`).
 
-`run-dev.ps1` automates steps 1 to 3 on Windows, but its schema-push step doesn't work locally; the API applies migrations on its own.
+`run-dev.ps1` automates steps 1 to 3 on Windows.
 
 ## 4. Making changes
 
@@ -39,7 +39,7 @@ Add each network's credentials as you set them up (`oauth-setup.md`, `meta-setup
 Add it to the `Permission` type and `ALL_PERMISSIONS` in `lib/permissions.ts`, then to the role lists (`READ`, `EDIT`, or specific roles). The frontend reads `permissions` from `useAuthMe()`.
 
 ### Change the database
-Append a migration to `lib/db/src/migrations.ts` (or a `migrations-<name>.ts` file imported and spread there). Additive only. Update the Drizzle schema in `lib/db/src/schema` and export it from `schema/index.ts`. Then run `pnpm run typecheck:libs`.
+Append a migration to `lib/db/src/migrations.ts`: a name and a list of single MySQL statements (the comment at the top of the file has an example and the column types to use). Additive only. Update the Drizzle schema in `lib/db/src/schema` and export it from `schema/index.ts`. Then run `pnpm run typecheck:libs`. Write queries with Drizzle where possible; `mysql.md` lists what to use instead of PostgreSQL habits (`returning()`, upserts, `ilike`, arrays, NULL ordering).
 
 ### Add a background worker
 Follow `lib/analytics.ts` (`startX` / `stopX`, interval env var, `*_DISABLED` switch), and call `startX()` from `src/index.ts`. A worker that claims rows (reports, automations) uses `FOR UPDATE SKIP LOCKED` and moves the row's next run time in the same transaction.
@@ -54,7 +54,7 @@ Create `app/<name>-page.tsx` and `<name>.css` (class prefix `sfa-<name>-`, theme
 | What | Command |
 |---|---|
 | Typecheck everything | `pnpm run typecheck` |
-| API tests | `DATABASE_URL=postgresql://postgres@localhost:5433/socialflow_test pnpm --filter @workspace/api-server run test` |
+| API tests | `DATABASE_URL=mysql://root@127.0.0.1:3307/socialflow_test pnpm --filter @workspace/api-server run test` |
 | One API test file | `... pnpm --filter @workspace/api-server exec vitest run src/routes/team.test.ts` |
 | Frontend build | `pnpm --filter @workspace/socialflow run build` |
 | Browser suites | `node <script>.cjs` against `http://localhost:3000` (Playwright-core with Chrome) |
@@ -64,7 +64,7 @@ Browser scripts sign up a temporary `@socialflow.test` user, exercise the UI, sc
 ## 6. Build and deploy outline
 - `pnpm run build` builds all packages; the API bundle is `artifacts/api-server/dist/index.mjs` and starts with `pnpm --filter @workspace/api-server run start` (`pdfkit` is kept external and must be installed in production).
 - The frontend builds to `artifacts/socialflow/dist/public`; serve it as static files behind the same origin as `/api`, or proxy `/api` to the API.
-- Production checklist: always-on Node process, managed Postgres with backups, persistent storage for uploads, fixed HTTPS domain, strong `SESSION_SECRET`, backed-up `TOKEN_ENCRYPTION_KEY`, SMTP, network app approvals, log collection.
+- Production checklist: always-on Node process, managed MySQL 8 with backups, persistent storage for uploads, fixed HTTPS domain, strong `SESSION_SECRET`, backed-up `TOKEN_ENCRYPTION_KEY`, SMTP, network app approvals, log collection.
 
 ## 7. Troubleshooting
 | Symptom | Fix |
@@ -72,17 +72,17 @@ Browser scripts sign up a temporary `@socialflow.test` user, exercise the UI, sc
 | "0 slots" on Queue | Nothing has been saved. Use a quick-start button or add times and press Save. |
 | Network login says redirect URI mismatch | The URI in that console doesn't match `OAUTH_REDIRECT_BASE_URL` exactly (check host and trailing slash). |
 | Sign-up returns 429 | Rate limiter; restart the API. |
-| Postgres "rejecting connections" after a crash | Wait for recovery (about 20 s), or delete a stale `postmaster.pid` and start again. |
+| MySQL won't start ("UNDO tablespace ... already exists") | The data folder's name must not start with a dot. Use `local-mysql\data`. |
 | False type errors after schema edits | `pnpm run typecheck:libs` first. |
 | AI Studio says not configured | Set `ANTHROPIC_API_KEY` and restart the API. |
 | Inbox, analytics or DMs empty | The needed scope flag is off, the network permission isn't approved, or the account wasn't reconnected. The page shows which. |
 
-## 8. Hosting on Render + Supabase
-`render.yaml` (repo root) describes two Render services: `socialflow-api` (always-on Node service with a 5 GB disk for uploads at `/var/data/media`) and `socialflow-web` (static site that forwards `/api/*` to the API, so the browser sees one address). The database is Supabase: set `DATABASE_URL` to its **Session pooler** (port 5432) or **Direct** connection string, never the Transaction pooler (port 6543), because startup migrations hold an advisory lock. SSL is switched on automatically for Supabase addresses (or with `DATABASE_SSL=true`). Set `OAUTH_REDIRECT_BASE_URL` to the website's address and add `<address>/api/connections/<platform>/callback` in each network's developer console. The free Render plan sleeps when idle, which stops scheduled posts, so the API uses the paid `starter` plan.
+## 8. Hosting on Render + a MySQL host
+`render.yaml` (repo root) describes two Render services: `socialflow-api` (always-on Node service with a 5 GB disk for uploads at `/var/data/media`) and `socialflow-web` (static site that forwards `/api/*` to the API, so the browser sees one address). The database is any MySQL 8 server: set `DATABASE_URL` to `mysql://user:password@host:3306/database`. Hosted servers want encryption: add `?ssl-mode=REQUIRED` to the address or set `DATABASE_SSL=true` (`verify` also checks the certificate). Startup migrations hold a named lock (`GET_LOCK`), so connect directly or through a pooler that keeps one session per connection. Choosing a host and moving existing data: `mysql.md`. Set `OAUTH_REDIRECT_BASE_URL` to the website's address and add `<address>/api/connections/<platform>/callback` in each network's developer console. The free Render plan sleeps when idle, which stops scheduled posts, so the API uses the paid `starter` plan.
 
-**Fresh databases.** The first tables were created by a schema-push tool before the migrations began, so migrations `0001` onward can't build a database from nothing. `lib/db/src/baseline.ts` holds the full schema as of `0017`; `runMigrations()` applies it only to a database with no tables and no recorded migrations, records `0001`–`0017` as applied, and runs any later migrations normally. Existing databases never take that path.
+**Fresh databases.** `lib/db/src/baseline.ts` holds every table (as of PostgreSQL migration `0020`, the last one before the move to MySQL). `runMigrations()` applies it to a database that has not recorded it yet, then any later migrations from `migrations.ts`.
 
-**Deployed on the free tiers (Vercel website, Render API, Supabase database).** The website is on Vercel (`vercel.json` forwards `/api/*` to the Render API); `OAUTH_REDIRECT_BASE_URL` on the API is the Vercel address. The API is the Render service `socialflow-api` (free plan) and the website is `socialflow-web` (static site, forwards `/api/*` to the API). The free plan has no disk, so uploads are lost on each restart or deploy, and the service sleeps after about 15 minutes without traffic, which pauses scheduled posts and the background collectors until the next request. Keep it awake with an uptime pinger on `/api/healthz` (for example UptimeRobot, every 5 minutes). Moving to the paid Starter plan plus a disk (see `render.yaml`) removes both limits.
+**Deployed on the free tiers (Vercel website, Render API, Supabase database), from `main`, which still runs on PostgreSQL.** The website is on Vercel (`vercel.json` forwards `/api/*` to the Render API); `OAUTH_REDIRECT_BASE_URL` on the API is the Vercel address. The API is the Render service `socialflow-api` (free plan) and the website is `socialflow-web` (static site, forwards `/api/*` to the API). The free plan has no disk, so uploads are lost on each restart or deploy, and the service sleeps after about 15 minutes without traffic, which pauses scheduled posts and the background collectors until the next request. Keep it awake with an uptime pinger on `/api/healthz` (for example UptimeRobot, every 5 minutes). Moving to the paid Starter plan plus a disk (see `render.yaml`) removes both limits.
 
 ## 9. Automations and CSV bulk import
 Three ways of creating posts without the composer. The API contract is in `lib/api-spec/openapi.yaml` (tags `automations` and `bulk-imports`).
@@ -92,7 +92,7 @@ Three ways of creating posts without the composer. The API contract is in `lib/a
 - Bulk import: choose a file, options (mode, default accounts, time zone), a preview of every row as the server read it, then the result and the recent imports.
 - Nothing on the page is sample data. The check intervals shown come from `pollMinutes` in `GET /automations`. When the workspace requires approval, a note explains that posts made here wait until someone sends them for approval; no request is filed automatically.
 
-**Files.** `lib/feeds.ts` (fetching and parsing: RSS 2.0, RSS 1.0, Atom, WordPress REST), `lib/automations.ts` (the runner and poller), `lib/post-create.ts` (the checks and inserts shared with `POST /posts`), `lib/bulk-import.ts` (CSV parsing, validation, import), `routes/automations.ts`, `routes/bulk-imports.ts`. Tables (migration `0019_automations`, `lib/db/src/migrations-automations.ts`): `socialflow_automations`, `socialflow_automation_items`, `socialflow_automation_runs`, `socialflow_bulk_imports`.
+**Files.** `lib/feeds.ts` (fetching and parsing: RSS 2.0, RSS 1.0, Atom, WordPress REST), `lib/automations.ts` (the runner and poller), `lib/post-create.ts` (the checks and inserts shared with `POST /posts`), `lib/bulk-import.ts` (CSV parsing, validation, import), `routes/automations.ts`, `routes/bulk-imports.ts`. Tables (in `lib/db/src/baseline.ts`): `socialflow_automations`, `socialflow_automation_items`, `socialflow_automation_runs`, `socialflow_bulk_imports`.
 
 **Sources.** A WordPress automation reads `{site}/wp-json/wp/v2/posts?per_page=10&orderby=date&order=desc&_embed=1&status=publish` and falls back to `{site}/feed/` when the REST API is off (404, 401, not JSON). An RSS automation reads the feed address as given. Every request goes through `safeGet` (`lib/link-preview.ts`): http/https, ports 80 and 443, public addresses only on every redirect hop, 10 s timeout, 2 MB cap. Plainly internal addresses are also refused when an automation is saved. XML entity declarations are refused, and entities are decoded by our own code, so a feed can't expand anything.
 
@@ -124,7 +124,7 @@ Three ways of creating posts without the composer. The API contract is in `lib/a
 ## 10. WordPress plugin
 A fourth way of creating posts: the SocialFlow plugin on a WordPress site sends each post the moment it is published, instead of the site being checked every 15 minutes. It is an automation of kind `wordpress_plugin` and reuses everything in section 9 (the template, the modes, `createPostForItem`, the item table's duplicate protection, the history). Only what differs is described here.
 
-**Files.** Plugin: `wordpress-plugin/socialflow-auto-share/` (`socialflow-auto-share.php`, `assets/editor.js`, `uninstall.php`, `readme.txt`). Server: `lib/wordpress-plugin.ts` (keys, signatures, reading what the plugin sends), `routes/wordpress-plugin.ts` (the four endpoints the plugin calls), `ingestPushedItem()` in `lib/automations.ts`, the plugin parts of `routes/automations.ts`. Table `socialflow_wordpress_connections` (migration `0020_wordpress_plugin`, `lib/db/src/migrations-wordpress-plugin.ts`). The download is packed by `artifacts/socialflow/scripts/build-wordpress-plugin.mjs` into `public/downloads/socialflow-auto-share.zip` before the dev server and every build (the zip is not committed).
+**Files.** Plugin: `wordpress-plugin/socialflow-auto-share/` (`socialflow-auto-share.php`, `assets/editor.js`, `uninstall.php`, `readme.txt`). Server: `lib/wordpress-plugin.ts` (keys, signatures, reading what the plugin sends), `routes/wordpress-plugin.ts` (the four endpoints the plugin calls), `ingestPushedItem()` in `lib/automations.ts`, the plugin parts of `routes/automations.ts`. Table `socialflow_wordpress_connections` (in `lib/db/src/baseline.ts`). The download is packed by `artifacts/socialflow/scripts/build-wordpress-plugin.mjs` into `public/downloads/socialflow-auto-share.zip` before the dev server and every build (the zip is not committed).
 
 **Connecting.** Creating a plugin automation (`POST /automations` with `kind: "wordpress_plugin"`, no `sourceUrl`) also creates its connection and returns `connectionKey` once: `sfwp1_` + base64url of `<api address>\n<key id>\n<secret>`. The address is `OAUTH_REDIRECT_BASE_URL`; the request's Origin is used instead only when it is this installation's own host or a localhost address (development), so a key can never point a site's posts at another server. The secret is stored encrypted (`lib/crypto.ts`) and never returned again; `POST /automations/{id}/plugin-key` replaces the key, which cuts the old plugin off at once. The user pastes the key under Settings > SocialFlow in WordPress; the plugin calls `connect` and the automation shows the site.
 

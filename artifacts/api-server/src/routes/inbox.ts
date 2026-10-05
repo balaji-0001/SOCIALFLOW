@@ -51,11 +51,11 @@ async function requireInbox(req: Request, res: Response, permission: InboxPermis
  * What the lists and counts show: comments, mentions, and one row per conversation (its latest message from the other person).
  * The account's own messages belong to the conversation (GET /inbox/threads/{threadId}) but are never inbox work.
  */
-const visibleItem = sql`("socialflow_inbox_items"."from_page" = false and ("socialflow_inbox_items"."kind" <> 'message' or not exists (
+const visibleItem = sql`(socialflow_inbox_items.from_page = false and (socialflow_inbox_items.kind <> 'message' or not exists (
   select 1 from socialflow_inbox_items n
-  where n.connected_account_id = "socialflow_inbox_items"."connected_account_id" and n.thread_id = "socialflow_inbox_items"."thread_id"
+  where n.connected_account_id = socialflow_inbox_items.connected_account_id and n.thread_id = socialflow_inbox_items.thread_id
     and n.kind = 'message' and n.from_page = false
-    and (n.created_at_network, n.id) > ("socialflow_inbox_items"."created_at_network", "socialflow_inbox_items"."id"))))`;
+    and (n.created_at_network, n.id) > (socialflow_inbox_items.created_at_network, socialflow_inbox_items.id))))`;
 
 /** What answering an item needs, from its kind: comments always; messages inside the 24-hour window; mentions where the network allows. */
 function replyability(kind: InboxKind, platform: string, createdAtNetwork: Date, now = new Date()): { canReply: boolean; replyWindowEndsAt: Date | null; replyBlockedReason: string | null } {
@@ -175,7 +175,7 @@ router.get("/inbox", async (req, res): Promise<void> => {
   if (typeof q.cursor === "string" && q.cursor) {
     const cursor = decodeCursor(q.cursor);
     if (!cursor) return jsonError(res, 400, "invalid_query", "That page marker isn't valid.");
-    where.push(sql`(${inboxItemsTable.createdAtNetwork}, ${inboxItemsTable.id}) < (${cursor.at}::timestamptz, ${cursor.id}::uuid)`);
+    where.push(sql`(${inboxItemsTable.createdAtNetwork}, ${inboxItemsTable.id}) < (${new Date(cursor.at)}, ${cursor.id})`);
   }
   const rows = await loadItems(ctx.workspaceId, where, limit + 1);
   const page = rows.slice(0, limit);
@@ -189,10 +189,11 @@ router.get("/inbox/summary", async (req, res): Promise<void> => {
   const counts = await db
     .select({
       accountId: inboxItemsTable.connectedAccountId,
-      open: sql<number>`(count(*) filter (where ${inboxItemsTable.status} = 'open'))::int`,
-      resolved: sql<number>`(count(*) filter (where ${inboxItemsTable.status} = 'resolved'))::int`,
-      unread: sql<number>`(count(*) filter (where ${inboxItemsTable.status} = 'open' and ${inboxItemsTable.readAt} is null))::int`,
-      mine: sql<number>`(count(*) filter (where ${inboxItemsTable.status} = 'open' and ${inboxItemsTable.assignedToUserId} = ${ctx.userId}))::int`,
+      // count(case when ... then 1 end) counts only the rows the condition holds for.
+      open: sql<number>`count(case when ${inboxItemsTable.status} = 'open' then 1 end)`,
+      resolved: sql<number>`count(case when ${inboxItemsTable.status} = 'resolved' then 1 end)`,
+      unread: sql<number>`count(case when ${inboxItemsTable.status} = 'open' and ${inboxItemsTable.readAt} is null then 1 end)`,
+      mine: sql<number>`count(case when ${inboxItemsTable.status} = 'open' and ${inboxItemsTable.assignedToUserId} = ${ctx.userId} then 1 end)`,
     })
     .from(inboxItemsTable)
     .where(and(eq(inboxItemsTable.workspaceId, ctx.workspaceId), visibleItem))
@@ -201,8 +202,8 @@ router.get("/inbox/summary", async (req, res): Promise<void> => {
   const kindCounts = await db
     .select({
       kind: inboxItemsTable.kind,
-      open: sql<number>`(count(*) filter (where ${inboxItemsTable.status} = 'open'))::int`,
-      unread: sql<number>`(count(*) filter (where ${inboxItemsTable.status} = 'open' and ${inboxItemsTable.readAt} is null))::int`,
+      open: sql<number>`count(case when ${inboxItemsTable.status} = 'open' then 1 end)`,
+      unread: sql<number>`count(case when ${inboxItemsTable.status} = 'open' and ${inboxItemsTable.readAt} is null then 1 end)`,
     })
     .from(inboxItemsTable)
     .where(and(eq(inboxItemsTable.workspaceId, ctx.workspaceId), visibleItem))

@@ -15,13 +15,15 @@ import {
   UpdatePostResponse,
 } from "@workspace/api-zod";
 import {
+  alphabetical,
   connectedAccountsTable,
   db,
+  nullsLast,
   postMediaTable,
+  postsTable,
   postStatuses,
   postTagsTable,
   postTargetsTable,
-  postsTable,
   type Post,
   type PostStatus,
 } from "@workspace/db";
@@ -79,7 +81,7 @@ export async function serializePosts(rows: Post[]) {
     .from(postTargetsTable)
     .innerJoin(connectedAccountsTable, eq(connectedAccountsTable.id, postTargetsTable.connectedAccountId))
     .where(inArray(postTargetsTable.postId, ids))
-    .orderBy(asc(connectedAccountsTable.platform), asc(connectedAccountsTable.displayName));
+    .orderBy(asc(connectedAccountsTable.platform), alphabetical(connectedAccountsTable.displayName), asc(connectedAccountsTable.displayName));
 
   return rows.map((row) => {
     const extras = extrasByPost.get(row.id)!;
@@ -177,10 +179,10 @@ router.get("/posts", async (req, res): Promise<void> => {
   if (from) conditions.push(gte(postsTable.scheduledAt, from));
   if (to) conditions.push(lte(postsTable.scheduledAt, to));
   if (status) conditions.push(eq(postsTable.status, status as PostStatus));
-  if (tag) conditions.push(sql`exists (select 1 from ${postTagsTable} where ${postTagsTable.postId} = ${postsTable.id} and ${postTagsTable.tagId} = ${tag}::uuid)`);
-  if (search) conditions.push(sql`(${postsTable.content} ilike ${"%" + search + "%"} or exists (select 1 from socialflow_post_platform_content c where c.post_id = ${postsTable.id} and c.content ilike ${"%" + search + "%"}))`);
+  if (tag) conditions.push(sql`exists (select 1 from ${postTagsTable} where ${postTagsTable.postId} = ${postsTable.id} and ${postTagsTable.tagId} = ${tag})`);
+  if (search) conditions.push(sql`(lower(${postsTable.content}) like lower(${"%" + search + "%"}) or exists (select 1 from socialflow_post_platform_content c where c.post_id = ${postsTable.id} and lower(c.content) like lower(${"%" + search + "%"})))`);
 
-  const rows = await db.select().from(postsTable).where(and(...conditions)).orderBy(asc(postsTable.scheduledAt), asc(postsTable.createdAt));
+  const rows = await db.select().from(postsTable).where(and(...conditions)).orderBy(nullsLast(postsTable.scheduledAt), asc(postsTable.scheduledAt), asc(postsTable.createdAt));
   res.json(ListPostsResponse.parse({ posts: await serializePosts(rows) }));
 });
 

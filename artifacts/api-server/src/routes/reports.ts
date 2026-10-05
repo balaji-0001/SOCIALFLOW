@@ -1,13 +1,13 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { and, eq, sql } from "drizzle-orm";
-import { connectedAccountsTable, db, workspacesTable, type WorkspaceRole } from "@workspace/db";
+import { and, asc, desc, eq } from "drizzle-orm";
+import { connectedAccountsTable, db, reportRunsTable, reportSchedulesTable, workspacesTable, type WorkspaceRole } from "@workspace/db";
 import { requireAccess } from "../lib/access";
 import { buildReport, resolveRange, type RangeKey } from "../lib/analytics-report";
 import { recordAudit } from "../lib/audit";
 import { jsonError } from "../lib/http-errors";
 import { platforms, type Platform } from "../lib/oauth/types";
 import { renderReportPdf, reportFileName } from "../lib/report-pdf";
-import { computeNextRun, mapRun, mapSchedule, parseRecipients, runSchedule, type Frequency, type ScheduleRangeKey, type ScheduleRow } from "../lib/reports";
+import { computeNextRun, parseRecipients, runSchedule, type Frequency, type ScheduleRangeKey, type ScheduleRow } from "../lib/reports";
 import { resolveWorkspace, type WorkspaceContext } from "../lib/session";
 import { isValidTimeZone } from "../lib/time";
 import { rateLimit } from "../middlewares/rate-limit";
@@ -98,17 +98,15 @@ async function validate(body: Record<string, unknown>, workspaceId: string, exis
 
 async function findSchedule(id: string, workspaceId: string): Promise<ScheduleRow | null> {
   if (!UUID.test(id)) return null;
-  const result = await db.execute(sql`select * from socialflow_report_schedules where id = ${id} and workspace_id = ${workspaceId}`);
-  return result.rows[0] ? mapSchedule(result.rows[0] as Record<string, unknown>) : null;
+  const [schedule] = await db.select().from(reportSchedulesTable).where(and(eq(reportSchedulesTable.id, id), eq(reportSchedulesTable.workspaceId, workspaceId)));
+  return schedule ?? null;
 }
-
-const textArray = (values: string[]) => sql`array[${sql.join(values.map((v) => sql`${v}`), sql`, `)}]::text[]`;
 
 router.get("/reports/schedules", async (req, res): Promise<void> => {
   const ctx = await requireReports(req, res, "read");
   if (!ctx) return;
-  const result = await db.execute(sql`select * from socialflow_report_schedules where workspace_id = ${ctx.workspaceId} order by created_at asc`);
-  res.json({ schedules: (result.rows as Array<Record<string, unknown>>).map(mapSchedule) });
+  const schedules = await db.select().from(reportSchedulesTable).where(eq(reportSchedulesTable.workspaceId, ctx.workspaceId)).orderBy(asc(reportSchedulesTable.createdAt));
+  res.json({ schedules });
 });
 
 router.post("/reports/schedules", async (req, res): Promise<void> => {
@@ -118,11 +116,8 @@ router.post("/reports/schedules", async (req, res): Promise<void> => {
   if ("error" in checked) return jsonError(res, 400, "invalid_body", checked.error);
   const f = checked.fields;
   const next = f.enabled ? computeNextRun(f, new Date()) : null;
-  const inserted = await db.execute(sql`
-    insert into socialflow_report_schedules (workspace_id, created_by, name, frequency, weekday, day_of_month, hour, timezone, range_key, platform, account_id, recipients, enabled, next_run_at)
-    values (${ctx.workspaceId}, ${ctx.userId}, ${f.name}, ${f.frequency}, ${f.weekday}, ${f.dayOfMonth}, ${f.hour}, ${f.timezone}, ${f.rangeKey}, ${f.platform}, ${f.accountId}, ${textArray(f.recipients)}, ${f.enabled}, ${next ? next.toISOString() : null}::timestamptz)
-    returning *`);
-  const schedule = mapSchedule(inserted.rows[0] as Record<string, unknown>);
+  const [inserted] = await db.insert(reportSchedulesTable).values({ workspaceId: ctx.workspaceId, createdBy: ctx.userId, ...f, nextRunAt: next }).returning();
+  const schedule = inserted!;
   await recordAudit({ workspaceId: ctx.workspaceId, actorUserId: ctx.userId, action: "report_schedule.create", target: schedule.id, detail: { name: f.name, recipientCount: f.recipients.length } });
   res.status(201).json(schedule);
 });
@@ -136,12 +131,9 @@ router.patch("/reports/schedules/:id", async (req, res): Promise<void> => {
   if ("error" in checked) return jsonError(res, 400, "invalid_body", checked.error);
   const f = checked.fields;
   const next = f.enabled ? computeNextRun(f, new Date()) : null;
-  const updated = await db.execute(sql`
-    update socialflow_report_schedules set name = ${f.name}, frequency = ${f.frequency}, weekday = ${f.weekday}, day_of_month = ${f.dayOfMonth}, hour = ${f.hour}, timezone = ${f.timezone},
-      range_key = ${f.rangeKey}, platform = ${f.platform}, account_id = ${f.accountId}, recipients = ${textArray(f.recipients)}, enabled = ${f.enabled}, next_run_at = ${next ? next.toISOString() : null}::timestamptz
-    where id = ${existing.id} and workspace_id = ${ctx.workspaceId} returning *`);
+  const [updated] = await db.update(reportSchedulesTable).set({ ...f, nextRunAt: next }).where(and(eq(reportSchedulesTable.id, existing.id), eq(reportSchedulesTable.workspaceId, ctx.workspaceId))).returning();
   await recordAudit({ workspaceId: ctx.workspaceId, actorUserId: ctx.userId, action: "report_schedule.update", target: existing.id });
-  res.json(mapSchedule(updated.rows[0] as Record<string, unknown>));
+  res.json(updated);
 });
 
 router.delete("/reports/schedules/:id", async (req, res): Promise<void> => {
@@ -149,7 +141,7 @@ router.delete("/reports/schedules/:id", async (req, res): Promise<void> => {
   if (!ctx) return;
   const existing = await findSchedule(String(req.params.id), ctx.workspaceId);
   if (!existing) return jsonError(res, 404, "not_found", "Report schedule not found.");
-  await db.execute(sql`delete from socialflow_report_schedules where id = ${existing.id} and workspace_id = ${ctx.workspaceId}`);
+  await db.delete(reportSchedulesTable).where(and(eq(reportSchedulesTable.id, existing.id), eq(reportSchedulesTable.workspaceId, ctx.workspaceId)));
   await recordAudit({ workspaceId: ctx.workspaceId, actorUserId: ctx.userId, action: "report_schedule.delete", target: existing.id, detail: { name: existing.name } });
   res.status(204).end();
 });
@@ -170,8 +162,8 @@ router.get("/reports/schedules/:id/runs", async (req, res): Promise<void> => {
   if (!ctx) return;
   const existing = await findSchedule(String(req.params.id), ctx.workspaceId);
   if (!existing) return jsonError(res, 404, "not_found", "Report schedule not found.");
-  const result = await db.execute(sql`select * from socialflow_report_runs where schedule_id = ${existing.id} order by ran_at desc limit 50`);
-  res.json({ runs: (result.rows as Array<Record<string, unknown>>).map(mapRun) });
+  const runs = await db.select().from(reportRunsTable).where(eq(reportRunsTable.scheduleId, existing.id)).orderBy(desc(reportRunsTable.ranAt)).limit(50);
+  res.json({ runs });
 });
 
 export default router;

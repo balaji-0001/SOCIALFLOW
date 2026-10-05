@@ -7,6 +7,7 @@ import {
   connectedAccountsTable,
   db,
   isPolledKind,
+  nullsFirst,
   postsTable,
   wordpressConnectionsTable,
   type Automation,
@@ -199,7 +200,7 @@ router.post("/automations", async (req, res): Promise<void> => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   if (!automationKinds.includes(body.kind as AutomationKind)) return jsonError(res, 400, "invalid_body", "Kind must be wordpress, rss or wordpress_plugin.");
   const kind = body.kind as AutomationKind;
-  const [count] = await db.select({ total: sql<number>`count(*)::int` }).from(automationsTable).where(eq(automationsTable.workspaceId, ctx.workspaceId));
+  const [count] = await db.select({ total: sql<number>`count(*)` }).from(automationsTable).where(eq(automationsTable.workspaceId, ctx.workspaceId));
   if (Number(count?.total ?? 0) >= MAX_AUTOMATIONS_PER_WORKSPACE) return jsonError(res, 400, "limit_reached", `A workspace can have up to ${MAX_AUTOMATIONS_PER_WORKSPACE} automations. Delete one to add another.`);
   const checked = await validate(body, ctx.workspaceId, kind);
   if ("error" in checked) return jsonError(res, 400, "invalid_body", checked.error);
@@ -356,7 +357,7 @@ router.get("/automations/:id/items", async (req, res): Promise<void> => {
     .from(automationItemsTable)
     .leftJoin(postsTable, eq(postsTable.id, automationItemsTable.postId))
     .where(eq(automationItemsTable.automationId, existing.id))
-    .orderBy(desc(automationItemsTable.createdAt), desc(automationItemsTable.publishedAt))
+    .orderBy(desc(automationItemsTable.createdAt), nullsFirst(automationItemsTable.publishedAt), desc(automationItemsTable.publishedAt))
     .limit(100);
   res.json({ items: rows.map((row) => ({ ...row, postStatus: row.postStatus ?? null, postScheduledAt: row.postScheduledAt ?? null })) });
 });

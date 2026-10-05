@@ -28,8 +28,9 @@ export const publishBlockedCondition = (postAlias = "socialflow_posts"): SQL => 
 
 export async function isPublishBlockedByApproval(postId: string): Promise<boolean> {
   const result = await db.execute(sql`select ${sql.raw(publishBlockedSql("p"))} as blocked from socialflow_posts p where p.id = ${postId}`);
-  const row = result.rows[0] as { blocked: boolean } | undefined;
-  return row?.blocked ?? false;
+  // MySQL answers a yes/no expression with 1 or 0.
+  const row = result.rows[0] as { blocked: number | boolean } | undefined;
+  return Boolean(row?.blocked);
 }
 
 /**

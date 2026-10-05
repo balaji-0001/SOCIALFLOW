@@ -1,13 +1,5 @@
-import { sql } from "drizzle-orm";
-import {
-  index,
-  jsonb,
-  pgTable,
-  text,
-  timestamp,
-  uniqueIndex,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { index, mediumtext, mysqlTable, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { json, timestamptz, uuid, uuidPk } from "./_columns";
 import { workspacesTable } from "./workspaces";
 
 export const connectionStatuses = [
@@ -19,49 +11,46 @@ export const connectionStatuses = [
 ] as const;
 export type ConnectionStatus = (typeof connectionStatuses)[number];
 
-export const connectedAccountsTable = pgTable(
+export const connectedAccountsTable = mysqlTable(
   "socialflow_connected_accounts",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuidPk("id"),
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspacesTable.id, { onDelete: "cascade" }),
-    platform: text("platform").notNull(),
+    platform: varchar("platform", { length: 64 }).notNull(),
     // e.g. facebook_page, instagram_business, linkedin_member,
     // linkedin_organization, youtube_channel
-    accountType: text("account_type").notNull(),
-    externalAccountId: text("external_account_id").notNull(),
-    displayName: text("display_name").notNull(),
-    username: text("username"),
-    avatarUrl: text("avatar_url"),
+    accountType: varchar("account_type", { length: 64 }).notNull(),
+    externalAccountId: varchar("external_account_id", { length: 255 }).notNull(),
+    displayName: mediumtext("display_name").notNull(),
+    username: mediumtext("username"),
+    avatarUrl: mediumtext("avatar_url"),
     // Tokens are AES-256-GCM encrypted (see api-server/src/lib/crypto.ts)
     // and are never returned by the API.
-    accessTokenEncrypted: text("access_token_encrypted").notNull(),
-    refreshTokenEncrypted: text("refresh_token_encrypted"),
-    tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
-    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", {
-      withTimezone: true,
-    }),
-    scopes: text("scopes")
-      .array()
+    accessTokenEncrypted: mediumtext("access_token_encrypted").notNull(),
+    refreshTokenEncrypted: mediumtext("refresh_token_encrypted"),
+    tokenExpiresAt: timestamptz("token_expires_at"),
+    refreshTokenExpiresAt: timestamptz("refresh_token_expires_at"),
+    scopes: json("scopes").$type<string[]>()
       .notNull()
-      .default(sql`'{}'::text[]`),
-    status: text("status").$type<ConnectionStatus>().notNull().default("active"),
-    statusDetail: text("status_detail"),
+      .$defaultFn(() => []),
+    status: varchar("status", { length: 64 }).$type<ConnectionStatus>().notNull().default("active"),
+    statusDetail: mediumtext("status_detail"),
     // The provider-side user who granted access (e.g. the Facebook user who
     // manages the Page).
-    authorizedByExternalUserId: text("authorized_by_external_user_id"),
-    metadata: jsonb("metadata")
+    authorizedByExternalUserId: mediumtext("authorized_by_external_user_id"),
+    metadata: json("metadata")
       .$type<Record<string, unknown>>()
       .notNull()
-      .default({}),
-    lastVerifiedAt: timestamp("last_verified_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
+      .$defaultFn(() => ({})),
+    lastVerifiedAt: timestamptz("last_verified_at"),
+    createdAt: timestamptz("created_at")
       .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamptz("updated_at")
       .notNull()
-      .defaultNow()
+      .$defaultFn(() => new Date())
       .$onUpdate(() => new Date()),
   },
   (table) => [

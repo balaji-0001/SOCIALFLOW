@@ -251,7 +251,7 @@ export function startOfUtcDay(now = new Date()): Date {
 export async function usageToday(workspaceId: string, config = getAiConfig()) {
   const since = startOfUtcDay();
   const [row] = await db
-    .select({ requests: sql<number>`count(*)::int`, inputTokens: sql<number>`coalesce(sum(${aiUsageTable.inputTokens}), 0)::int`, outputTokens: sql<number>`coalesce(sum(${aiUsageTable.outputTokens}), 0)::int` })
+    .select({ requests: sql<number>`count(*)`, inputTokens: sql<number>`cast(coalesce(sum(${aiUsageTable.inputTokens}), 0) as signed)`, outputTokens: sql<number>`cast(coalesce(sum(${aiUsageTable.outputTokens}), 0) as signed)` })
     .from(aiUsageTable)
     .where(and(eq(aiUsageTable.workspaceId, workspaceId), gte(aiUsageTable.createdAt, since)));
   const requests = row?.requests ?? 0;

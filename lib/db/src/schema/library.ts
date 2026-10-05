@@ -1,4 +1,5 @@
-import { boolean, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, int, mediumtext, mysqlTable, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { json, timestamptz, uuid, uuidPk } from "./_columns";
 import { sql } from "drizzle-orm";
 import { mediaTable } from "./media";
 import { usersTable } from "./users";
@@ -7,37 +8,39 @@ import { workspacesTable } from "./workspaces";
 export const libraryKinds = ["media", "caption", "template", "snippet"] as const;
 export type LibraryKind = (typeof libraryKinds)[number];
 
-// Flat folders (no nesting), unique per workspace by lower(name).
-export const libraryFoldersTable = pgTable(
+// Flat folders (no nesting), unique per workspace by lower(name). MySQL keeps lower(name) in name_key itself (a
+// generated column), which is what the unique key is on.
+export const libraryFoldersTable = mysqlTable(
   "socialflow_library_folders",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuidPk("id"),
     workspaceId: uuid("workspace_id").notNull().references(() => workspacesTable.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    name: varchar("name", { length: 255 }).notNull(),
+    createdAt: timestamptz("created_at").notNull().$defaultFn(() => new Date()),
+    nameKey: varchar("name_key", { length: 255 }).generatedAlwaysAs(sql`lower(name)`, { mode: "stored" }),
   },
-  (table) => [uniqueIndex("socialflow_library_folders_name_unique").on(table.workspaceId, sql`lower(${table.name})`)],
+  (table) => [uniqueIndex("socialflow_library_folders_name_unique").on(table.workspaceId, table.nameKey)],
 );
 
 // Reusable content. A 'media' item REFERENCES an existing socialflow_media row; it never copies the file.
 // Labels are a text[] column (the tags system is post-specific: socialflow_post_tags), see docs/integration/library.md.
-export const libraryItemsTable = pgTable(
+export const libraryItemsTable = mysqlTable(
   "socialflow_library_items",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuidPk("id"),
     workspaceId: uuid("workspace_id").notNull().references(() => workspacesTable.id, { onDelete: "cascade" }),
-    kind: text("kind").$type<LibraryKind>().notNull(),
-    title: text("title").notNull(),
-    body: text("body"),
+    kind: varchar("kind", { length: 64 }).$type<LibraryKind>().notNull(),
+    title: mediumtext("title").notNull(),
+    body: mediumtext("body"),
     mediaId: uuid("media_id").references(() => mediaTable.id, { onDelete: "cascade" }),
     folderId: uuid("folder_id").references(() => libraryFoldersTable.id, { onDelete: "set null" }),
-    labels: text("labels").array().notNull().default(sql`'{}'::text[]`),
+    labels: json("labels").$type<string[]>().notNull().$defaultFn(() => []),
     favorite: boolean("favorite").notNull().default(false),
-    useCount: integer("use_count").notNull().default(0),
-    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    useCount: int("use_count").notNull().default(0),
+    lastUsedAt: timestamptz("last_used_at"),
     createdBy: uuid("created_by").references(() => usersTable.id, { onDelete: "set null" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamptz("created_at").notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamptz("updated_at").notNull().$defaultFn(() => new Date()),
   },
   (table) => [
     index("socialflow_library_items_ws_idx").on(table.workspaceId, table.createdAt),

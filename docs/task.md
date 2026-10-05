@@ -20,19 +20,22 @@ Status of the work. Update it as things change.
 - [x] Automations: WordPress auto-share and RSS/Atom feeds with baseline, duplicate protection, backoff and retries; CSV bulk import with preview (see docs/implementation.md section 9)
 - [x] Automations page (`/automations`): create, edit, pause/resume, run now, delete, status, last and next run, run and item history; bulk import tab with template, preview, row problems and recent imports. Fetchers checked against real WordPress sites and RSS/Atom feeds
 - [x] WordPress plugin (`wordpress-plugin/socialflow-auto-share`): a site connects with a key from SocialFlow and each post is shared the moment it is published; signed requests, duplicate protection, retries, per-post opt-out, status in WordPress and on the automation's card (see docs/implementation.md section 10 and docs/new-client.md). Run in a real WordPress (7.1 on PHP 8.3, 6.2 on PHP 7.4) against the local API
-- [x] Tests: 436 API tests, browser suites for composer, media, publishing, Aurora, theme, phase 1, and the newer pages
+- [x] Database moved from PostgreSQL to MySQL 8 (branch `mysql`): tables, queries, migrations, a one-off data copy script; see docs/mysql.md
+- [x] Tests: 452 API tests (all on MySQL), browser suites for composer, media, publishing, Aurora, theme, phase 1, and the newer pages
 
 ## Needs your action (external)
 - [ ] Set `ANTHROPIC_API_KEY` to turn on AI Studio.
 - [ ] Turn on `COMMENT_SCOPES_ENABLED`, `ANALYTICS_SCOPES_ENABLED` and `MESSAGING_SCOPES_ENABLED` once the matching permissions are enabled on each network's app; then reconnect accounts.
 - [ ] Meta app review (comments, insights, messaging), LinkedIn products, Google verification for YouTube, needed before non-tester users can use these features.
 - [ ] Add each new tunnel URL as a redirect URI in every network's developer console.
+- [ ] Production still runs the PostgreSQL version (`main`, Supabase). To move it to MySQL: choose a MySQL 8 host, then follow "Moving an existing PostgreSQL installation" in `docs/mysql.md`.
 
 ## Next
 - [ ] Automations in a workspace that requires approval: file the approval request automatically. Today a post made by an automation or an import waits until someone sends it for approval (the page says so).
 - [ ] WordPress plugin: try it on a hosted WordPress site against the public address, and publish one real post through it to a real account (so far every run saved drafts on a local WordPress).
 - [ ] Chrome extension to share a page, selection or image into the composer (composer prefill from query parameters + `extension/` folder).
-- [ ] Deployment setup: Dockerfile, environment checklist, managed Postgres, persistent or S3 media storage, backups.
+- [ ] Deployment setup: Dockerfile, environment checklist, managed MySQL, persistent or S3 media storage, backups.
+- [ ] Try the MySQL version on MariaDB if a host offers only that (written with it in mind, never run on it).
 - [ ] Verify Facebook and LinkedIn link cards against the real networks. LinkedIn only shows a real, client-set thumbnail when `LINKEDIN_API_VERSION` is set (see `.env`); without it, LinkedIn's own crawl fills the card in, sometimes with a delay.
 - [ ] Recurring posts carry their link.
 - [ ] Instagram @mentions in other people's captions and comments (needs a Meta webhook).

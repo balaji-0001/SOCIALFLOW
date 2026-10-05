@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import {
   connectedAccountsTable,
   db,
+  tableExists,
   usersTable,
   workspacesTable,
 } from "@workspace/db";
@@ -11,12 +12,9 @@ import app from "../app";
 import { installFakeGraph } from "../test/fake-graph";
 
 // End-to-end test of the auth + OAuth routes against the real database, with
-// only the Facebook Graph API faked. Skipped until the schema has been
-// pushed (`pnpm --filter @workspace/db run push`).
-const tablesExist = await db
-  .execute(sql`select to_regclass('public.socialflow_connected_accounts') as t`)
-  .then((r) => Boolean((r.rows[0] as { t: string | null }).t))
-  .catch(() => false);
+// only the Facebook Graph API faked. Skipped when the database has no tables
+// (the test setup creates them from lib/db/src/migrate.ts).
+const tablesExist = await tableExists("socialflow_connected_accounts").catch(() => false);
 
 type Agent = ReturnType<typeof request.agent>;
 const createdUserIds = new Set<string>();

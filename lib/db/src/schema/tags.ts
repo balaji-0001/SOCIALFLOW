@@ -1,23 +1,24 @@
-import { index, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { index, mysqlTable, primaryKey, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { timestamptz, uuid, uuidPk } from "./_columns";
 import { postsTable } from "./posts";
 import { workspacesTable } from "./workspaces";
 
 // Workspace-defined labels for organising posts (campaign, client, theme...).
-export const tagsTable = pgTable(
+export const tagsTable = mysqlTable(
   "socialflow_tags",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuidPk("id"),
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspacesTable.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    color: text("color").notNull().default("#6366f1"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    name: varchar("name", { length: 255 }).notNull(),
+    color: varchar("color", { length: 32 }).notNull().default("#6366f1"),
+    createdAt: timestamptz("created_at").notNull().$defaultFn(() => new Date()),
   },
   (table) => [uniqueIndex("socialflow_tags_unique").on(table.workspaceId, table.name)],
 );
 
-export const postTagsTable = pgTable(
+export const postTagsTable = mysqlTable(
   "socialflow_post_tags",
   {
     postId: uuid("post_id")

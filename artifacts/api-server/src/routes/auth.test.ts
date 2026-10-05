@@ -1,13 +1,10 @@
 import { inArray, sql } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db, usersTable, workspacesTable } from "@workspace/db";
+import { db, tableExists, usersTable, workspacesTable } from "@workspace/db";
 import app from "../app";
 
-const tablesExist = await db
-  .execute(sql`select to_regclass('public.socialflow_users') as t`)
-  .then((r) => Boolean((r.rows[0] as { t: string | null }).t))
-  .catch(() => false);
+const tablesExist = await tableExists("socialflow_users").catch(() => false);
 
 const createdUserIds = new Set<string>();
 const createdWorkspaceIds = new Set<string>();

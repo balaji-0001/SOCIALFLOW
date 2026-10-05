@@ -3,7 +3,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { CreateAutomationResponse, ListAutomationsResponse, ReplaceAutomationPluginKeyResponse, WordpressPluginConnectResponse, WordpressPluginPostResponse, WordpressPluginStatusResponse } from "@workspace/api-zod";
-import { auditLogTable, automationItemsTable, automationsTable, db, usersTable, wordpressConnectionsTable, workspacesTable } from "@workspace/db";
+import { auditLogTable, automationItemsTable, automationsTable, db, tableExists, usersTable, wordpressConnectionsTable, workspacesTable } from "@workspace/db";
 import { claimDueAutomations, runAutomation } from "../lib/automations";
 import { saveConnectedAccount } from "../lib/oauth/accounts";
 import type { Platform } from "../lib/oauth/types";
@@ -19,7 +19,7 @@ vi.hoisted(() => {
 });
 const { default: app } = await import("../app");
 
-const tablesExist = await db.execute(sql`select to_regclass('public.socialflow_wordpress_connections') as t`).then((r) => Boolean((r.rows[0] as { t: string | null }).t)).catch(() => false);
+const tablesExist = await tableExists("socialflow_wordpress_connections").catch(() => false);
 const createdUserIds = new Set<string>();
 const createdWorkspaceIds = new Set<string>();
 let counter = 0;

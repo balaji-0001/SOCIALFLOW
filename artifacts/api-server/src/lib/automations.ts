@@ -193,7 +193,8 @@ export type RunSummary = { id: string; automationId: string; startedAt: Date; fi
 async function recordRun(automationId: string, run: Omit<RunSummary, "id" | "automationId">): Promise<RunSummary> {
   const [row] = await db.insert(automationRunsTable).values({ automationId, ...run }).returning();
   // Keep the latest RUNS_KEPT runs per automation.
-  await db.execute(sql`delete from socialflow_automation_runs where automation_id = ${automationId} and id not in (select id from socialflow_automation_runs where automation_id = ${automationId} order by started_at desc limit ${RUNS_KEPT})`);
+  // (MySQL will not read the table it is deleting from, nor take LIMIT inside IN, unless the list is a derived table.)
+  await db.execute(sql`delete from socialflow_automation_runs where automation_id = ${automationId} and id not in (select id from (select id from socialflow_automation_runs where automation_id = ${automationId} order by started_at desc limit ${RUNS_KEPT}) kept)`);
   return row!;
 }
 
@@ -337,9 +338,9 @@ export async function claimDueAutomations(limit = 10, now = new Date()): Promise
   return db.transaction(async (tx) => {
     const due = await tx.execute(sql`
       select a.id, a.kind from socialflow_automations a
-      join socialflow_workspaces w on w.id = a.workspace_id
-      where a.status = 'active' and a.kind <> 'wordpress_plugin' and a.next_run_at is not null and a.next_run_at <= ${now.toISOString()}::timestamptz
-      order by a.next_run_at asc limit ${limit} for update of a skip locked`);
+      where a.status = 'active' and a.kind <> 'wordpress_plugin' and a.next_run_at is not null and a.next_run_at <= ${now}
+        and exists (select 1 from socialflow_workspaces w where w.id = a.workspace_id)
+      order by a.next_run_at asc limit ${limit} for update skip locked`);
     const ids: string[] = [];
     for (const row of due.rows as Array<{ id: string; kind: PolledAutomationKind }>) {
       await tx.update(automationsTable).set({ nextRunAt: nextRunAfter(row.kind, 0, now) }).where(eq(automationsTable.id, row.id));
@@ -395,7 +396,7 @@ export async function automationStats(ids: string[]): Promise<Map<string, { post
   for (const id of ids) map.set(id, { postsCreatedTotal: 0 });
   if (ids.length === 0) return map;
   const rows = await db
-    .select({ automationId: automationItemsTable.automationId, total: sql<number>`count(*)::int` })
+    .select({ automationId: automationItemsTable.automationId, total: sql<number>`count(*)` })
     .from(automationItemsTable)
     .where(and(inArray(automationItemsTable.automationId, ids), eq(automationItemsTable.status, "posted")))
     .groupBy(automationItemsTable.automationId);

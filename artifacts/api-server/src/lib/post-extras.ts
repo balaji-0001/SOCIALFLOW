@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import {
+  alphabetical,
   customFieldsTable,
   db,
   postCustomValuesTable,
@@ -104,7 +105,7 @@ export async function loadExtrasForPosts(postIds: string[]): Promise<Map<string,
     .from(postTagsTable)
     .innerJoin(tagsTable, eq(tagsTable.id, postTagsTable.tagId))
     .where(inArray(postTagsTable.postId, postIds))
-    .orderBy(asc(tagsTable.name));
+    .orderBy(alphabetical(tagsTable.name), asc(tagsTable.name));
   for (const row of tags) map.get(row.postId)!.tags.push({ id: row.id, name: row.name, color: row.color });
   const values = await db.select().from(postCustomValuesTable).where(inArray(postCustomValuesTable.postId, postIds));
   for (const row of values) map.get(row.postId)!.customValues[row.fieldId] = row.value;

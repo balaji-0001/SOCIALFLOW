@@ -1,7 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
-import { connectedAccountsTable, db, postTargetsTable, postsTable, recurrencesTable, usersTable, workspacesTable } from "@workspace/db";
+import { connectedAccountsTable, db, postsTable, postTargetsTable, recurrencesTable, tableExists, usersTable, workspacesTable } from "@workspace/db";
 import app from "../app";
 import { nextOccurrence, upcomingOccurrences } from "../lib/recurrence";
 import { runPublishCycle } from "../lib/publisher";
@@ -13,10 +13,7 @@ import { saveConnectedAccount } from "../lib/oauth/accounts";
 // Phase 1 publishing features: per-network text, queues, recurring posts, first comments, tags, custom fields and
 // mention groups. Network calls are faked; the scheduler tests only run against a *_test database.
 
-const tablesExist = await db
-  .execute(sql`select to_regclass('public.socialflow_recurrences') as t`)
-  .then((r) => Boolean((r.rows[0] as { t: string | null }).t))
-  .catch(() => false);
+const tablesExist = await tableExists("socialflow_recurrences").catch(() => false);
 const isolatedTestDb = (() => { try { return new URL(process.env.DATABASE_URL ?? "").pathname.replace("/", "").endsWith("_test"); } catch { return false; } })();
 
 type Agent = ReturnType<typeof request.agent>;

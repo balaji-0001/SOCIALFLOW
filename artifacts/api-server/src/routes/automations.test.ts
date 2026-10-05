@@ -2,7 +2,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CreateAutomationResponse, ListAutomationItemsResponse, ListAutomationRunsResponse, ListAutomationsResponse, PauseAutomationResponse, RunAutomationNowResponse, TestAutomationSourceResponse } from "@workspace/api-zod";
-import { auditLogTable, automationsTable, db, postsTable, usersTable, workspacesTable } from "@workspace/db";
+import { auditLogTable, automationsTable, db, postsTable, tableExists, usersTable, workspacesTable } from "@workspace/db";
 import { linkPreviewDeps, type HopResponse } from "../lib/link-preview";
 import { saveConnectedAccount } from "../lib/oauth/accounts";
 import type { Platform } from "../lib/oauth/types";
@@ -39,7 +39,7 @@ function feedOf(count: number): string {
   return `<?xml version="1.0"?><rss version="2.0"><channel><title>The Blog</title><link>https://blog.example.com/</link>${items.join("")}</channel></rss>`;
 }
 
-const tablesExist = await db.execute(sql`select to_regclass('public.socialflow_automations') as t`).then((r) => Boolean((r.rows[0] as { t: string | null }).t)).catch(() => false);
+const tablesExist = await tableExists("socialflow_automations").catch(() => false);
 const createdUserIds = new Set<string>();
 const createdWorkspaceIds = new Set<string>();
 let counter = 0;

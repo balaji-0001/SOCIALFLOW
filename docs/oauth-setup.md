@@ -329,20 +329,20 @@ pnpm --filter @workspace/api-server run test
   insensitive email, weak password, wrong password, unknown email, sign-out
   invalidating the session, `/auth/me` unauthorized.
 - Connection route tests (`src/routes/connections.test.ts`) run the full flow
-  against Postgres with only Facebook's HTTP faked, on top of real sign-up:
+  against MySQL with only Facebook's HTTP faked, on top of real sign-up:
   start → callback → pick → list → verify → reconnect → disconnect, plus
   state replay, cross-browser state, user cancel, missing scopes, workspace
   isolation between different users, missing credentials, and unauthenticated
   requests being rejected (401, or redirected to `/signin` for the browser
-  start route). **They skip until the schema is pushed**
-  (`pnpm --filter @workspace/db run push`). They create and delete their own
+  start route). **They skip when the database has no tables** (the test setup
+  creates them). They create and delete their own
   users and workspaces.
 
 No real provider is called by the tests. They prove the plumbing, not your Meta,
 LinkedIn or Google app configuration. For that, do the manual tests below.
 
 ### Manual Facebook test (Development mode, no App Review needed)
-1. Push the schema: `pnpm --filter @workspace/db run push`.
+1. Start the API once against your database: it creates the tables.
 2. Add Secrets: `TOKEN_ENCRYPTION_KEY`, `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`.
 3. Restart the **API Server** workflow.
 4. Open `https://<your-repl>.replit.dev/api/connections/providers`. Facebook

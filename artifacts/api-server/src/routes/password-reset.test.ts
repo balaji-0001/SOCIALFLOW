@@ -1,7 +1,7 @@
 import { inArray, sql } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { db, passwordResetsTable, usersTable, workspacesTable } from "@workspace/db";
+import { db, passwordResetsTable, tableExists, usersTable, workspacesTable } from "@workspace/db";
 
 // Email is captured instead of sent.
 const sent: Array<{ to: string; subject: string; text: string }> = [];
@@ -16,10 +16,7 @@ vi.mock("../lib/mail", () => ({
 
 const { default: app } = await import("../app");
 
-const tablesExist = await db
-  .execute(sql`select to_regclass('public.socialflow_password_resets') as t`)
-  .then((r) => Boolean((r.rows[0] as { t: string | null }).t))
-  .catch(() => false);
+const tablesExist = await tableExists("socialflow_password_resets").catch(() => false);
 
 const createdUserIds = new Set<string>();
 const createdWorkspaceIds = new Set<string>();
@@ -89,7 +86,7 @@ describe.skipIf(!tablesExist)("Password reset (database)", () => {
     expect((await request(app).post("/api/auth/reset-password").send({ token: "x".repeat(43), password: NEW })).body.error).toBe("invalid_token");
     expect((await request(app).post("/api/auth/reset-password").send({ password: NEW })).body.error).toBe("invalid_token");
     // Expire it.
-    await db.execute(sql`update socialflow_password_resets set expires_at = now() - interval '1 minute' where user_id = ${userId}`);
+    await db.execute(sql`update socialflow_password_resets set expires_at = now(3) - interval 1 minute where user_id = ${userId}`);
     expect((await request(app).post("/api/auth/reset-password").send({ token, password: NEW })).body.error).toBe("invalid_token");
     expect((await request(app).post("/api/auth/login").send({ email, password: OLD })).status).toBe(200); // unchanged
   });
@@ -99,7 +96,7 @@ describe.skipIf(!tablesExist)("Password reset (database)", () => {
     await request(app).post("/api/auth/forgot-password").send({ email });
     await request(app).post("/api/auth/forgot-password").send({ email });
     expect(sent).toHaveLength(1); // second request within a minute is quietly ignored
-    await db.execute(sql`update socialflow_password_resets set created_at = now() - interval '2 minutes' where user_id = ${userId}`);
+    await db.execute(sql`update socialflow_password_resets set created_at = now(3) - interval 2 minute where user_id = ${userId}`);
     await request(app).post("/api/auth/forgot-password").send({ email });
     expect(sent).toHaveLength(2);
     const [first, second] = [tokenFrom(sent[0]!.text), tokenFrom(sent[1]!.text)];

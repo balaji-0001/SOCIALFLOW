@@ -1,7 +1,7 @@
 import { asc, eq, inArray, sql } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { automationItemsTable, automationsTable, connectedAccountsTable, db, postTargetsTable, postsTable, usersTable, workspacesTable, type AutomationConfig } from "@workspace/db";
+import { automationItemsTable, automationsTable, connectedAccountsTable, db, postsTable, postTargetsTable, tableExists, usersTable, workspacesTable, type AutomationConfig } from "@workspace/db";
 import app from "../app";
 import { claimDueAutomations, nextRunAfter, renderTemplate, runAutomation } from "./automations";
 import { FeedError, fetchSource, htmlToText, normalizeItemKey, normalizeSiteUrl, parseFeedXml, parseWordPressPosts } from "./feeds";
@@ -196,7 +196,7 @@ describe("fetchSource", () => {
 
 /* ---------- the runner, against the test database ---------- */
 
-const tablesExist = await db.execute(sql`select to_regclass('public.socialflow_automations') as t`).then((r) => Boolean((r.rows[0] as { t: string | null }).t)).catch(() => false);
+const tablesExist = await tableExists("socialflow_automations").catch(() => false);
 const createdUserIds = new Set<string>();
 const createdWorkspaceIds = new Set<string>();
 let counter = 0;
@@ -428,7 +428,7 @@ describe.skipIf(!tablesExist)("runner (database, test DB only)", () => {
   it("keeps the latest 50 runs", async () => {
     const t = await setup();
     for (let i = 0; i < 53; i += 1) await runAutomation(t.automation.id);
-    const count = await db.execute(sql`select count(*)::int as n from socialflow_automation_runs where automation_id = ${t.automation.id}`);
+    const count = await db.execute(sql`select count(*) as n from socialflow_automation_runs where automation_id = ${t.automation.id}`);
     expect((count.rows[0] as { n: number }).n).toBe(50);
   });
 });

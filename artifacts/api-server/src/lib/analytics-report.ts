@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, isNotNull, lt, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNotNull, lt, lte, max, sql } from "drizzle-orm";
 import { accountMetricsTable, connectedAccountsTable, db, postMetricsTable, postTargetsTable, postsTable } from "@workspace/db";
 import { metricSupport } from "./analytics";
 import { postUrl } from "./publisher";
@@ -57,12 +57,17 @@ async function postsIn(workspaceId: string, accountIds: string[], from: Date, to
     .orderBy(asc(postsTable.publishedAt));
   if (rows.length === 0) return [];
   const targetIds = rows.map((row) => row.targetId);
-  // Latest snapshot per target at or before asOf.
-  const snaps = await db
-    .selectDistinctOn([postMetricsTable.postTargetId], { postTargetId: postMetricsTable.postTargetId, likes: postMetricsTable.likes, comments: postMetricsTable.comments, shares: postMetricsTable.shares, views: postMetricsTable.views, impressions: postMetricsTable.impressions, reach: postMetricsTable.reach, saves: postMetricsTable.saves, capturedAt: postMetricsTable.capturedAt })
+  // Latest snapshot per target at or before asOf: the time of each target's newest reading, joined back to that reading.
+  const newest = db
+    .select({ postTargetId: postMetricsTable.postTargetId, at: max(postMetricsTable.capturedAt).as("at") })
     .from(postMetricsTable)
     .where(and(inArray(postMetricsTable.postTargetId, targetIds), lte(postMetricsTable.capturedAt, asOf)))
-    .orderBy(postMetricsTable.postTargetId, desc(postMetricsTable.capturedAt));
+    .groupBy(postMetricsTable.postTargetId)
+    .as("newest");
+  const snaps = await db
+    .select({ postTargetId: postMetricsTable.postTargetId, likes: postMetricsTable.likes, comments: postMetricsTable.comments, shares: postMetricsTable.shares, views: postMetricsTable.views, impressions: postMetricsTable.impressions, reach: postMetricsTable.reach, saves: postMetricsTable.saves, capturedAt: postMetricsTable.capturedAt })
+    .from(postMetricsTable)
+    .innerJoin(newest, and(eq(postMetricsTable.postTargetId, newest.postTargetId), eq(postMetricsTable.capturedAt, newest.at)));
   const byTarget = new Map(snaps.map((snap) => [snap.postTargetId, snap]));
   return rows.map((row) => {
     const snap = byTarget.get(row.targetId);
@@ -95,11 +100,16 @@ export async function buildReport(workspaceId: string, range: Range, filter: { p
   // Latest account reading at/before a moment, per account.
   const latestBefore = async (asOf: Date) => {
     if (accountIds.length === 0) return new Map<string, { followers: number | null; viewsTotal: number | null; mediaCount: number | null; capturedAt: Date }>();
-    const rows = await db
-      .selectDistinctOn([accountMetricsTable.connectedAccountId], { accountId: accountMetricsTable.connectedAccountId, followers: accountMetricsTable.followers, viewsTotal: accountMetricsTable.viewsTotal, mediaCount: accountMetricsTable.mediaCount, capturedAt: accountMetricsTable.capturedAt })
+    const newest = db
+      .select({ accountId: accountMetricsTable.connectedAccountId, at: max(accountMetricsTable.capturedAt).as("at") })
       .from(accountMetricsTable)
       .where(and(inArray(accountMetricsTable.connectedAccountId, accountIds), lte(accountMetricsTable.capturedAt, asOf)))
-      .orderBy(accountMetricsTable.connectedAccountId, desc(accountMetricsTable.capturedAt));
+      .groupBy(accountMetricsTable.connectedAccountId)
+      .as("newest");
+    const rows = await db
+      .select({ accountId: accountMetricsTable.connectedAccountId, followers: accountMetricsTable.followers, viewsTotal: accountMetricsTable.viewsTotal, mediaCount: accountMetricsTable.mediaCount, capturedAt: accountMetricsTable.capturedAt })
+      .from(accountMetricsTable)
+      .innerJoin(newest, and(eq(accountMetricsTable.connectedAccountId, newest.accountId), eq(accountMetricsTable.capturedAt, newest.at)));
     return new Map(rows.map((row) => [row.accountId, { followers: row.followers, viewsTotal: num(row.viewsTotal), mediaCount: row.mediaCount, capturedAt: row.capturedAt }]));
   };
   const nowReadings = await latestBefore(range.to);
@@ -160,7 +170,7 @@ export async function buildReport(workspaceId: string, range: Range, filter: { p
     .slice(0, 10)
     .map((row) => ({ postId: row.postId, content: row.content.slice(0, 200), platform: row.platform, accountName: row.accountName, publishedAt: row.publishedAt, postUrl: postUrl(row.platform, row.externalPostId), likes: row.likes, comments: row.comments, shares: row.shares, views: row.views, impressions: row.impressions, reach: row.reach, saves: row.saves, engagement: engagementOf(row), capturedAt: row.capturedAt }));
 
-  const [lastRow] = accountIds.length === 0 ? [] : await db.select({ at: sql<Date | null>`max(${accountMetricsTable.capturedAt})` }).from(accountMetricsTable).where(inArray(accountMetricsTable.connectedAccountId, accountIds));
+  const [lastRow] = accountIds.length === 0 ? [] : await db.select({ at: sql<Date | null>`max(${accountMetricsTable.capturedAt})`.mapWith(accountMetricsTable.capturedAt) }).from(accountMetricsTable).where(inArray(accountMetricsTable.connectedAccountId, accountIds));
 
   return {
     range: { key: range.key, from: range.from, to: range.to, previousFrom: range.previousFrom, previousTo: range.previousTo, timezone: tz },

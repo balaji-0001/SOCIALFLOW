@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, mediaTable, type WorkspaceRole } from "@workspace/db";
+import { db, isUniqueViolation, mediaTable, type WorkspaceRole } from "@workspace/db";
 import { libraryFoldersTable, libraryItemsTable } from "@workspace/db";
 import { recordAudit } from "../lib/audit";
 import { jsonError } from "../lib/http-errors";
@@ -63,13 +63,12 @@ function parseFolderName(v: unknown): string | null {
   const t = v.trim();
   return t.length >= 1 && t.length <= FOLDER_NAME_MAX ? t : null;
 }
-const isUniqueViolation = (e: unknown) => (e as { code?: string; cause?: { code?: string } })?.code === "23505" || (e as { cause?: { code?: string } })?.cause?.code === "23505";
 
 router.get("/library/folders", async (req, res): Promise<void> => {
   const ctx = await access(req, res, "library:read");
   if (!ctx) return;
   const rows = await db
-    .select({ id: libraryFoldersTable.id, name: libraryFoldersTable.name, createdAt: libraryFoldersTable.createdAt, itemCount: sql<number>`(select count(*)::int from socialflow_library_items i where i.folder_id = socialflow_library_folders.id)` })
+    .select({ id: libraryFoldersTable.id, name: libraryFoldersTable.name, createdAt: libraryFoldersTable.createdAt, itemCount: sql<number>`(select count(*) from socialflow_library_items i where i.folder_id = socialflow_library_folders.id)` })
     .from(libraryFoldersTable)
     .where(eq(libraryFoldersTable.workspaceId, ctx.workspaceId))
     .orderBy(sql`lower(${libraryFoldersTable.name})`);
@@ -102,7 +101,7 @@ router.patch("/library/folders/:folderId", async (req, res): Promise<void> => {
     const [row] = await db.update(libraryFoldersTable).set({ name })
       .where(and(eq(libraryFoldersTable.id, folderId), eq(libraryFoldersTable.workspaceId, ctx.workspaceId))).returning();
     if (!row) return jsonError(res, 404, "folder_not_found", "That folder wasn't found.");
-    const [{ n }] = (await db.execute(sql`select count(*)::int as n from socialflow_library_items where folder_id = ${row.id}`)).rows as Array<{ n: number }>;
+    const [{ n }] = (await db.execute(sql`select count(*) as n from socialflow_library_items where folder_id = ${row.id}`)).rows as Array<{ n: number }>;
     res.json(serializeFolder(row, n!));
   } catch (error) {
     if (isUniqueViolation(error)) return jsonError(res, 409, "folder_exists", "A folder with that name already exists.");

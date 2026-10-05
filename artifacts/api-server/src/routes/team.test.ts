@@ -1,7 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { db, invitationsTable, usersTable, workspaceMembersTable, workspacesTable } from "@workspace/db";
+import { db, invitationsTable, tableExists, usersTable, workspaceMembersTable, workspacesTable } from "@workspace/db";
 import { canManage, grantableRoles, can } from "../lib/permissions";
 
 // Team: roles and permissions, invitations, membership changes, workspace switching, and that access stays isolated.
@@ -15,10 +15,7 @@ vi.mock("../lib/mail", () => ({
 
 const { default: app } = await import("../app");
 
-const tablesExist = await db
-  .execute(sql`select to_regclass('public.socialflow_invitations') as t`)
-  .then((r) => Boolean((r.rows[0] as { t: string | null }).t))
-  .catch(() => false);
+const tablesExist = await tableExists("socialflow_invitations").catch(() => false);
 
 type Agent = ReturnType<typeof request.agent>;
 const createdUserIds = new Set<string>();
@@ -170,7 +167,7 @@ describe.skipIf(!tablesExist)("Team (database)", () => {
     const token2 = /token=([A-Za-z0-9_-]+)/.exec(resent.body.inviteUrl)![1]!;
     expect(token2).not.toBe(token1);
     expect((await request(app).get(`/api/invitations/${token1}`)).status).toBe(404); // the old link is dead
-    await db.execute(sql`update socialflow_invitations set expires_at = now() - interval '1 minute' where id = ${first.body.id}`);
+    await db.execute(sql`update socialflow_invitations set expires_at = now(3) - interval 1 minute where id = ${first.body.id}`);
     expect((await request(app).get(`/api/invitations/${token2}`)).status).toBe(410);
     expect((await invitee.agent.post(`/api/invitations/${token2}/accept`)).status).toBe(410);
     const second = await owner.agent.post("/api/team/invitations").send({ email: invitee.email, role: "viewer" });

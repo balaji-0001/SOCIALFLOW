@@ -1,20 +1,21 @@
-import { index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, mysqlTable, varchar } from "drizzle-orm/mysql-core";
+import { timestamptz, uuid, uuidPk } from "./_columns";
 import { usersTable } from "./users";
 
 // One row per password-reset link that was emailed. Only the SHA-256 hash of
 // the token is stored, so a database leak can't be used to reset accounts. A
 // link works once (usedAt) and until expiresAt.
-export const passwordResetsTable = pgTable(
+export const passwordResetsTable = mysqlTable(
   "socialflow_password_resets",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuidPk("id"),
     userId: uuid("user_id")
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
-    tokenHash: text("token_hash").notNull().unique(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    usedAt: timestamp("used_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    tokenHash: varchar("token_hash", { length: 128 }).notNull().unique(),
+    expiresAt: timestamptz("expires_at").notNull(),
+    usedAt: timestamptz("used_at"),
+    createdAt: timestamptz("created_at").notNull().$defaultFn(() => new Date()),
   },
   (table) => [index("socialflow_password_resets_user_idx").on(table.userId)],
 );

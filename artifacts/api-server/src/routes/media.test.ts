@@ -2,17 +2,14 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
-import { db, mediaTable, postTargetsTable, postsTable, usersTable, workspacesTable } from "@workspace/db";
+import { db, mediaTable, postsTable, postTargetsTable, tableExists, usersTable, workspacesTable } from "@workspace/db";
 import app from "../app";
 import { signedPublicMediaUrl, sniffMedia, storedFilePath, sweepOrphanMedia } from "../lib/media";
 import { runPublishCycle } from "../lib/publisher";
 import { installFakeGraph } from "../test/fake-graph";
 import { saveConnectedAccount } from "../lib/oauth/accounts";
 
-const tablesExist = await db
-  .execute(sql`select to_regclass('public.socialflow_media') as t`)
-  .then((r) => Boolean((r.rows[0] as { t: string | null }).t))
-  .catch(() => false);
+const tablesExist = await tableExists("socialflow_media").catch(() => false);
 
 // The orphan sweep and the scheduler act on every row in the database, so tests that call them only run
 // against a *_test database (see publisher.test.ts for the reasoning).

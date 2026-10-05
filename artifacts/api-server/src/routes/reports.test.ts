@@ -1,14 +1,12 @@
 import { inflateSync } from "node:zlib";
-import path from "node:path";
 import cookieParser from "cookie-parser";
 import express from "express";
 import pinoHttp from "pino-http";
 import { logger } from "../lib/logger";
 import { inArray, sql } from "drizzle-orm";
 import request from "supertest";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { accountMetricsTable, db, postMetricsTable, postTargetsTable, postsTable, usersTable, workspacesTable } from "@workspace/db";
-const migrationsPath = path.resolve(process.cwd(), "../../lib/db/src/migrations-reports.ts");
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { accountMetricsTable, db, postMetricsTable, postsTable, postTargetsTable, tableExists, usersTable, workspacesTable } from "@workspace/db";
 import { saveConnectedAccount } from "../lib/oauth/accounts";
 
 // Reports: the PDF export, schedule CRUD and permissions, next-run maths, and the scheduler sending through (faked) mail.
@@ -27,7 +25,6 @@ vi.mock("../lib/mail", () => ({
 const { default: reportsRouter } = await import("./reports");
 const { default: authRouter } = await import("./auth");
 const { default: teamRouter } = await import("./team");
-const { reportsMigrations } = (await import(/* @vite-ignore */ migrationsPath)) as { reportsMigrations: Array<{ name: string; sql: string }> };
 const { computeNextRun, parseRecipients, runReportCycle, MAIL_OFF_MESSAGE } = await import("../lib/reports");
 
 const app = express();
@@ -38,7 +35,7 @@ app.use("/api", authRouter);
 app.use("/api", teamRouter);
 app.use("/api", reportsRouter);
 
-const tablesExist = await db.execute(sql`select to_regclass('public.socialflow_post_metrics') as t`).then((r) => Boolean((r.rows[0] as { t: string | null }).t)).catch(() => false);
+const tablesExist = await tableExists("socialflow_post_metrics").catch(() => false);
 const sentTo = (address: string) => (mail.sent as Sent[]).filter((m) => m.to === address);
 
 describe("next run times", () => {
@@ -122,7 +119,6 @@ async function facebookPage(workspaceId: string, id: string, name: string) {
 const body = (over: Record<string, unknown> = {}) => ({ name: "Weekly wrap", frequency: "weekly", weekday: 1, hour: 9, timezone: "Asia/Kolkata", rangeKey: "7d", recipients: ["boss@example.com"], ...over });
 
 describe.skipIf(!tablesExist)("Reports (database)", () => {
-  beforeAll(async () => { for (const m of reportsMigrations) await db.execute(sql.raw(m.sql)); });
   beforeEach(() => { mail.mode = "smtp"; mail.sent.length = 0; mail.failFor.clear(); });
   afterAll(async () => {
     if (createdWorkspaceIds.size) await db.delete(workspacesTable).where(inArray(workspacesTable.id, [...createdWorkspaceIds]));
@@ -216,7 +212,7 @@ describe.skipIf(!tablesExist)("Reports (database)", () => {
     const { agent } = await signup();
     const created = await agent.post("/api/reports/schedules").send(body({ recipients: ["one@sched.test", "two@sched.test"] }));
     const id = created.body.id as string;
-    await db.execute(sql`update socialflow_report_schedules set next_run_at = now() - interval '1 minute' where id = ${id}`);
+    await db.execute(sql`update socialflow_report_schedules set next_run_at = now(3) - interval 1 minute where id = ${id}`);
 
     expect(await runReportCycle()).toBeGreaterThanOrEqual(1);
     for (const to of ["one@sched.test", "two@sched.test"]) {
@@ -269,7 +265,7 @@ describe.skipIf(!tablesExist)("Reports (database)", () => {
 
     // A due schedule with mail off is also recorded, and moves on rather than retrying every poll.
     mail.mode = "off";
-    await db.execute(sql`update socialflow_report_schedules set next_run_at = now() - interval '1 minute' where id = ${id}`);
+    await db.execute(sql`update socialflow_report_schedules set next_run_at = now(3) - interval 1 minute where id = ${id}`);
     await runReportCycle();
     const runs = (await agent.get(`/api/reports/schedules/${id}/runs`)).body.runs as Array<{ status: string; error: string }>;
     expect(runs).toHaveLength(3);

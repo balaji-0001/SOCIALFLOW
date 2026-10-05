@@ -1,6 +1,6 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { customFieldTypes, customFieldsTable, db, mentionGroupsTable, tagsTable, type CustomFieldType } from "@workspace/db";
+import { alphabetical, customFieldsTable, customFieldTypes, db, mentionGroupsTable, tagsTable, type CustomFieldType } from "@workspace/db";
 import { jsonError } from "../lib/http-errors";
 import { serializeCustomField } from "../lib/post-extras";
 import { requireAccess } from "../lib/access";
@@ -26,10 +26,10 @@ router.get("/tags", async (req, res): Promise<void> => {
   const ctx = await requireWorkspace(req, res);
   if (!ctx) return;
   const rows = await db
-    .select({ id: tagsTable.id, name: tagsTable.name, color: tagsTable.color, postCount: sql<number>`(select count(*) from socialflow_post_tags pt where pt.tag_id = ${tagsTable.id})::int` })
+    .select({ id: tagsTable.id, name: tagsTable.name, color: tagsTable.color, postCount: sql<number>`(select count(*) from socialflow_post_tags pt where pt.tag_id = ${tagsTable.id})` })
     .from(tagsTable)
     .where(eq(tagsTable.workspaceId, ctx.workspaceId))
-    .orderBy(asc(tagsTable.name));
+    .orderBy(alphabetical(tagsTable.name), asc(tagsTable.name));
   res.json({ tags: rows.map((row) => ({ ...serializeTag(row), postCount: row.postCount })) });
 });
 
@@ -170,7 +170,7 @@ const serializeGroup = (group: { id: string; name: string; handles: string[] }) 
 router.get("/mention-groups", async (req, res): Promise<void> => {
   const ctx = await requireWorkspace(req, res);
   if (!ctx) return;
-  const rows = await db.select().from(mentionGroupsTable).where(eq(mentionGroupsTable.workspaceId, ctx.workspaceId)).orderBy(asc(mentionGroupsTable.name));
+  const rows = await db.select().from(mentionGroupsTable).where(eq(mentionGroupsTable.workspaceId, ctx.workspaceId)).orderBy(alphabetical(mentionGroupsTable.name), asc(mentionGroupsTable.name));
   res.json({ groups: rows.map(serializeGroup) });
 });
 

@@ -4,8 +4,8 @@
 | Layer | Choice |
 |---|---|
 | Runtime | Node.js 24, TypeScript ~5.9, pnpm workspaces |
-| API | Express 5, drizzle-orm, `pg`, zod (generated), pino logging, nodemailer, pdfkit, sharp (image conversion) |
-| Database | PostgreSQL 18 |
+| API | Express 5, drizzle-orm, `mysql2`, zod (generated), pino logging, nodemailer, pdfkit, sharp (image conversion) |
+| Database | MySQL 8.0.19+ (developed on 8.4); see `mysql.md` |
 | Frontend | React 19, Vite 7, wouter, @tanstack/react-query, Radix UI primitives, lucide icons, date-fns |
 | API contract | OpenAPI 3 + orval (client and zod generation) |
 | Tests | vitest + supertest (API), playwright-core scripts driving Chrome (UI) |
@@ -24,7 +24,7 @@ See `PRD.md`. Technically, the system must:
 
 ## 3. Non-functional requirements
 - **Security:** encrypted tokens; hashed invitation and reset tokens; rate limits on sign-up, sign-in, reset, invitations, refreshes, previews and AI; SSRF protection; no secrets in logs or responses; permissions enforced server-side.
-- **Data integrity:** additive migrations under an advisory lock; row locks (`FOR UPDATE`) around claim and edit races; unique constraints on natural keys (for example inbox items per account and external id).
+- **Data integrity:** additive migrations under a named lock (`GET_LOCK`); row locks (`FOR UPDATE`) around claim and edit races; unique constraints on natural keys (for example inbox items per account and external id).
 - **Reliability:** background loops catch and log errors and continue; a failed collector run for one account doesn't stop others; publishing records a truthful per-target error.
 - **Performance targets (single instance):** typical API requests under 300 ms excluding network calls; publisher batches with a fixed size; list endpoints paginated (cursor for inbox and library).
 - **Honesty:** unavailable data is `null` plus a reason, never zero or invented.

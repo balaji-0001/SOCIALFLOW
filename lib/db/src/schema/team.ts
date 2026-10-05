@@ -1,23 +1,24 @@
-import { index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { index, mediumtext, mysqlTable, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { json, timestamptz, uuid, uuidPk } from "./_columns";
 import { usersTable } from "./users";
 import { workspacesTable } from "./workspaces";
 
 // A pending invitation to join a workspace. Only the SHA-256 hash of the emailed token is stored.
-export const invitationsTable = pgTable(
+export const invitationsTable = mysqlTable(
   "socialflow_invitations",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuidPk("id"),
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspacesTable.id, { onDelete: "cascade" }),
-    email: text("email").notNull(),
-    role: text("role").notNull(),
+    email: mediumtext("email").notNull(),
+    role: varchar("role", { length: 64 }).notNull(),
     invitedByUserId: uuid("invited_by_user_id").references(() => usersTable.id, { onDelete: "set null" }),
-    tokenHash: text("token_hash").notNull(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
-    revokedAt: timestamp("revoked_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    tokenHash: varchar("token_hash", { length: 128 }).notNull(),
+    expiresAt: timestamptz("expires_at").notNull(),
+    acceptedAt: timestamptz("accepted_at"),
+    revokedAt: timestamptz("revoked_at"),
+    createdAt: timestamptz("created_at").notNull().$defaultFn(() => new Date()),
   },
   (table) => [
     uniqueIndex("socialflow_invitations_token_idx").on(table.tokenHash),
@@ -26,18 +27,18 @@ export const invitationsTable = pgTable(
 );
 
 // What happened in a workspace: who did what to what, and when. Written by the routes that change access or accounts.
-export const auditLogTable = pgTable(
+export const auditLogTable = mysqlTable(
   "socialflow_audit_log",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuidPk("id"),
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspacesTable.id, { onDelete: "cascade" }),
     actorUserId: uuid("actor_user_id").references(() => usersTable.id, { onDelete: "set null" }),
-    action: text("action").notNull(),
-    target: text("target"),
-    detail: jsonb("detail").$type<Record<string, unknown>>().notNull().default({}),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    action: mediumtext("action").notNull(),
+    target: mediumtext("target"),
+    detail: json("detail").$type<Record<string, unknown>>().notNull().$defaultFn(() => ({})),
+    createdAt: timestamptz("created_at").notNull().$defaultFn(() => new Date()),
   },
   (table) => [index("socialflow_audit_workspace_idx").on(table.workspaceId, table.createdAt)],
 );

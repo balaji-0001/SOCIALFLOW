@@ -96,15 +96,17 @@ export async function listItems(workspaceId: string, f: ListFilters) {
   const conds: SQL[] = [eq(libraryItemsTable.workspaceId, workspaceId)];
   if (f.q) {
     const pattern = `%${escapeLike(f.q)}%`;
-    conds.push(sql`(${libraryItemsTable.title} ilike ${pattern} or coalesce(${libraryItemsTable.body}, '') ilike ${pattern})`);
+    // Case-insensitive: MySQL's LIKE on these columns is exact, so both sides are lower-cased.
+    conds.push(sql`(lower(${libraryItemsTable.title}) like lower(${pattern}) or lower(coalesce(${libraryItemsTable.body}, '')) like lower(${pattern}))`);
   }
   if (f.kind) conds.push(eq(libraryItemsTable.kind, f.kind));
   if (f.folder === "none") conds.push(sql`${libraryItemsTable.folderId} is null`);
   else if (f.folder) conds.push(eq(libraryItemsTable.folderId, f.folder));
   if (f.favorite !== undefined) conds.push(eq(libraryItemsTable.favorite, f.favorite));
-  if (f.label) conds.push(sql`exists (select 1 from unnest(${libraryItemsTable.labels}) l where lower(l) = ${f.label.toLowerCase()})`);
+  // labels is a JSON list: does its lower-cased form hold the label as one whole entry?
+  if (f.label) conds.push(sql`json_contains(lower(${libraryItemsTable.labels}), lower(json_quote(${f.label})))`);
   const order =
-    f.sort === "used" ? [desc(libraryItemsTable.useCount), desc(sql`coalesce(${libraryItemsTable.lastUsedAt}, 'epoch'::timestamptz)`)]
+    f.sort === "used" ? [desc(libraryItemsTable.useCount), desc(sql`coalesce(${libraryItemsTable.lastUsedAt}, '1970-01-01 00:00:00')`)]
     : f.sort === "name" ? [asc(sql`lower(${libraryItemsTable.title})`)]
     : [desc(libraryItemsTable.createdAt)];
   const rows = await db

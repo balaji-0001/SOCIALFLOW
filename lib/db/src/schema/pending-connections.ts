@@ -1,11 +1,5 @@
-import {
-  index,
-  jsonb,
-  pgTable,
-  text,
-  timestamp,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { index, mediumtext, mysqlTable, varchar } from "drizzle-orm/mysql-core";
+import { json, timestamptz, uuid, uuidPk } from "./_columns";
 import { workspacesTable } from "./workspaces";
 
 export type PendingCandidateSummary = {
@@ -21,20 +15,20 @@ export type PendingCandidateSummary = {
 // Holds the result of a successful OAuth callback while the user picks which
 // Pages / organizations / channels to connect. The full candidate list
 // (including tokens) is encrypted; `candidates` holds a token-free summary.
-export const pendingConnectionsTable = pgTable(
+export const pendingConnectionsTable = mysqlTable(
   "socialflow_pending_connections",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuidPk("id"),
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspacesTable.id, { onDelete: "cascade" }),
-    platform: text("platform").notNull(),
-    payloadEncrypted: text("payload_encrypted").notNull(),
-    candidates: jsonb("candidates").$type<PendingCandidateSummary[]>().notNull(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
+    platform: varchar("platform", { length: 64 }).notNull(),
+    payloadEncrypted: mediumtext("payload_encrypted").notNull(),
+    candidates: json("candidates").$type<PendingCandidateSummary[]>().notNull(),
+    expiresAt: timestamptz("expires_at").notNull(),
+    createdAt: timestamptz("created_at")
       .notNull()
-      .defaultNow(),
+      .$defaultFn(() => new Date()),
   },
   (table) => [
     index("socialflow_pending_connections_workspace_idx").on(table.workspaceId),
