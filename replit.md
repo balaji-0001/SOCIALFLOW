@@ -23,23 +23,23 @@ _Replace the heading above with the project's name, and this line with one sente
 ## Where things live
 
 - `docs/oauth-setup.md` — user accounts + OAuth setup per platform (developer apps, scopes, redirect URLs, approval) and how to test
-- `lib/db/src/schema/` — Drizzle schema (users, workspaces, workspace members, sessions, oauth states, connected accounts, pending connections)
-- `lib/api-spec/openapi.yaml` — API contract; run codegen after editing
-- `artifacts/api-server/src/lib/password.ts` — scrypt password hashing (no third-party hashing dependency)
-- `artifacts/api-server/src/lib/session.ts` — auth sessions + workspace resolution (`resolveUser`, `resolveWorkspace`, `createSession`, `clearSession`)
-- `artifacts/api-server/src/routes/auth.ts` — signup/login/logout/me
-- `artifacts/api-server/src/middlewares/rate-limit.ts` — in-memory per-IP rate limiting (auth routes)
-- `artifacts/api-server/src/lib/oauth/` — shared OAuth core: `types.ts` (adapter interface), `registry.ts`, `accounts.ts`, `config.ts`; platform adapters in `providers/` (all four platforms implemented)
-- `artifacts/api-server/src/routes/connections.ts` — connect/callback/pick/list/verify/disconnect routes, all requiring an authenticated session
-- `artifacts/socialflow/src/App.tsx` — landing page, `SignIn`, and the accounts page (`AccountsContent`, channel cards + account picker)
-- `artifacts/socialflow/src/app/` — signed-in app, lazy-loaded from `App.tsx`: `AppShell` (sidebar, top bar, user menu, mobile bottom nav, auth gate), `calendar.tsx` (month/week/day/list, hover previews, drag to reschedule), `composer.tsx` (create/edit/schedule dialog), `posts-pages.tsx` (dashboard, manage posts, drafts), `ui.tsx` (Button, IconButton, Skeleton, PageHeader, EmptyState, ErrorState, Spinner), `confirm.tsx` (`useConfirm()`, use instead of `window.confirm`), `app.css`
+- `backend/db/src/schema/` — Drizzle schema (users, workspaces, workspace members, sessions, oauth states, connected accounts, pending connections)
+- `backend/api-spec/openapi.yaml` — API contract; run codegen after editing
+- `backend/api-server/src/lib/password.ts` — scrypt password hashing (no third-party hashing dependency)
+- `backend/api-server/src/lib/session.ts` — auth sessions + workspace resolution (`resolveUser`, `resolveWorkspace`, `createSession`, `clearSession`)
+- `backend/api-server/src/routes/auth.ts` — signup/login/logout/me
+- `backend/api-server/src/middlewares/rate-limit.ts` — in-memory per-IP rate limiting (auth routes)
+- `backend/api-server/src/lib/oauth/` — shared OAuth core: `types.ts` (adapter interface), `registry.ts`, `accounts.ts`, `config.ts`; platform adapters in `providers/` (all four platforms implemented)
+- `backend/api-server/src/routes/connections.ts` — connect/callback/pick/list/verify/disconnect routes, all requiring an authenticated session
+- `frontend/socialflow/src/App.tsx` — landing page, `SignIn`, and the accounts page (`AccountsContent`, channel cards + account picker)
+- `frontend/socialflow/src/app/` — signed-in app, lazy-loaded from `App.tsx`: `AppShell` (sidebar, top bar, user menu, mobile bottom nav, auth gate), `calendar.tsx` (month/week/day/list, hover previews, drag to reschedule), `composer.tsx` (create/edit/schedule dialog), `posts-pages.tsx` (dashboard, manage posts, drafts), `ui.tsx` (Button, IconButton, Skeleton, PageHeader, EmptyState, ErrorState, Spinner), `confirm.tsx` (`useConfirm()`, use instead of `window.confirm`), `app.css`
 - `docs/design-system.md` — SocialFlow Aurora dark theme: tokens, how it is applied, shell/composer/dashboard layout, what is intentionally shown as unavailable
 - `docs/publishing-features.md` — Phase 1 advanced publishing: migrations runner, per-network content, posting queues, recurring posts, first comment (per-network permissions), tags, custom fields, mention groups
 - `docs/media.md` — the media uploader (images/video), storage, limits, env vars, and what is not built (sending media to networks, object storage)
 - `docs/composer.md` — what the Create Post composer supports (accounts, emoji, hashtags, UTM, live previews, network checks, local autosave, shortcuts) and what is intentionally unavailable (sending media to networks, link-preview fetching, AI, Canva, tags, per-network text)
-- Design tokens (colors, type scale, spacing, radius, shadows, motion) live in `:root` in `artifacts/socialflow/src/index.css`; one font family (Inter). New UI should use the `sfa-*` classes and tokens, not raw colors
-- `artifacts/api-server/src/routes/posts.ts` — posts CRUD (`socialflow_posts`, `socialflow_post_targets`); drafts have no time, scheduled posts need content, ≥1 healthy account and a future time
-- `artifacts/api-server/src/lib/publisher.ts` — the publishing engine. A scheduler (`startPublisher`, started from `index.ts`, every 15s) atomically claims due posts (`FOR UPDATE SKIP LOCKED`), sends each to its accounts through the adapter's `publishPost`, and records per-account results. **At-most-once**: a post interrupted mid-publish is failed (never auto-retried) because retrying could post twice; a due post more than `PUBLISH_MISSED_GRACE_MINUTES` (60) late is failed instead of sent late. `POST /api/posts/:id/publish` ("Publish now" / Retry) runs the same code synchronously and only re-sends accounts that haven't published.
+- Design tokens (colors, type scale, spacing, radius, shadows, motion) live in `:root` in `frontend/socialflow/src/index.css`; one font family (Inter). New UI should use the `sfa-*` classes and tokens, not raw colors
+- `backend/api-server/src/routes/posts.ts` — posts CRUD (`socialflow_posts`, `socialflow_post_targets`); drafts have no time, scheduled posts need content, ≥1 healthy account and a future time
+- `backend/api-server/src/lib/publisher.ts` — the publishing engine. A scheduler (`startPublisher`, started from `index.ts`, every 15s) atomically claims due posts (`FOR UPDATE SKIP LOCKED`), sends each to its accounts through the adapter's `publishPost`, and records per-account results. **At-most-once**: a post interrupted mid-publish is failed (never auto-retried) because retrying could post twice; a due post more than `PUBLISH_MISSED_GRACE_MINUTES` (60) late is failed instead of sent late. `POST /api/posts/:id/publish` ("Publish now" / Retry) runs the same code synchronously and only re-sends accounts that haven't published.
 - Publishing is implemented for **Facebook Pages** (verified against the Graph API shape and tested with a fake) and **LinkedIn** (member and organization text posts via UGC Posts; tested with a fake only, not yet exercised against LinkedIn). Media (images/video) publishing is implemented for Facebook, Instagram and LinkedIn (tested with fakes; Instagram/LinkedIn media not yet exercised live; Instagram needs a public https `OAUTH_REDIRECT_BASE_URL`). YouTube publishes one video per post via the resumable upload API (private by default; tested with a fake only).
 
 ## Architecture decisions
@@ -63,7 +63,7 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 - Orval generates colliding names for operations with both path and query params, and for component schemas named `<OperationId>Body`. The OAuth start/callback redirect routes are therefore not in the OpenAPI spec. A component schema literally named `<PascalCase(operationId)>Response` also collides with orval's own generated per-operation response type — the auth routes use operation IDs like `authSignup` (not `signup`) specifically to dodge this against schemas named `SignupResponse` etc.
 - Facebook Page tokens don't expire; Instagram (60 days), LinkedIn (60 days) and Google tokens do. Use `ensureFreshToken` before calling provider APIs.
-- Instagram Login requires HTTPS redirect URIs even in Development mode — unlike Facebook Login, `http://localhost` is rejected. Use a tunnel (`cloudflared tunnel --url http://localhost:5000`, see `scripts/tunnel.ps1`) or a Replit domain for local Instagram testing.
+- Instagram Login requires HTTPS redirect URIs even in Development mode — unlike Facebook Login, `http://localhost` is rejected. Use a tunnel (`cloudflared tunnel --url http://localhost:5000`, see `backend/scripts/tunnel.ps1`) or a Replit domain for local Instagram testing.
 - Instagram has no separate refresh token; the long-lived access token is refreshed in place via `ig_refresh_token` and stored as its own "refresh token" so it reuses the shared `ensureFreshToken` logic unchanged.
 - LinkedIn organization discovery is opt-in (`LINKEDIN_ORG_ENABLED`) and needs `LINKEDIN_API_VERSION` (`YYYYMM`) for the versioned `/rest/` endpoints; the member flow needs neither. Refresh tokens are only issued to approved Marketing Developer Platform partners — most apps won't get one, and that's expected, not a bug.
 - Google's `invalid_grant` error means different things depending on which call failed: a bad/expired authorization code during exchange, or a dead refresh token during refresh. `youtube.ts`'s error mapping handles each call site separately rather than trying to infer it generically.

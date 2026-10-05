@@ -1,6 +1,6 @@
 /*
  * Schema changes made after the MySQL baseline (baseline.ts), applied in order by `runMigrations()`
- * (lib/db/src/migrate.ts) when the API starts and before the test suite runs. Each entry runs once per database;
+ * (backend/db/src/migrate.ts) when the API starts and before the test suite runs. Each entry runs once per database;
  * applied names are recorded in `socialflow_migrations`.
  *
  * Rules: additive only (new tables, new nullable columns, new indexes). Never drop or rewrite existing data.

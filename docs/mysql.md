@@ -4,12 +4,12 @@ SocialFlow ran on PostgreSQL until October 2026 and now runs on MySQL 8. This pa
 
 ## What the server must be
 - MySQL **8.0.19 or later** (developed and tested on 8.4.6). InnoDB tables, `utf8mb4` text.
-- The API sets each connection up itself (`lib/db/src/index.ts`): time zone `+00:00`, `READ COMMITTED` isolation, strict `sql_mode`. Nothing needs configuring on the server.
+- The API sets each connection up itself (`backend/db/src/index.ts`): time zone `+00:00`, `READ COMMITTED` isolation, strict `sql_mode`. Nothing needs configuring on the server.
 - Used features: `FOR UPDATE SKIP LOCKED`, `GET_LOCK`, JSON columns and `JSON_CONTAINS`, expression defaults (`DEFAULT (uuid())`), check constraints, a stored generated column.
 - MariaDB was kept in mind (no `OF` in locking clauses, `VALUES()` in upserts, JSON read back either way) but has **not been tested**. TiDB and PlanetScale have not been tested either.
 
 ## How the tables changed
-`lib/db/src/baseline.ts` creates every table, translated from the PostgreSQL catalog as of migration `0020`:
+`backend/db/src/baseline.ts` creates every table, translated from the PostgreSQL catalog as of migration `0020`:
 
 | PostgreSQL | MySQL |
 |---|---|
@@ -24,7 +24,7 @@ SocialFlow ran on PostgreSQL until October 2026 and now runs on MySQL 8. This pa
 Text uses the `utf8mb4_bin` collation, so equality and unique keys are exact, as they were. Bounded `varchar` columns are at least as long as anything the API accepts, and strict mode turns a too-long value into an error instead of cutting it short.
 
 ## Writing queries
-Use Drizzle as before. `lib/db/src/compat.ts` wraps the MySQL driver so these keep their PostgreSQL meaning:
+Use Drizzle as before. `backend/db/src/compat.ts` wraps the MySQL driver so these keep their PostgreSQL meaning:
 
 - `insert(...).values(...).returning()`, `update(...).returning()`, `delete(...).returning()`: the rows written, read back inside one transaction (updates and deletes lock their rows first, so a conditional update still claims a row exactly once).
 - `onConflictDoNothing()`, `onConflictDoUpdate({ target, set })`: `INSERT ... ON DUPLICATE KEY UPDATE`. In `set`, write `excluded(table.column)` for the value the insert tried to write (PostgreSQL's `excluded.column`).
@@ -49,7 +49,7 @@ What to write differently from PostgreSQL:
 
 `JSON_TABLE` was tried for the library's label filter and returned nothing when the query also had a join (MySQL 8.4); `JSON_CONTAINS` is used instead.
 
-Schema changes go in `lib/db/src/migrations.ts` as lists of single statements. MySQL commits each schema statement on its own, so the runner re-applies a half-finished migration and skips what already exists. Never use `drizzle-kit push`.
+Schema changes go in `backend/db/src/migrations.ts` as lists of single statements. MySQL commits each schema statement on its own, so the runner re-applies a half-finished migration and skips what already exists. Never use `drizzle-kit push`.
 
 ## Local setup (Windows)
 - `local-mysql\server\` is the MySQL 8.4 Windows ZIP unpacked, `local-mysql\data\` its data (both ignored by git). `run-dev.ps1` starts it on port 3307.
@@ -57,7 +57,7 @@ Schema changes go in `lib/db/src/migrations.ts` as lists of single statements. M
 - `.env`: `DATABASE_URL=mysql://root@127.0.0.1:3307/socialflow`.
 
 ## Moving an existing PostgreSQL installation
-`scripts/src/copy-postgres-to-mysql.ts` copies every row once:
+`backend/scripts/src/copy-postgres-to-mysql.ts` copies every row once:
 
 ```bash
 SOURCE_DATABASE_URL=postgresql://... DATABASE_URL=mysql://... pnpm --filter @workspace/scripts run copy-postgres-to-mysql -- --dry-run

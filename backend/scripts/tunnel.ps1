@@ -2,7 +2,7 @@
 # HTTPS origin to paste into OAUTH_REDIRECT_BASE_URL (.env) and into each
 # provider's redirect-URI list. The hostname changes on every run.
 #
-# Usage:  powershell -File scripts/tunnel.ps1 [-Port 5000]
+# Usage:  powershell -File backend/scripts/tunnel.ps1 [-Port 5000]
 param([int]$Port = 5000)
 
 $exe = @(

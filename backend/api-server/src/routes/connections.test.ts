@@ -13,7 +13,7 @@ import { installFakeGraph } from "../test/fake-graph";
 
 // End-to-end test of the auth + OAuth routes against the real database, with
 // only the Facebook Graph API faked. Skipped when the database has no tables
-// (the test setup creates them from lib/db/src/migrate.ts).
+// (the test setup creates them from backend/db/src/migrate.ts).
 const tablesExist = await tableExists("socialflow_connected_accounts").catch(() => false);
 
 type Agent = ReturnType<typeof request.agent>;

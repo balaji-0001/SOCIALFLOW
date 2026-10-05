@@ -2,7 +2,7 @@ import type { Platform } from "./oauth/types";
 
 /*
  * What each network accepts as a post's media. One source of truth for the API and the publisher; the composer
- * mirrors these rules (artifacts/socialflow/src/app/media-rules.ts) so users see the same reason before saving.
+ * mirrors these rules (frontend/socialflow/src/app/media-rules.ts) so users see the same reason before saving.
  *
  * Formats follow each network's documented upload formats. Where a network's docs don't list a format (WebP on
  * Facebook, WebM anywhere), it is refused here with a clear message instead of being sent and failing later.

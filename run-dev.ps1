@@ -26,7 +26,7 @@ if (-not $mysqlUp) {
     Write-Host "MySQL is already accepting connections on port 3307." -ForegroundColor Green
 }
 
-# 2. The API creates and updates the tables itself when it starts (lib/db/src/migrate.ts); nothing to push.
+# 2. The API creates and updates the tables itself when it starts (backend/db/src/migrate.ts); nothing to push.
 
 # 3. Start API Server (Background Job or new process). It reads DATABASE_URL and the rest from .env.
 Write-Host "Starting API server on http://localhost:5000..." -ForegroundColor Yellow

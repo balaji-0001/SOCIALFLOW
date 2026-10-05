@@ -2,11 +2,11 @@
 
 ## Register (integrator)
 
-- Migration: `0015_inbox_messages_mentions` on PostgreSQL; since the move to MySQL these columns are part of `lib/db/src/baseline.ts`. It was additive: new nullable/defaulted columns on `socialflow_inbox_items` (`kind` default `comment` with a check, `thread_id`, `participant_id`, `from_page` default false, `permalink`) and on `socialflow_inbox_sync` (`messages_error`, `mentions_error`, `messages_synced_at`, `mentions_synced_at`), plus two indexes. Existing rows become `kind='comment'`.
-- Schema (`lib/db/src/schema/inbox.ts`) is already updated and exported through the existing `export * from "./inbox"`.
+- Migration: `0015_inbox_messages_mentions` on PostgreSQL; since the move to MySQL these columns are part of `backend/db/src/baseline.ts`. It was additive: new nullable/defaulted columns on `socialflow_inbox_items` (`kind` default `comment` with a check, `thread_id`, `participant_id`, `from_page` default false, `permalink`) and on `socialflow_inbox_sync` (`messages_error`, `mentions_error`, `messages_synced_at`, `mentions_synced_at`), plus two indexes. Existing rows become `kind='comment'`.
+- Schema (`backend/db/src/schema/inbox.ts`) is already updated and exported through the existing `export * from "./inbox"`.
 - No router change: the routes are in the existing `routes/inbox.ts`. No new startup hook: the existing collector (`startInbox`) reads messages and mentions.
 - Permissions: unchanged (`inbox:read`, `inbox:reply`, `inbox:manage`).
-- OpenAPI: `lib/api-spec/openapi.yaml` is edited (inbox parts only). Run `pnpm --filter @workspace/api-spec run codegen` after registering.
+- OpenAPI: `backend/api-spec/openapi.yaml` is edited (inbox parts only). Run `pnpm --filter @workspace/api-spec run codegen` after registering.
 - Add to `.env.example`: `MESSAGING_SCOPES_ENABLED=false`.
 
 ## Env flag and scopes

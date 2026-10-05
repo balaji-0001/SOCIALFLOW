@@ -9,7 +9,7 @@ import type { Platform } from "./oauth/types";
  *
  * Link detection is simpler than X's own: http(s) links, and bare domains ending in a well-known or two-letter
  * suffix. Where the two could differ, this counts a little more, never less, so a post accepted here fits on X.
- * The composer has the same code (artifacts/socialflow/src/app/twitter-text.ts); keep the two in step.
+ * The composer has the same code (frontend/socialflow/src/app/twitter-text.ts); keep the two in step.
  */
 
 export const TWITTER_CHAR_LIMIT = 280;

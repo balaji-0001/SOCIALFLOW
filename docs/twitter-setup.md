@@ -56,7 +56,7 @@ The permissions requested are `tweet.read`, `tweet.write`, `users.read`, `media.
 An X access token lasts two hours. SocialFlow refreshes it when needed. X gives a new refresh token with every refresh and retires the old one, so refreshes of one account never run at the same time (`ensureFreshToken` in `lib/oauth/accounts.ts`); this holds within one API process. If X no longer accepts the refresh token (access was removed in X's settings, or the account wasn't used for six months), the account shows **Reconnect**.
 
 ## Files
-`lib/oauth/providers/twitter.ts` (the adapter), `lib/twitter-text.ts` (X's way of counting, mirrored in `artifacts/socialflow/src/app/twitter-text.ts`), `lib/media-rules.ts`, `test/fake-twitter.ts`, and the tests `lib/twitter-text.test.ts`, `lib/oauth/providers/twitter.test.ts`, `routes/twitter.test.ts`.
+`lib/oauth/providers/twitter.ts` (the adapter), `lib/twitter-text.ts` (X's way of counting, mirrored in `frontend/socialflow/src/app/twitter-text.ts`), `lib/media-rules.ts`, `test/fake-twitter.ts`, and the tests `lib/twitter-text.test.ts`, `lib/oauth/providers/twitter.test.ts`, `routes/twitter.test.ts`.
 
 ## Not yet verified
 Everything above is tested against a stand-in for X's API built from X's documentation. It has not been run against X itself: that needs a developer app with credits. The first real connection and the first real post should be checked by hand.

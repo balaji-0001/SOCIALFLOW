@@ -8,8 +8,8 @@ There is no demo or sample data anywhere in the project. A network that isn't se
 
 The project is one repository (a pnpm workspace) with two programs you run:
 
-- **The API** (`artifacts/api-server`): an Express server. It owns the database, signs users in, holds the encrypted tokens of connected social accounts, publishes posts on schedule and runs the other background jobs.
-- **The website** (`artifacts/socialflow`): a React single-page app. It only ever calls `/api` on its own address; in development the dev server forwards `/api` to the API, and in production the host or a reverse proxy does.
+- **The API** (`backend/api-server`): an Express server. It owns the database, signs users in, holds the encrypted tokens of connected social accounts, publishes posts on schedule and runs the other background jobs.
+- **The website** (`frontend/socialflow`): a React single-page app. It only ever calls `/api` on its own address; in development the dev server forwards `/api` to the API, and in production the host or a reverse proxy does.
 
 Data lives in a MySQL 8 database. Uploaded pictures and videos are stored on the API's disk.
 
@@ -31,7 +31,7 @@ What each area supports, and what it deliberately doesn't, is described in `docs
 
 Everything is written in **TypeScript 5.9** and runs on **Node.js 24**, in one **pnpm workspace**.
 
-**Frontend** (`artifacts/socialflow`)
+**Frontend** (`frontend/socialflow`)
 
 | Purpose | Technology |
 |---|---|
@@ -39,18 +39,18 @@ Everything is written in **TypeScript 5.9** and runs on **Node.js 24**, in one *
 | Dev server and build | Vite 7 |
 | Styling | Tailwind CSS 4, plus the project's own `sfa-*` classes and design tokens |
 | Pages and navigation | wouter 3 |
-| Loading data from the API | TanStack Query 5, through a generated client (`lib/api-client-react`) |
+| Loading data from the API | TanStack Query 5, through a generated client (`frontend/api-client-react`) |
 | Dialogs, menus, tooltips | Radix UI |
 | Charts | Recharts 2 |
 | Icons, dates | lucide-react, date-fns |
 
-**Backend** (`artifacts/api-server`)
+**Backend** (`backend/api-server`)
 
 | Purpose | Technology |
 |---|---|
 | Web server | Express 5 |
-| Database access | Drizzle ORM 0.45 on the `mysql2` driver (`lib/db`) |
-| Request and response checking | Zod schemas generated from the API description (`lib/api-zod`) |
+| Database access | Drizzle ORM 0.45 on the `mysql2` driver (`backend/db`) |
+| Request and response checking | Zod schemas generated from the API description (`backend/api-zod`) |
 | Sign-in | Email and password (scrypt, built into Node), signed session cookie |
 | Social networks | Each network's OAuth 2.0 sign-in and official API; tokens encrypted with AES-256-GCM |
 | Email | nodemailer (any SMTP account) |
@@ -64,7 +64,7 @@ Everything is written in **TypeScript 5.9** and runs on **Node.js 24**, in one *
 
 | Purpose | Technology |
 |---|---|
-| API description | OpenAPI (`lib/api-spec/openapi.yaml`); client and schemas generated with Orval 8 |
+| API description | OpenAPI (`backend/api-spec/openapi.yaml`); client and schemas generated with Orval 8 |
 | Tests | Vitest 5 and supertest, against a real MySQL test database; the networks are replaced by local stand-ins |
 | Build | esbuild (backend, one bundled file), Vite (frontend) |
 | WordPress plugin | PHP (`wordpress-plugin/`) |
@@ -72,31 +72,28 @@ Everything is written in **TypeScript 5.9** and runs on **Node.js 24**, in one *
 
 ## 4. Project structure
 
-| Category | Folders |
-|---|---|
-| **Frontend** | `artifacts/socialflow`, `lib/api-client-react` |
-| **Backend** | `artifacts/api-server`, `lib/db`, `lib/api-zod`, `scripts` |
-| **Shared** | `lib/api-spec` (the API description both sides are generated from) |
-| **Other** | `wordpress-plugin`, `docs`, `artifacts/mockup-sandbox` |
+The code is in two folders: everything that runs in the browser is under `frontend/`, and everything that runs on the server is under `backend/`.
 
 ```
-artifacts/
-  api-server/          BACKEND: the API (src/routes, src/lib, src/lib/oauth/providers/<network>.ts)
-  socialflow/          FRONTEND: the website (src/App.tsx, src/app/)
+frontend/
+  socialflow/          the website (src/App.tsx, src/app/)
+  api-client-react/    the generated client the website uses to call the API
   mockup-sandbox/      a separate sandbox for design mockups; not part of the product
-lib/
-  db/                  BACKEND: database connection, table definitions (src/schema), migrations (src/baseline.ts, src/migrations.ts)
-  api-spec/            SHARED: the OpenAPI description of the API
-  api-client-react/    FRONTEND: generated React client used by the website
-  api-zod/             BACKEND: generated request and response schemas
-scripts/               BACKEND: maintenance commands (migrate, the one-time PostgreSQL to MySQL copy), tunnel.ps1
-wordpress-plugin/      the "SocialFlow Auto Share" WordPress plugin
+backend/
+  api-server/          the API (src/routes, src/lib, src/lib/oauth/providers/<network>.ts)
+  db/                  database connection, table definitions (src/schema), migrations (src/baseline.ts, src/migrations.ts)
+  api-spec/            the OpenAPI description of the API; the client and the schemas are generated from it
+  api-zod/             the generated request and response schemas
+  scripts/             maintenance commands (migrate, the one-time PostgreSQL to MySQL copy), tunnel.ps1
+wordpress-plugin/      the "SocialFlow Auto Share" WordPress plugin (PHP; runs on the WordPress site)
 docs/                  setup guides and design notes
 .env.example           every setting, with comments
 render.yaml            Render blueprint (API + static site)
 vercel.json            Vercel config for the website
 run-dev.ps1            starts everything on Windows
 ```
+
+Each folder inside `frontend/` and `backend/` is a package of one pnpm workspace, so there is a single `pnpm install` and one lockfile at the root. The files at the root (`package.json`, `pnpm-workspace.yaml`, `tsconfig*.json`, the hosting configs) belong to both sides.
 
 ## 5. Prerequisites
 
@@ -157,11 +154,11 @@ The API sets each connection up itself (UTC time zone, `READ COMMITTED`, strict 
 
 ## 9. Database migrations
 
-- `lib/db/src/baseline.ts` creates every table (43 tables and their 74 foreign keys) in an empty database.
-- `lib/db/src/migrations.ts` holds later changes, in order, each as a list of single SQL statements. Add new changes there; they must only add things, never drop data.
-- `lib/db/src/migrate.ts` applies whatever a database hasn't had yet and records it in the `socialflow_migrations` table. It is safe to run at any time and from several processes at once.
+- `backend/db/src/baseline.ts` creates every table (43 tables and their 74 foreign keys) in an empty database.
+- `backend/db/src/migrations.ts` holds later changes, in order, each as a list of single SQL statements. Add new changes there; they must only add things, never drop data.
+- `backend/db/src/migrate.ts` applies whatever a database hasn't had yet and records it in the `socialflow_migrations` table. It is safe to run at any time and from several processes at once.
 - Run it with `pnpm --filter @workspace/scripts run migrate`, or just start the API.
-- `lib/db/src/schema/` is the same structure as TypeScript, for writing queries. Keep it in step with the migrations by hand. **Never run `drizzle-kit push`**: it would try to rebuild the tables from the TypeScript files.
+- `backend/db/src/schema/` is the same structure as TypeScript, for writing queries. Keep it in step with the migrations by hand. **Never run `drizzle-kit push`**: it would try to rebuild the tables from the TypeScript files.
 
 ## 10. Local development commands
 
@@ -196,7 +193,7 @@ In PowerShell, set the variable first: `$env:DATABASE_URL = "mysql://..."`. Test
 
 ## 11. Frontend setup
 
-- Source: `artifacts/socialflow`. Development: `pnpm --filter @workspace/socialflow run dev`.
+- Source: `frontend/socialflow`. Development: `pnpm --filter @workspace/socialflow run dev`.
 - The website has no API address built into it. It calls `/api/...` on whatever address it is served from, so the website and the API must appear under one address.
 - In development the dev server forwards `/api` to `http://localhost:5000`. These are read from the shell, not from `.env`:
 
@@ -206,16 +203,16 @@ In PowerShell, set the variable first: `$env:DATABASE_URL = "mysql://..."`. Test
   | `API_PROXY_TARGET` | `http://localhost:5000` | Where `/api` is forwarded |
   | `BASE_PATH` | `/` | Path the site is served under |
 
-- Production build: `pnpm --filter @workspace/socialflow run build`. The result is static files in `artifacts/socialflow/dist/public`. The build also packs the WordPress plugin into `downloads/socialflow-auto-share.zip` and writes the legal pages as plain HTML.
+- Production build: `pnpm --filter @workspace/socialflow run build`. The result is static files in `frontend/socialflow/dist/public`. The build also packs the WordPress plugin into `downloads/socialflow-auto-share.zip` and writes the legal pages as plain HTML.
 
 ## 12. Backend setup
 
-- Source: `artifacts/api-server`. It reads `.env` from the repository root.
+- Source: `backend/api-server`. It reads `.env` from the repository root.
 - `GET /api/healthz` answers 200 when it is up.
 - `GET /api/connections/providers` lists every network: whether its settings are present, which are missing, and the exact callback address to register.
 - **CORS**: only the address in `OAUTH_REDIRECT_BASE_URL` is allowed, with cookies. The website and API share an address, so no other origin is ever needed.
 - The API trusts one proxy in front of it (`trust proxy`), so it must run behind exactly one in production (the host's router or your reverse proxy) for HTTPS cookies and per-address limits to work.
-- Uploads are stored in `MEDIA_STORAGE_DIR` (default `artifacts/api-server/.data/media`). On a server this must be a disk that survives restarts.
+- Uploads are stored in `MEDIA_STORAGE_DIR` (default `backend/api-server/.data/media`). On a server this must be a disk that survives restarts.
 
 ## 13. OAuth setup for Meta (Facebook and Instagram)
 
@@ -282,7 +279,7 @@ Steps on your own server:
 2. `pnpm --filter @workspace/api-server run build` and `pnpm --filter @workspace/socialflow run build`
 3. Set the environment, then `pnpm --filter @workspace/scripts run migrate` (optional; the API also does it at start).
 4. Start the API with `pnpm --filter @workspace/api-server run start` under a process manager (systemd, pm2).
-5. In your web server (nginx, Caddy): serve `artifacts/socialflow/dist/public`, forward `/api/` to the API's port, and send unknown paths to `/index.html`.
+5. In your web server (nginx, Caddy): serve `frontend/socialflow/dist/public`, forward `/api/` to the API's port, and send unknown paths to `/index.html`.
 6. Register the production callback addresses with each network (section 16).
 
 Ready-made configurations:
@@ -299,9 +296,9 @@ Free hosting plans have limits that matter here: a service that sleeps does not 
 | Purpose | Command |
 |---|---|
 | Install exactly what the lockfile says | `pnpm install --frozen-lockfile` |
-| Build the API | `pnpm --filter @workspace/api-server run build` (output `artifacts/api-server/dist/index.mjs`) |
+| Build the API | `pnpm --filter @workspace/api-server run build` (output `backend/api-server/dist/index.mjs`) |
 | Start the API | `pnpm --filter @workspace/api-server run start` |
-| Build the website | `pnpm --filter @workspace/socialflow run build` (output `artifacts/socialflow/dist/public`) |
+| Build the website | `pnpm --filter @workspace/socialflow run build` (output `frontend/socialflow/dist/public`) |
 | Preview the built website locally | `pnpm --filter @workspace/socialflow run serve` |
 | Create or update the tables | `pnpm --filter @workspace/scripts run migrate` |
 | Type-check and build everything | `pnpm run build` |
@@ -337,7 +334,7 @@ Consequences:
 | Website loads but every request fails | The API isn't running, or it isn't on port 5000. Start the site with `API_PROXY_TARGET=http://localhost:<port>`. |
 | A network's card says "Setup required" | Its settings are missing; the card names them. Restart the API after adding them. |
 | The network says the redirect address is not allowed | The registered address differs from the real one. Copy `callbackUrl` from `/api/connections/providers`. |
-| Instagram refuses to sign in locally | Instagram only accepts https. Install cloudflared (`winget install --id Cloudflare.cloudflared`), run `powershell -File scripts/tunnel.ps1 -Port 3000` (a free tunnel to the website), set `OAUTH_REDIRECT_BASE_URL` to the address it prints, restart the API and register that callback. The address changes each time the tunnel starts. |
+| Instagram refuses to sign in locally | Instagram only accepts https. Install cloudflared (`winget install --id Cloudflare.cloudflared`), run `powershell -File backend/scripts/tunnel.ps1 -Port 3000` (a free tunnel to the website), set `OAUTH_REDIRECT_BASE_URL` to the address it prints, restart the API and register that callback. The address changes each time the tunnel starts. |
 | Forgot password: "isn't set up on this server" | The SMTP settings are missing. |
 | Forgot password: "We couldn't send the email right now" | The mail server refused. The reason is in the API log. With Gmail, error 535 means the app password is no longer valid. See `docs/password-reset.md`. |
 | A reset email bounces | The account was created with a mistyped address. There is no change-email screen; correct it in the `socialflow_users` table. |

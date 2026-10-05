@@ -61,7 +61,7 @@ Pick Pages ──POST /connections/pending/<id>/complete──▶ save selected 
 ```
 
 - **Adapters.** Everything provider-specific lives in
-  `artifacts/api-server/src/lib/oauth/providers/<platform>.ts` behind the
+  `backend/api-server/src/lib/oauth/providers/<platform>.ts` behind the
   `OAuthProviderAdapter` interface (`lib/oauth/types.ts`). The routes, state
   handling, encryption, storage, account picker and UI are shared.
 - **State and CSRF.** A random 256-bit `state` is stored as a SHA-256 hash,
@@ -207,7 +207,7 @@ Advanced settings.
 
 ## 4. Instagram (implemented — Instagram Login)
 
-The adapter (`artifacts/api-server/src/lib/oauth/providers/instagram.ts`) uses
+The adapter (`backend/api-server/src/lib/oauth/providers/instagram.ts`) uses
 the **Instagram API with Instagram Login** path: the user signs in directly
 with their Instagram account, with no linked Facebook Page required.
 
@@ -248,7 +248,7 @@ Page-linked Instagram account) requires it.
 
 ## 5. LinkedIn (implemented)
 
-The adapter (`artifacts/api-server/src/lib/oauth/providers/linkedin.ts`) uses
+The adapter (`backend/api-server/src/lib/oauth/providers/linkedin.ts`) uses
 the standard 3-legged LinkedIn OAuth flow (no PKCE — LinkedIn is a
 confidential-client flow) plus OpenID Connect for the member profile.
 
@@ -282,7 +282,7 @@ confidential-client flow) plus OpenID Connect for the member profile.
 
 ## 6. YouTube (implemented)
 
-The adapter (`artifacts/api-server/src/lib/oauth/providers/youtube.ts`) uses
+The adapter (`backend/api-server/src/lib/oauth/providers/youtube.ts`) uses
 Google's OAuth 2.0 web-server flow with PKCE (S256) plus the YouTube Data API v3.
 
 1. <https://console.cloud.google.com> → create a project → enable **YouTube Data

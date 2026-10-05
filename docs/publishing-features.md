@@ -4,7 +4,7 @@ What the composer, queue, recurring posts and post organisation do, where the co
 
 ## Migrations
 
-`lib/db/src/migrations.ts` holds numbered SQL migrations; `runMigrations()` (`lib/db/src/migrate.ts`) applies pending ones at API start and before the test suite (`artifacts/api-server/src/test/global-setup.ts`). Applied names are recorded in `socialflow_migrations`. Migrations are additive only. The Drizzle schema files describe the same tables for the ORM.
+`backend/db/src/migrations.ts` holds numbered SQL migrations; `runMigrations()` (`backend/db/src/migrate.ts`) applies pending ones at API start and before the test suite (`backend/api-server/src/test/global-setup.ts`). Applied names are recorded in `socialflow_migrations`. Migrations are additive only. The Drizzle schema files describe the same tables for the ORM.
 
 ## Per-network content
 

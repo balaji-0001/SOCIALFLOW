@@ -1,6 +1,6 @@
 # Create Post composer
 
-The composer (`artifacts/socialflow/src/app/composer.tsx`, with `composer-parts.tsx`, `composer-utils.ts`, `composer.css`) is a single dialog for writing, previewing, scheduling, publishing and saving posts. Everything it does is backed by a real API or by real text operations on what you type. Nothing is mocked.
+The composer (`frontend/socialflow/src/app/composer.tsx`, with `composer-parts.tsx`, `composer-utils.ts`, `composer.css`) is a single dialog for writing, previewing, scheduling, publishing and saving posts. Everything it does is backed by a real API or by real text operations on what you type. Nothing is mocked.
 
 ## What it does today
 

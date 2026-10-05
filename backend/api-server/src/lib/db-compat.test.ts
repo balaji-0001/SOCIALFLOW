@@ -14,7 +14,7 @@ import {
   workspacesTable,
 } from "@workspace/db";
 
-// The MySQL layer in lib/db/src/compat.ts stands in for what PostgreSQL did natively (RETURNING, ON CONFLICT,
+// The MySQL layer in backend/db/src/compat.ts stands in for what PostgreSQL did natively (RETURNING, ON CONFLICT,
 // row-locking claims). Every other test relies on it, so its promises are checked here on their own.
 
 const tablesExist = await tableExists("socialflow_posts").catch(() => false);

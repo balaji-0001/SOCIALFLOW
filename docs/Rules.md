@@ -15,12 +15,12 @@ Rules for anyone (people or AI assistants) changing this project. They exist bec
 8. Server-side fetching of user-supplied URLs must be SSRF-safe (see `lib/link-preview.ts`).
 
 ## Database
-9. Schema changes are additive migrations in `lib/db/src/migrations.ts`: new tables, new nullable columns, new indexes. Never drop or rewrite existing data.
-10. Keep the Drizzle schema in `lib/db/src/schema` in step with the SQL.
+9. Schema changes are additive migrations in `backend/db/src/migrations.ts`: new tables, new nullable columns, new indexes. Never drop or rewrite existing data.
+10. Keep the Drizzle schema in `backend/db/src/schema` in step with the SQL.
 11. Never use `drizzle-kit push`: it would drop the check constraints and foreign keys it does not know about. Use migrations.
 
 ## API and permissions
-12. `lib/api-spec/openapi.yaml` is the source of truth. Change it, run codegen, then use the generated hooks and zod.
+12. `backend/api-spec/openapi.yaml` is the source of truth. Change it, run codegen, then use the generated hooks and zod.
 13. Request bodies are named component schemas (inline bodies collide in orval). Avoid schema names that equal operation-derived names (for example `<Operation>Body`, `<Operation>Params`).
 14. Routes check permissions with `requireAccess(req, res, "<permission>")`. Never compare role names in a route. Change what a role may do only in `lib/permissions.ts`.
 15. Every route is workspace-scoped; never return another workspace's data.

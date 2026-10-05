@@ -68,7 +68,7 @@ services:
     name: socialflow-web
     runtime: static
     buildCommand: pnpm install --frozen-lockfile && pnpm --filter @workspace/socialflow run build
-    staticPublishPath: artifacts/socialflow/dist/public
+    staticPublishPath: frontend/socialflow/dist/public
     envVars:
       - key: NODE_VERSION
         value: 24

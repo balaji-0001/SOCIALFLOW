@@ -14,21 +14,21 @@ Browser (React SPA, Vite)  --/api-->  Express API  -->  MySQL 8
 ## Packages
 | Path | What it is |
 |---|---|
-| `artifacts/api-server` | Express 5 API, background workers, tests (vitest + supertest) |
-| `artifacts/socialflow` | React 19 + Vite + wouter + react-query frontend |
-| `artifacts/mockup-sandbox` | Design sandbox, not part of the product |
-| `lib/db` | Drizzle schema, additive SQL migrations, migration runner |
-| `lib/api-spec` | `openapi.yaml`, the single source of truth for the API, and the orval config |
-| `lib/api-client-react` | Generated react-query hooks and types |
-| `lib/api-zod` | Generated zod validators used by the server |
+| `backend/api-server` | Express 5 API, background workers, tests (vitest + supertest) |
+| `frontend/socialflow` | React 19 + Vite + wouter + react-query frontend |
+| `frontend/mockup-sandbox` | Design sandbox, not part of the product |
+| `backend/db` | Drizzle schema, additive SQL migrations, migration runner |
+| `backend/api-spec` | `openapi.yaml`, the single source of truth for the API, and the orval config |
+| `frontend/api-client-react` | Generated react-query hooks and types |
+| `backend/api-zod` | Generated zod validators used by the server |
 | `scripts` | Small maintenance helpers, `tunnel.ps1` |
 
 ## API contract flow
-1. Edit `lib/api-spec/openapi.yaml`.
+1. Edit `backend/api-spec/openapi.yaml`.
 2. Run `pnpm --filter @workspace/api-spec run codegen` (orval writes the client and zod, then type-checks the libraries).
 3. The server validates with the generated zod; the frontend uses the generated hooks.
 
-## Server structure (`artifacts/api-server/src`)
+## Server structure (`backend/api-server/src`)
 - `routes/`: one router per area (auth, connections, posts, media, organize, queues, recurrences, team, analytics, approvals, inbox, ai, library, link-preview, reports, health). `routes/index.ts` mounts them under `/api`.
 - `lib/`: the logic behind the routes. Notable pieces:
   - `permissions.ts`: the one role-to-permission table. Routes call `requireAccess(req, res, permission)` from `access.ts`; they never compare role names.
@@ -65,9 +65,9 @@ If the API process stops, none of these run. Scheduled posts wait, then fail as 
 - Library: `library_items`, `library_folders`.
 - Reports: `report_schedules`, `report_runs`.
 
-A new database gets every table from `lib/db/src/baseline.ts`; later changes are ordered migrations in `lib/db/src/migrations.ts`. Both are recorded in `socialflow_migrations` and applied at API start under a named lock (`GET_LOCK`). They are additive only. `lib/db/src/compat.ts` provides what MySQL lacks (`returning()`, upserts) so the queries read as before; see `mysql.md`.
+A new database gets every table from `backend/db/src/baseline.ts`; later changes are ordered migrations in `backend/db/src/migrations.ts`. Both are recorded in `socialflow_migrations` and applied at API start under a named lock (`GET_LOCK`). They are additive only. `backend/db/src/compat.ts` provides what MySQL lacks (`returning()`, upserts) so the queries read as before; see `mysql.md`.
 
-## Frontend structure (`artifacts/socialflow/src`)
+## Frontend structure (`frontend/socialflow/src`)
 - `App.tsx`: marketing site, auth pages and the route table (pages lazy-loaded).
 - `app/`: the signed-in product. `AppShell.tsx` (sidebar, top bar, workspace switcher), one file per page (calendar, posts, queue, recurring, team, analytics, approvals, inbox, ai, library, settings), the composer split across `composer*.tsx`, and shared primitives in `ui.tsx`.
 - Styling: CSS tokens in `index.css`, the Aurora dark theme in `aurora.css`, per-page CSS files. Components use `hsl(var(--token))` only, so light and dark both work. See `design-system.md`.

@@ -83,6 +83,6 @@ logs/
 .config/
 
 # the WordPress plugin's zip, packed from wordpress-plugin/ before the dev server and every build
-artifacts/socialflow/public/downloads/
+frontend/socialflow/public/downloads/
 
 .vercel

@@ -13,9 +13,9 @@ code and encrypted tokens.
 | Instagram Login | **Implemented** | Instagram Business / Creator accounts |
 | Instagram through Facebook Login | **Not implemented** | Not built; Instagram Login is used instead (see below) |
 
-The Facebook adapter is `artifacts/api-server/src/lib/oauth/providers/facebook.ts`,
+The Facebook adapter is `backend/api-server/src/lib/oauth/providers/facebook.ts`,
 using Facebook Login and the Facebook Graph API to list Facebook Pages. The
-Instagram adapter is `artifacts/api-server/src/lib/oauth/providers/instagram.ts`,
+Instagram adapter is `backend/api-server/src/lib/oauth/providers/instagram.ts`,
 using the Instagram API with Instagram Login — a separate product from
 Facebook Login, with its own app ID/secret and its own token endpoints on
 `api.instagram.com` / `graph.instagram.com`. It authenticates a single
@@ -29,7 +29,7 @@ listed below.
 ## Exact OAuth routes
 
 The routes are implemented in
-`artifacts/api-server/src/routes/connections.ts`:
+`backend/api-server/src/routes/connections.ts`:
 
 | Purpose | Exact path |
 |---|---|
@@ -211,7 +211,7 @@ in the Meta dashboard before submitting an app review request.
 
 ## Instagram Professional accounts: implemented via Instagram Login
 
-The Instagram adapter (`artifacts/api-server/src/lib/oauth/providers/instagram.ts`)
+The Instagram adapter (`backend/api-server/src/lib/oauth/providers/instagram.ts`)
 implements the **Instagram API with Instagram Login** product:
 
 ```text

@@ -3,7 +3,7 @@
 The signed-in app and the sign-in pages use a dark theme called Aurora. The marketing page keeps the light theme.
 
 ## How it is applied
-- `artifacts/socialflow/src/aurora.css` overrides the design tokens (`index.css` `:root`) under `html[data-theme='aurora']`, then adds the few rules tokens can't express (glass surfaces, hairline borders, gradient primary buttons, the two soft background lights).
+- `frontend/socialflow/src/aurora.css` overrides the design tokens (`index.css` `:root`) under `html[data-theme='aurora']`, then adds the few rules tokens can't express (glass surfaces, hairline borders, gradient primary buttons, the two soft background lights).
 - The router (`App.tsx`) sets `document.documentElement.dataset.theme` to `aurora` on every route except `/`. Setting it on `<html>` means Radix portals (dialogs, popovers, menus, toasts) get the theme too.
 - Every component reads tokens (`hsl(var(--surface))`, `--border`, `--primary`, ...), so a new component is themed by using them. No colours are hard-coded except platform brand colours and status hues.
 

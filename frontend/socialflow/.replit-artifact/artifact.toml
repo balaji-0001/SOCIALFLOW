@@ -17,7 +17,7 @@ run = "pnpm --filter @workspace/socialflow run dev"
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/socialflow", "run", "build" ]
 serve = "static"
-publicDir = "artifacts/socialflow/dist/public"
+publicDir = "frontend/socialflow/dist/public"
 
 [[services.production.rewrites]]
 from = "/*"

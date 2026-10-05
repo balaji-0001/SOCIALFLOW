@@ -3,7 +3,7 @@
 Context that isn't obvious from the code. Read this first when picking the project up again. It contains no secrets.
 
 ## Environment (Windows, this machine)
-- Repo root: `C:\BALAJI\SocialFlow-Manager\SocialFlow-Manager` (nested; the outer `C:\BALAJI\SocialFlow-Manager` also has an old `.env`). The API reads the `.env` inside the inner folder (`--env-file-if-exists=.env` and `../../.env` relative to `artifacts/api-server`). Keep the inner one authoritative.
+- Repo root: `C:\BALAJI\SocialFlow-Manager\SocialFlow-Manager` (nested; the outer `C:\BALAJI\SocialFlow-Manager` also has an old `.env`). The API reads the `.env` inside the inner folder (`--env-file-if-exists=.env` and `../../.env` relative to `backend/api-server`). Keep the inner one authoritative.
 - Shell is Git Bash or PowerShell. Python isn't installed. Large inline `node -e` or heredocs with quotes tend to break; write `.cjs` files instead.
 - vitest can't run natively on some Windows setups (Linux-only native binaries); the API tests do run here via `pnpm --filter @workspace/api-server run test`.
 - MySQL 8.4 in `local-mysql\` (server unpacked from the official Windows ZIP in `server\`, data in `data\`; not in git), port **3307**, user `root` without a password (local only). `run-dev.ps1` starts it. The data folder's name must not start with a dot or InnoDB refuses to start.
@@ -17,7 +17,7 @@ The dev database holds two real user accounts and a real connected Facebook Page
 
 ## Gotchas and decisions
 - Sign-up is rate limited to 10 per hour per IP. Repeated browser test runs cause 429; restart the API to reset.
-- After changing `lib/db` types run `pnpm run typecheck:libs` before typechecking the API, or you'll see false errors.
+- After changing `backend/db` types run `pnpm run typecheck:libs` before typechecking the API, or you'll see false errors.
 - Orval collisions: don't name a schema `<Operation>Body` or `<Operation>Params`, don't use inline request bodies, and don't mix path and query parameters on one operation when a same-named type would be generated (`getInboxThread` has no `accountId` query for that reason).
 - OpenAPI schema indentation: schemas live at 4 spaces under `components.schemas`; merging fragments at the wrong indent gives "Property X is not expected here".
 - Approvals gate publishing in SQL (`publishBlockedSql`); both the scheduler claim and the missed-post sweep use it.
